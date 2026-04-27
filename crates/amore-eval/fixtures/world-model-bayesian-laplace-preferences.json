@@ -1,0 +1,14 @@
+{
+  "id": "world-model-bayesian-laplace-preferences",
+  "class": "coding",
+  "query": "bayesian preference log-odds laplace smoothing world model tool reliability success rate graph sqlite",
+  "raw_context_files": [
+    "crates/amore-core/src/world_model.rs",
+    "crates/amore-core/src/sqlite_store.rs"
+  ],
+  "canonical_docs_paths": [
+    ".",
+    "docs"
+  ],
+  "rationale": "Developer asking about the world model's Bayesian preference tracking with Laplace smoothing. world_model.rs has ToolReliability::success_rate() and PreferenceNode."
+}

@@ -1,0 +1,21 @@
+# syntax=docker/dockerfile:1.6
+# Base images pinned by SHA per OSSF Scorecard Pinned-Dependencies check (2026-05-27).
+# Refresh: `docker buildx imagetools inspect rust:1.95-bookworm` + `... debian:bookworm-slim`.
+
+FROM rust:1.95-bookworm@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1 AS builder
+RUN apt-get update && apt-get install -y --no-install-recommends protobuf-compiler && rm -rf /var/lib/apt/lists/*
+WORKDIR /work
+COPY . .
+RUN cargo build --release --workspace --bins
+
+FROM debian:bookworm-slim@sha256:0104b334637a5f19aa9c983a91b54c89887c0984081f2068983107a6f6c21eeb AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /work/target/release/amore /usr/local/bin/amore
+COPY --from=builder /work/target/release/amore-mcp /usr/local/bin/amore-mcp
+COPY --from=builder /work/target/release/amore-gui /usr/local/bin/amore-gui
+COPY --from=builder /work/LICENSE /usr/share/doc/amore/LICENSE
+COPY --from=builder /work/README.md /usr/share/doc/amore/README.md
+EXPOSE 6333 6334 7777
+HEALTHCHECK --interval=10s --timeout=3s CMD ["/usr/local/bin/amore", "doctor", "--json"]
+ENTRYPOINT ["/usr/local/bin/amore"]
+CMD ["serve"]

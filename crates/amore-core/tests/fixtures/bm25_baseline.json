@@ -1,0 +1,233 @@
+{
+  "schema_version": 1,
+  "queries": [
+    {
+      "id": "q01",
+      "query": "rust",
+      "expected_ranks": [
+        {
+          "doc_id": "obs-032",
+          "score": 2.1892867,
+          "rank": 1
+        },
+        {
+          "doc_id": "obs-002",
+          "score": 1.4199854,
+          "rank": 2
+        },
+        {
+          "doc_id": "obs-003",
+          "score": 1.382613,
+          "rank": 3
+        },
+        {
+          "doc_id": "obs-004",
+          "score": 1.382613,
+          "rank": 4
+        },
+        {
+          "doc_id": "obs-001",
+          "score": 1.3471574,
+          "rank": 5
+        },
+        {
+          "doc_id": "obs-005",
+          "score": 1.3471574,
+          "rank": 6
+        },
+        {
+          "doc_id": "obs-007",
+          "score": 1.3471574,
+          "rank": 7
+        },
+        {
+          "doc_id": "obs-045",
+          "score": 1.3471574,
+          "rank": 8
+        },
+        {
+          "doc_id": "obs-000",
+          "score": 1.3134747,
+          "rank": 9
+        },
+        {
+          "doc_id": "obs-006",
+          "score": 1.3134747,
+          "rank": 10
+        }
+      ]
+    },
+    {
+      "id": "q02",
+      "query": "python async",
+      "expected_ranks": [
+        {
+          "doc_id": "obs-008",
+          "score": 4.305664,
+          "rank": 1
+        }
+      ]
+    },
+    {
+      "id": "q03",
+      "query": "quick brown fox",
+      "expected_ranks": []
+    },
+    {
+      "id": "q04",
+      "query": "async await runtime",
+      "expected_ranks": [
+        {
+          "doc_id": "obs-001",
+          "score": 8.422535,
+          "rank": 1
+        }
+      ]
+    },
+    {
+      "id": "q05",
+      "query": "",
+      "expected_ranks": []
+    },
+    {
+      "id": "q06",
+      "query": "   \t  ",
+      "expected_ranks": []
+    },
+    {
+      "id": "q07",
+      "query": "東京",
+      "expected_ranks": [
+        {
+          "doc_id": "obs-035",
+          "score": 3.1647117,
+          "rank": 1
+        }
+      ]
+    },
+    {
+      "id": "q08",
+      "query": "café",
+      "expected_ranks": [
+        {
+          "doc_id": "obs-036",
+          "score": 3.4893343,
+          "rank": 1
+        }
+      ]
+    },
+    {
+      "id": "q09",
+      "query": "port 6334",
+      "expected_ranks": [
+        {
+          "doc_id": "obs-038",
+          "score": 8.119777,
+          "rank": 1
+        }
+      ]
+    },
+    {
+      "id": "q10",
+      "query": "v0.4.0 --help",
+      "expected_ranks": []
+    },
+    {
+      "id": "q11",
+      "query": "SELECT FROM WHERE",
+      "expected_ranks": [
+        {
+          "doc_id": "obs-044",
+          "score": 8.319057,
+          "rank": 1
+        },
+        {
+          "doc_id": "obs-040",
+          "score": 7.6950583,
+          "rank": 2
+        }
+      ]
+    },
+    {
+      "id": "q12",
+      "query": "BM25 FTS5 ranking",
+      "expected_ranks": [
+        {
+          "doc_id": "obs-015",
+          "score": 9.353387,
+          "rank": 1
+        }
+      ]
+    },
+    {
+      "id": "q13",
+      "query": "machine learning transformer attention",
+      "expected_ranks": [
+        {
+          "doc_id": "obs-031",
+          "score": 7.512227,
+          "rank": 1
+        }
+      ]
+    },
+    {
+      "id": "q14",
+      "query": "docker container deployment",
+      "expected_ranks": []
+    },
+    {
+      "id": "q15",
+      "query": "thai curry coconut milk",
+      "expected_ranks": [
+        {
+          "doc_id": "obs-026",
+          "score": 13.780581,
+          "rank": 1
+        }
+      ]
+    },
+    {
+      "id": "q16",
+      "query": "rust ownership borrow lifetime",
+      "expected_ranks": []
+    },
+    {
+      "id": "q17",
+      "query": "error handling result option",
+      "expected_ranks": [
+        {
+          "doc_id": "obs-005",
+          "score": 13.427193,
+          "rank": 1
+        }
+      ]
+    },
+    {
+      "id": "q18",
+      "query": "neural network deep learning",
+      "expected_ranks": [
+        {
+          "doc_id": "obs-031",
+          "score": 7.309539,
+          "rank": 1
+        }
+      ]
+    },
+    {
+      "id": "q19",
+      "query": "react hooks useState useEffect",
+      "expected_ranks": [
+        {
+          "doc_id": "obs-019",
+          "score": 14.324679,
+          "rank": 1
+        }
+      ]
+    },
+    {
+      "id": "q20",
+      "query": "rust python sql javascript typescript async await future promise trait interface generics ownership lifetime borrow checker error handling result option enum struct impl method closure iterator filter map fold collect vec hashmap string slice reference pointer unsafe ffi tokio rayon serde json yaml toml axum actix rocket warp hyper tonic reqwest sqlx diesel sea_orm migration schema table column index transaction constraint join aggregate window function subquery view trigger procedure function stored procedure database postgres sqlite mysql redis kafka rabbitmq grpc rest graphql websocket http2 tls certificate authentication authorization oauth jwt session cookie csrf cors rate_limit middleware logging tracing metrics prometheus grafana docker kubernetes helm terraform ansible ci cd github actions jenkins pipeline artifact registry container image layer volume network bridge host port mapping healthcheck liveness readiness probe ingress service deployment statefulset daemonset configmap secret namespace label selector annotation rbac role binding serviceaccount",
+      "expected_ranks": []
+    }
+  ]
+}

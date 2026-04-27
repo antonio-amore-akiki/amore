@@ -1,0 +1,71 @@
+[package]
+name = "amore-cli"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Amore CLI — persistent AI context memory for coding agents"
+
+[[bin]]
+name = "amore"
+path = "src/main.rs"
+
+[dependencies]
+amore-core = { path = "../amore-core" }
+amore-adapter-claude = { path = "../amore-adapter-claude" }
+amore-adapter-cursor = { path = "../amore-adapter-cursor" }
+amore-adapter-codex = { path = "../amore-adapter-codex" }
+amore-adapter-cline = { path = "../amore-adapter-cline" }
+amore-adapter-opencode = { path = "../amore-adapter-opencode" }
+amore-adapter-windsurf = { path = "../amore-adapter-windsurf" }
+amore-adapter-hermes = { path = "../amore-adapter-hermes" }
+clap.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+serde = { workspace = true }
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+reqwest.workspace = true
+dirs.workspace = true
+tar.workspace = true
+flate2.workspace = true
+sha2.workspace = true
+hex.workspace = true
+rusqlite = { workspace = true }
+toml.workspace = true
+keyring.workspace = true
+rpassword = "7"
+
+# ── Linux packaging metadata ──────────────────────────────────────────────────
+# W8.5C: tray-icon on Linux requires GTK + ayatana runtime libraries.
+# Omitting these causes silent tray failure on minimal installs.
+
+[package.metadata.deb]
+name = "amore"
+maintainer = "Antonio <antonioakiki15@gmail.com>"
+copyright = "2026, Antonio"
+license-file = ["../../LICENSE", "0"]
+extended-description = """\
+Amore — persistent AI context memory for coding agents.
+Recall across Claude Code, Cursor, Cline, Codex, and Windsurf sessions.\
+"""
+depends = "libgtk-3-0, libayatana-appindicator3-1"
+section = "utils"
+priority = "optional"
+assets = [
+    ["../../target/release/amore", "usr/bin/amore", "755"],
+    ["../../packaging/installer/linux/amore.desktop", "usr/share/applications/amore.desktop", "644"],
+    ["../../packaging/installer/linux/amore-tray.service", "usr/lib/systemd/user/amore-tray.service", "644"],
+]
+
+[package.metadata.generate-rpm]
+assets = [
+    { source = "../../target/release/amore", dest = "/usr/bin/amore", mode = "755" },
+    { source = "../../packaging/installer/linux/amore.desktop", dest = "/usr/share/applications/amore.desktop", mode = "644" },
+    { source = "../../packaging/installer/linux/amore-tray.service", dest = "/usr/lib/systemd/user/amore-tray.service", mode = "644" },
+]
+[package.metadata.generate-rpm.requires]
+"gtk3" = "*"
+"libayatana-appindicator" = "*"

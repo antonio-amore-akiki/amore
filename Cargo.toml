@@ -1,0 +1,140 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/amore-core",
+    "crates/amore-mcp",
+    "crates/amore-cli",
+    "crates/amore-adapter-claude",
+    "crates/amore-adapter-cursor",
+    "crates/amore-adapter-codex",
+    "crates/amore-adapter-cline",
+    "crates/amore-adapter-opencode",
+    "crates/amore-adapter-windsurf",
+    "crates/amore-adapter-hermes",
+    "crates/amore-eval",
+    "crates/amore-gui",
+    "crates/amore-integration-tests",
+]
+
+[workspace.package]
+version = "1.0.0"
+authors = ["Antonio <antonioakiki15@gmail.com>"]
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/antonio-amore-akiki/amore"
+rust-version = "1.95"
+
+[workspace.dependencies]
+# MCP — official Anthropic SDK
+rmcp = { version = "1.7", features = ["server", "macros", "transport-io"] }
+
+# Vector store — Qdrant (production scale) — 1.18 latest as of 2026-05-27
+qdrant-client = "1.18"
+
+# LanceDB — embedded vector store (no daemon) — adoption per ADR-0016 (2026-05-27).
+# Pinned to 0.29 minor; API marked "not yet stable" upstream so re-evaluate at 1.0.
+lancedb = "0.29"
+
+# LLM + embeddings — Ollama (free unlimited local)
+ollama-rs = "0.3"
+
+# Metadata + BM25 — SQLite with bundled FTS5
+rusqlite = { version = "0.39", features = ["bundled"] }
+
+# Tantivy BM25 lane — H.1 production swap-in for SQLite FTS5 (per ADR 0011)
+# 2026-05-27: bumped 0.22 → 0.26.1 per v-next #34
+tantivy = "0.26"
+
+# WAL + LRU-on-disk store — H.8 streaming ingest + H.13 multi-level cache
+sled = "0.34"
+
+# ONNX inference — H.3 cross-encoder reranker (BAAI/bge-reranker-base) per ADR
+# ort 2 stable not yet released; 2.0.0-rc.12 is the latest RC (must be explicit)
+# load-dynamic bypasses MSVC /MT vs /MD CRT mismatch (LNK2038) — see ADR 0013
+ort = { version = "2.0.0-rc.12", default-features = false, features = ["load-dynamic", "std", "ndarray", "tracing", "api-24"] }
+
+# HuggingFace tokenizers — paired with ort for reranker input tokenization
+tokenizers = "0.20"
+
+# In-memory LRU cache — H.13 multi-level cache (L1; L2 is sled from H.8 dep)
+moka = { version = "0.12", features = ["future"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Serde
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Crypto provenance (canonical-JSON + sha256 envelopes)
+sha2 = "0.10"
+hex = "0.4"
+canonical_json = "0.7"
+
+# HTTP client (Ollama, Qdrant fallback) — multipart added for H.7 snapshot upload
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "multipart", "stream"] }
+
+# Snapshot gzip compression (flate2 is transitive via tonic but made explicit for H.7)
+flate2 = "1"
+
+# Connection pooling (H.4 Qdrant gRPC pool)
+bb8 = "0.8"
+
+# Async trait support for bb8::ManageConnection impl (H.4)
+async-trait = "0.1"
+
+# gRPC transport (Phase H.6 — ADR 0009)
+tonic = { version = "0.12", features = ["transport"] }
+prost = "0.13"
+tonic-build = "0.12"
+
+# Snapshot archive (tar + flate2 already transitive; tar needs explicit dep)
+tar = "0.4"
+
+# CLI argument parsing (subcommands: init / serve / recall / status)
+clap = { version = "4", features = ["derive"] }
+
+# Cross-platform user-home / config-dir resolution
+dirs = "5"
+
+# OS keyring — Windows Credential Manager / Linux Secret Service / macOS Keychain
+keyring = "3"
+
+# TOML — required for Codex CLI adapter (~/.codex/config.toml)
+toml = "0.8"
+
+# YAML — required for Hermes Agent adapter (~/.hermes/config.yaml)
+serde_yaml = "0.9"
+
+# Property-based testing (dev only)
+proptest = "1.5"
+
+# W2 observability
+metrics = "0.23"
+metrics-exporter-prometheus = "0.15"
+opentelemetry = "0.27"
+opentelemetry-otlp = "0.27"
+tracing-opentelemetry = "0.28"
+opentelemetry_sdk = "0.27"
+axum = "0.7"
+
+# W3 resilience
+governor = "0.6"
+tower-governor = "0.4"
+
+# W8.5 — system-tray icon for non-technical-user installer/launcher
+tray-icon = "0.24"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+opt-level = 3

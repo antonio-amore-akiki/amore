@@ -1,0 +1,46 @@
+[package]
+name = "amore-core"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["rerank-onnx", "tantivy-bm25", "compaction-worker", "wal-sync", "metrics-exporter"]
+rerank-onnx = ["dep:ort", "dep:tokenizers"]
+tantivy-bm25 = ["dep:tantivy"]
+compaction-worker = []
+wal-sync = []
+metrics-exporter = []
+
+[dependencies]
+qdrant-client.workspace = true
+ollama-rs.workspace = true
+rusqlite.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+sha2.workspace = true
+hex.workspace = true
+canonical_json.workspace = true
+reqwest.workspace = true
+bb8.workspace = true
+async-trait.workspace = true
+tar.workspace = true
+flate2 = "1.0"
+tantivy = { workspace = true, optional = true }
+sled.workspace = true
+moka.workspace = true
+ort = { workspace = true, optional = true }
+tokenizers = { workspace = true, optional = true }
+dirs.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+tempfile = "3"
+tokio.workspace = true
+serde_json.workspace = true

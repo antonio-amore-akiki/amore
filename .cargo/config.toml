@@ -1,0 +1,14 @@
+# .cargo/config.toml — workspace-level Cargo configuration
+#
+# ORT_DYLIB_PATH: path to onnxruntime.dll for the ort load-dynamic feature (ADR 0013).
+# This default is used for local development when running via `cargo run`.
+# Installer-based deployments must set ORT_DYLIB_PATH at process launch time
+# (e.g. via a wrapper script or system env var) — this [env] block has no effect
+# on pre-built binaries running outside of `cargo`.
+#
+# Download onnxruntime.dll from:
+#   https://github.com/microsoft/onnxruntime/releases/download/v1.20.1/onnxruntime-win-x64-1.20.1.zip
+# Extract and place onnxruntime.dll at the path below (gitignored, not committed).
+
+[env]
+ORT_DYLIB_PATH = { value = "C:/Users/anto/Documents/02- Projects/25 - Obelion/vendor/onnxruntime/onnxruntime.dll", relative = false }

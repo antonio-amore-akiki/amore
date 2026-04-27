@@ -1,0 +1,224 @@
+<?xml version='1.0' encoding='windows-1252'?>
+<!--
+  Amore Windows MSI installer — W8.5A
+  Bundles: amore-cli + amore-mcp + amore-gui + ollama + qdrant
+  Built with: cargo-wix 0.3.9 + WiX Toolset 3.14.1
+  Signed with: Sigstore cosign keyless OIDC
+
+  UpgradeCode is fixed for the lifetime of the product.
+  Path GUIDs are fixed so PATH updates correctly on upgrade/uninstall.
+-->
+<?if $(sys.BUILDARCH) = x64 or $(sys.BUILDARCH) = arm64 ?>
+    <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
+<?else ?>
+    <?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
+<?endif ?>
+
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+
+    <Product
+        Id='*'
+        Name='Amore'
+        UpgradeCode='3A7F2C1D-E084-4B5A-9D3E-6C8B2F4A1E79'
+        Manufacturer='Antonio Amore Akiki'
+        Language='1033'
+        Codepage='1252'
+        Version='$(var.Version)'>
+
+        <Package Id='*'
+            Keywords='Installer'
+            Manufacturer='Antonio Amore Akiki'
+            InstallerVersion='450'
+            Languages='1033'
+            Compressed='yes'
+            InstallScope='perMachine'
+            SummaryCodepage='1252'
+            Platform='x64'
+            />
+
+        <MajorUpgrade
+            Schedule='afterInstallInitialize'
+            DowngradeErrorMessage='A newer version of Amore is already installed. Setup will now exit.'/>
+
+        <Media Id='1' Cabinet='media1.cab' EmbedCab='yes' DiskPrompt='Amore'/>
+        <Property Id='DiskPrompt' Value='Amore Installation'/>
+
+        <!-- ─── Directory tree ─────────────────────────────────────────── -->
+        <Directory Id='TARGETDIR' Name='SourceDir'>
+            <Directory Id='$(var.PlatformProgramFilesFolder)'>
+                <Directory Id='APPLICATIONFOLDER' Name='Amore'>
+
+                    <!-- License sidecar -->
+                    <Component Id='License' Guid='*'>
+                        <File Id='LicenseFile'
+                            DiskId='1'
+                            Source='$(var.CargoTargetDir)\..\LICENSE'
+                            KeyPath='yes'/>
+                    </Component>
+
+                    <!-- NOTICE sidecar -->
+                    <Component Id='Notice' Guid='*'>
+                        <File Id='NoticeFile'
+                            DiskId='1'
+                            Source='$(var.CargoTargetDir)\..\NOTICE'
+                            KeyPath='yes'/>
+                    </Component>
+
+                    <!-- amore-gui.exe — first-run wizard + system tray -->
+                    <Component Id='AmoreGui' Guid='*'>
+                        <File Id='AmoreGuiExe'
+                            DiskId='1'
+                            Name='amore-gui.exe'
+                            Source='$(var.CargoTargetBinDir)\amore-gui.exe'
+                            KeyPath='yes'/>
+                    </Component>
+
+                    <!-- amore-mcp.exe — MCP server (ports 9090/9091) -->
+                    <Component Id='AmoreMcp' Guid='*'>
+                        <File Id='AmoreMcpExe'
+                            DiskId='1'
+                            Name='amore-mcp.exe'
+                            Source='$(var.CargoTargetBinDir)\amore-mcp.exe'
+                            KeyPath='yes'/>
+                    </Component>
+
+                    <!-- amore-cli.exe — CLI for advanced ops -->
+                    <Component Id='AmoreCli' Guid='*'>
+                        <File Id='AmoreCliExe'
+                            DiskId='1'
+                            Name='amore.exe'
+                            Source='$(var.CargoTargetBinDir)\amore.exe'
+                            KeyPath='yes'/>
+                    </Component>
+
+                    <!-- ollama.exe — bundled local LLM runtime -->
+                    <!--
+                      Source: github.com/ollama/ollama v0.24.0
+                      Zip SHA256: 40c523d3eeba6f4647c5ca58fe47f15b8dee79f7675ebf573458890064f424c7
+                      (sha256sum.txt from ollama release page; zip = ollama-windows-amd64.zip)
+                      Binary extracted from zip by scripts/build-installer-windows.ps1
+                      before cargo wix runs.
+                    -->
+                    <Component Id='OllamaBin' Guid='*'>
+                        <File Id='OllamaExe'
+                            DiskId='1'
+                            Name='ollama.exe'
+                            Source='$(var.CargoTargetBinDir)\..\bundled\ollama.exe'
+                            KeyPath='yes'
+                            Vital='yes'/>
+                    </Component>
+
+                    <!-- qdrant.exe — bundled vector store -->
+                    <!--
+                      Source: github.com/qdrant/qdrant v1.18.1
+                      Zip: qdrant-x86_64-pc-windows-msvc.zip
+                      Zip SHA256 computed by scripts/build-installer-windows.ps1 at fetch time.
+                      Binary extracted from zip before cargo wix runs.
+                    -->
+                    <Component Id='QdrantBin' Guid='*'>
+                        <File Id='QdrantExe'
+                            DiskId='1'
+                            Name='qdrant.exe'
+                            Source='$(var.CargoTargetBinDir)\..\bundled\qdrant.exe'
+                            KeyPath='yes'/>
+                    </Component>
+
+                    <!-- PATH entry for bin dir (amore.exe accessible from any prompt) -->
+                    <Component Id='PathEntry' Guid='D4E9B3A2-F71C-4D08-B6A5-3E2C9F8D1047' KeyPath='yes'>
+                        <Environment
+                            Id='PATH'
+                            Name='PATH'
+                            Value='[APPLICATIONFOLDER]'
+                            Permanent='no'
+                            Part='last'
+                            Action='set'
+                            System='yes'/>
+                    </Component>
+
+                    <!-- HKCU Run key — tray auto-start on login -->
+                    <Component Id='TrayAutoStart' Guid='*'>
+                        <RegistryValue
+                            Root='HKCU'
+                            Key='Software\Microsoft\Windows\CurrentVersion\Run'
+                            Name='Amore'
+                            Value='[APPLICATIONFOLDER]amore-gui.exe --tray'
+                            Type='string'
+                            KeyPath='yes'
+                            Action='write'/>
+                    </Component>
+
+                </Directory>
+            </Directory>
+
+            <!-- Start Menu shortcut -->
+            <Directory Id='ProgramMenuFolder'>
+                <Directory Id='ApplicationProgramsFolder' Name='Amore'>
+                    <Component Id='StartMenuShortcut' Guid='*'>
+                        <Shortcut
+                            Id='StartMenuShortcutAmoreGui'
+                            Name='Amore'
+                            Description='Local AI memory assistant'
+                            Target='[APPLICATIONFOLDER]amore-gui.exe'
+                            WorkingDirectory='APPLICATIONFOLDER'/>
+                        <RemoveFolder
+                            Id='CleanUpShortCut'
+                            Directory='ApplicationProgramsFolder'
+                            On='uninstall'/>
+                        <RegistryValue
+                            Root='HKCU'
+                            Key='Software\Antonio Amore Akiki\Amore'
+                            Name='StartMenuShortcutInstalled'
+                            Type='integer'
+                            Value='1'
+                            KeyPath='yes'/>
+                    </Component>
+                </Directory>
+            </Directory>
+        </Directory>
+
+        <!-- ─── Features ─────────────────────────────────────────────── -->
+        <Feature
+            Id='MainApplication'
+            Title='Amore'
+            Description='Installs all Amore binaries, bundled runtime deps, and the license.'
+            Level='1'
+            ConfigurableDirectory='APPLICATIONFOLDER'
+            AllowAdvertise='no'
+            Display='expand'
+            Absent='disallow'>
+
+            <ComponentRef Id='License'/>
+            <ComponentRef Id='Notice'/>
+            <ComponentRef Id='AmoreGui'/>
+            <ComponentRef Id='AmoreMcp'/>
+            <ComponentRef Id='AmoreCli'/>
+            <ComponentRef Id='OllamaBin'/>
+            <ComponentRef Id='QdrantBin'/>
+            <ComponentRef Id='StartMenuShortcut'/>
+            <ComponentRef Id='TrayAutoStart'/>
+
+            <Feature
+                Id='PathFeature'
+                Title='PATH Environment Variable'
+                Description='Add Amore to the system PATH so amore.exe is usable from any terminal.'
+                Level='1'
+                Absent='allow'>
+                <ComponentRef Id='PathEntry'/>
+            </Feature>
+        </Feature>
+
+        <!-- ─── ARP metadata ─────────────────────────────────────────── -->
+        <SetProperty Id='ARPINSTALLLOCATION' Value='[APPLICATIONFOLDER]' After='CostFinalize'/>
+        <Property Id='ARPHELPLINK' Value='https://github.com/antonio-amore-akiki/amore'/>
+        <Property Id='ARPURLINFOABOUT' Value='https://github.com/antonio-amore-akiki/amore'/>
+
+        <!-- ─── UI ────────────────────────────────────────────────────── -->
+        <UI>
+            <UIRef Id='WixUI_FeatureTree'/>
+        </UI>
+
+        <WixVariable Id='WixUILicenseRtf' Value='$(var.CargoTargetDir)\..\packaging\installer\windows\License.rtf'/>
+
+    </Product>
+
+</Wix>

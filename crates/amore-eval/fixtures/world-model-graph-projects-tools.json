@@ -1,0 +1,14 @@
+{
+  "id": "world-model-graph-projects-tools",
+  "class": "research",
+  "query": "world model graph projects tool reliability preferences persistent SQLite Bayesian log-odds update",
+  "raw_context_files": [
+    "crates/amore-core/src/world_model.rs",
+    "CHANGELOG.md"
+  ],
+  "canonical_docs_paths": [
+    ".",
+    "docs"
+  ],
+  "rationale": "Researcher asking about Amore's world-model design. world_model.rs has the full 4-table schema + Laplace rate + log-odds preference updates."
+}

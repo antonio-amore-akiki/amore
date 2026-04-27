@@ -1,0 +1,15 @@
+#!/bin/bash
+# Local pre-commit hook: run gitleaks on staged diff before commit.
+# Opt-in: `git config core.hooksPath .githooks`
+# Source: github.com/gitleaks/gitleaks#pre-commit
+
+set -e
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+    echo "[pre-commit] WARN: gitleaks not installed; skipping secret scan."
+    echo "[pre-commit] Install: https://github.com/gitleaks/gitleaks/releases"
+    exit 0
+fi
+
+echo "[pre-commit] Running gitleaks on staged changes..."
+gitleaks protect --staged --config .gitleaks.toml --redact --verbose

@@ -1,0 +1,12 @@
+{
+  "id": "amore-mcp-tools-list",
+  "class": "research",
+  "query": "amore mcp server tools recall canonical_doc_lookup rmcp rust sdk",
+  "raw_context_files": [
+    "crates/amore-mcp/src/main.rs"
+  ],
+  "canonical_docs_paths": [
+    "."
+  ],
+  "rationale": "MCP-surface question. README mentions the tools; baseline = full mcp-server source (~7 KB)."
+}

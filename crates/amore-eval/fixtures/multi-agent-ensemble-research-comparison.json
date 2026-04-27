@@ -1,0 +1,14 @@
+{
+  "id": "multi-agent-ensemble-research-comparison",
+  "class": "research",
+  "query": "multi-agent ensemble architect skeptic historian negotiator implementer LLM vote confidence abstain",
+  "raw_context_files": [
+    "crates/amore-core/src/ensemble.rs",
+    "CHANGELOG.md"
+  ],
+  "canonical_docs_paths": [
+    ".",
+    "docs"
+  ],
+  "rationale": "Researcher comparing Amore's multi-agent design. ensemble.rs has all 6 AgentRole variants with system prompts; CHANGELOG documents the S14a substrate."
+}

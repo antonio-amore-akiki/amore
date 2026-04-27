@@ -1,0 +1,61 @@
+[package]
+name = "amore-mcp"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "amore-mcp"
+path = "src/main.rs"
+
+[dependencies]
+amore-core = { path = "../amore-core" }
+rmcp.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+dirs.workspace = true
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+clap.workspace = true
+# gRPC transport (Phase H.6 — ADR 0009)
+tonic.workspace = true
+prost.workspace = true
+
+# W2 observability
+metrics.workspace = true
+metrics-exporter-prometheus.workspace = true
+opentelemetry.workspace = true
+opentelemetry-otlp = { workspace = true, features = ["grpc-tonic"] }
+opentelemetry_sdk = { workspace = true, features = ["rt-tokio"] }
+tracing-opentelemetry.workspace = true
+axum.workspace = true
+tower = "0.4"
+
+# W3 resilience
+governor.workspace = true
+
+# Hostname for OTel resource attribute
+hostname = "0.4"
+
+[build-dependencies]
+tonic-build.workspace = true
+
+[dev-dependencies]
+# Integration test (mcp_handshake.rs) spawns the binary, talks JSON-RPC over
+# stdio. Needs the same tokio runtime as main + serde_json for payloads.
+tokio = { workspace = true, features = ["process", "macros", "rt-multi-thread", "io-util", "time"] }
+serde_json.workspace = true
+# grpc_smoke.rs — tonic client for Health RPC + TcpListenerStream
+tonic.workspace = true
+tokio-stream = "0.1"
+# Health HTTP tests — test router directly via real TcpListener
+axum = { workspace = true }
+tower = "0.4"
+# health_http.rs integration test uses reqwest to issue real HTTP requests
+reqwest = { workspace = true }
+# rate_limit.rs integration test uses governor directly
+governor.workspace = true

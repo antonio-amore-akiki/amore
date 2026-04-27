@@ -1,0 +1,42 @@
+title = "Amore gitleaks config — extends default ruleset"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "openai-api-key"
+description = "OpenAI API key"
+regex = '''sk-[A-Za-z0-9]{40,}'''
+secretGroup = 0
+
+[[rules]]
+id = "anthropic-api-key"
+description = "Anthropic API key"
+regex = '''sk-ant-[A-Za-z0-9_-]{40,}'''
+secretGroup = 0
+
+[[rules]]
+id = "github-token"
+description = "GitHub personal access token"
+regex = '''(ghp_|gho_|ghu_|ghs_|ghr_)[A-Za-z0-9]{36,}'''
+secretGroup = 0
+
+[[rules]]
+id = "qdrant-api-key"
+description = "Qdrant API key"
+regex = '''(qdrant[_-]?api[_-]?key|QDRANT_API_KEY)\s*[=:]\s*["']?([A-Za-z0-9_-]{20,})'''
+secretGroup = 2
+
+[[rules]]
+id = "sigstore-oidc-token"
+description = "Sigstore OIDC token"
+regex = '''eyJ[A-Za-z0-9_-]{200,}\.[A-Za-z0-9_-]{200,}\.[A-Za-z0-9_-]+'''
+secretGroup = 0
+
+[allowlist]
+description = "Test fixtures + docs examples"
+paths = [
+    '''policy/test/fixtures/.*''',
+    '''docs/.*example.*''',
+    '''.*\.test\..*''',
+]

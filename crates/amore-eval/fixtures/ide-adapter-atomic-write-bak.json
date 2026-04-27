@@ -1,0 +1,14 @@
+{
+  "id": "ide-adapter-atomic-write-bak",
+  "class": "coding",
+  "query": "IdeAdapter merge_into atomic write tmp rename bak backup idempotent cursor claude config patch",
+  "raw_context_files": [
+    "crates/amore-core/src/ide_adapter.rs",
+    "crates/amore-adapter-claude/src/lib.rs"
+  ],
+  "canonical_docs_paths": [
+    ".",
+    "docs"
+  ],
+  "rationale": "Developer asking how the IdeAdapter atomic-write with .bak sibling works across IDEs. ide_adapter.rs defines the trait and apply() helper."
+}

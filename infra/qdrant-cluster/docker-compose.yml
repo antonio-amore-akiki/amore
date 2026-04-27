@@ -1,0 +1,102 @@
+# Amore Qdrant 3-node cluster — opt-in scale-out deployment (Phase H step H.2)
+#
+# stable: true
+# topic: amore qdrant cluster docker-compose replication factor 2 12 shards production scale
+# purpose: 3-node Qdrant cluster reference deployment for power users with > 1M observations
+# threat-model: stolen-laptop only; this compose binds Qdrant gRPC/REST on loopback ports only
+#
+# Usage:
+#   cd infra/qdrant-cluster
+#   docker compose up -d
+#   # On the Amore side, point recall at the cluster:
+#   export AMORE_QDRANT_URL=http://127.0.0.1:6333
+#   export AMORE_QDRANT_GRPC_URL=http://127.0.0.1:6334
+#   amore serve
+#
+# Validation (see tests/qa/h2_qdrant_cluster_smoke.ps1):
+#   curl -s http://127.0.0.1:6333/cluster | jq '.result.peers | length'
+#   # expected: 3
+#
+# Replication factor 2 + 12 shards: handles ~4-8M obs per shard with 1-node-fail
+# tolerance. Sized per docs/SCALE-100M.md for the 10M-corpus capacity tier.
+
+version: "3.9"
+
+x-qdrant-common: &qdrant-common
+  image: qdrant/qdrant:v1.15.4
+  restart: unless-stopped
+  ulimits:
+    nofile:
+      soft: 65535
+      hard: 65535
+  environment:
+    QDRANT__CLUSTER__ENABLED: "true"
+    QDRANT__CLUSTER__CONSENSUS__TICK_PERIOD_MS: "100"
+    QDRANT__SERVICE__ENABLE_TLS: "false" # localhost-only by design; TLS for loopback adds attack surface, not removes it
+    QDRANT__LOG_LEVEL: "INFO"
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://127.0.0.1:6333/healthz"]
+    interval: 10s
+    timeout: 3s
+    retries: 5
+    start_period: 20s
+  networks:
+    - amore-cluster
+
+services:
+  qdrant-node-1:
+    <<: *qdrant-common
+    container_name: amore-qdrant-node-1
+    command:
+      - ./qdrant
+      - --uri
+      - http://qdrant-node-1:6335
+    ports:
+      # Bind to loopback ONLY — never 0.0.0.0 per ADR 0007 + threat model
+      - "127.0.0.1:6333:6333" # REST
+      - "127.0.0.1:6334:6334" # gRPC
+    volumes:
+      - qdrant-node-1-data:/qdrant/storage
+
+  qdrant-node-2:
+    <<: *qdrant-common
+    container_name: amore-qdrant-node-2
+    command:
+      - ./qdrant
+      - --bootstrap
+      - http://qdrant-node-1:6335
+      - --uri
+      - http://qdrant-node-2:6335
+    depends_on:
+      qdrant-node-1:
+        condition: service_healthy
+    volumes:
+      - qdrant-node-2-data:/qdrant/storage
+
+  qdrant-node-3:
+    <<: *qdrant-common
+    container_name: amore-qdrant-node-3
+    command:
+      - ./qdrant
+      - --bootstrap
+      - http://qdrant-node-1:6335
+      - --uri
+      - http://qdrant-node-3:6335
+    depends_on:
+      qdrant-node-1:
+        condition: service_healthy
+    volumes:
+      - qdrant-node-3-data:/qdrant/storage
+
+volumes:
+  qdrant-node-1-data:
+    name: amore-qdrant-node-1-data
+  qdrant-node-2-data:
+    name: amore-qdrant-node-2-data
+  qdrant-node-3-data:
+    name: amore-qdrant-node-3-data
+
+networks:
+  amore-cluster:
+    name: amore-cluster
+    driver: bridge

@@ -1,0 +1,14 @@
+{
+  "id": "amore-cross-ide-install-windows",
+  "class": "docs",
+  "query": "amore install windows linux macos npm postinstall signed binary cursor codex cline windsurf hermes",
+  "raw_context_files": [
+    "README.md",
+    "npm/README.md",
+    "npm/postinstall.js"
+  ],
+  "canonical_docs_paths": [
+    "."
+  ],
+  "rationale": "User asking how to install Amore across IDEs and platforms. README has Tier-1 npm + Tier-2 curl install paths + all 7 IDE names; stable:true header present."
+}

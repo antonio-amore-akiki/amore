@@ -1,0 +1,26 @@
+apiVersion: v2
+name: amore
+description: Local-first MCP memory backbone for AI coding assistants (3-node Qdrant cluster + Amore deployment)
+type: application
+version: 0.5.0
+appVersion: "0.5.0"
+icon: https://raw.githubusercontent.com/antonio-amore-akiki/amore/main/installer/windows/icon.png
+home: https://github.com/antonio-amore-akiki/amore
+sources:
+  - https://github.com/antonio-amore-akiki/amore
+keywords:
+  - mcp
+  - memory
+  - rag
+  - qdrant
+  - ai
+  - claude
+  - cursor
+maintainers:
+  - name: Antonio
+    email: antonioakiki15@gmail.com
+dependencies:
+  - name: qdrant
+    version: "0.7.x"
+    repository: https://qdrant.github.io/qdrant-helm
+    condition: qdrant.enabled

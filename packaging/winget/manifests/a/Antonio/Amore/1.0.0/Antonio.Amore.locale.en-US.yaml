@@ -1,0 +1,10 @@
+PackageIdentifier: Antonio.Amore
+PackageVersion: 1.0.0
+PackageLocale: en-US
+PackageName: Amore
+Publisher: Antonio
+License: Apache-2.0
+ShortDescription: Local-first MCP memory backbone for AI coding assistants
+PackageUrl: https://github.com/antonio-amore-akiki/amore
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

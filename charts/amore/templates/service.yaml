@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "amore.fullname" . }}
+  labels:
+    {{- include "amore.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.amore.service.type }}
+  ports:
+    - port: {{ .Values.amore.service.port }}
+      targetPort: mcp
+      protocol: TCP
+      name: mcp
+  selector:
+    {{- include "amore.selectorLabels" . | nindent 4 }}

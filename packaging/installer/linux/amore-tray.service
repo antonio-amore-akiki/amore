@@ -1,0 +1,16 @@
+[Unit]
+Description=Amore tray icon
+Documentation=https://github.com/antonio-amore-akiki/amore
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/amore-gui --tray
+Restart=on-failure
+RestartSec=5
+# Require a display server — fail fast if none is available rather than looping
+Environment=DISPLAY=:0
+
+[Install]
+WantedBy=default.target

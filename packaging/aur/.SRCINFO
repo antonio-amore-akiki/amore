@@ -1,0 +1,14 @@
+pkgbase = amore
+	pkgdesc = Local-first MCP memory backbone for AI coding assistants — Apache-2.0, Rust, zero-cloud
+	pkgver = 0.5.0
+	pkgrel = 1
+	url = https://github.com/antonio-amore-akiki/amore
+	arch = x86_64
+	license = Apache-2.0
+	depends = qdrant
+	depends = ollama
+	optdepends = docker: for clustered Qdrant deployment
+	source = amore-0.5.0.tar.gz::https://github.com/antonio-amore-akiki/amore/releases/download/v0.5.0/amore-v0.5.0-x86_64-unknown-linux-gnu.tar.gz
+	sha256sums = SKIP
+
+pkgname = amore

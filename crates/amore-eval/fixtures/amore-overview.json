@@ -1,0 +1,13 @@
+{
+  "id": "amore-overview",
+  "class": "research",
+  "query": "amore universal mcp memory backbone rust hybrid retrieval rrf",
+  "raw_context_files": [
+    "crates/amore-core/src/recall.rs",
+    "crates/amore-core/src/lib.rs"
+  ],
+  "canonical_docs_paths": [
+    "."
+  ],
+  "rationale": "High-level product question. README.md at repo root carries stable: true and summarizes the architecture in <50 lines; baseline forces reading the actual code."
+}

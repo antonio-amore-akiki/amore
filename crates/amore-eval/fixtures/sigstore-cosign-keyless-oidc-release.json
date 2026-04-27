@@ -1,0 +1,14 @@
+{
+  "id": "sigstore-cosign-keyless-oidc-release",
+  "class": "research",
+  "query": "GitHub Actions sigstore cosign keyless OIDC attestation verify-blob bundle release pipeline linux sign",
+  "raw_context_files": [
+    ".github/workflows/release.yml",
+    "README.md",
+    "npm/postinstall.js"
+  ],
+  "canonical_docs_paths": [
+    "."
+  ],
+  "rationale": "Researcher asking how the Sigstore signing works in the release pipeline. release.yml has the full cosign + OIDC setup; README has the verify-blob command."
+}

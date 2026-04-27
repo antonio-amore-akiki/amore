@@ -1,0 +1,16 @@
+# Maintainer: Antonio <antonioakiki15@gmail.com>
+pkgname=amore
+pkgver=1.0.2
+pkgrel=1
+pkgdesc="Local-first MCP memory backbone for AI coding assistants — Apache-2.0, Rust, zero-cloud"
+arch=('x86_64')
+url="https://github.com/antonio-amore-akiki/amore"
+license=('Apache-2.0')
+depends=('qdrant' 'ollama')
+optdepends=('docker: for clustered Qdrant deployment')
+source=("$pkgname-$pkgver.AppImage::https://github.com/antonio-amore-akiki/amore/releases/download/v1.0.2/amore-gui-x86_64.AppImage")
+sha256sums=('3e433ae1bf09dfd6e35efef5400bf3e119eb73243d8cda589e1c739e4ce70597')
+
+package() {
+  install -Dm755 "$srcdir/$pkgname-$pkgver.AppImage" "$pkgdir/usr/bin/amore-gui"
+}

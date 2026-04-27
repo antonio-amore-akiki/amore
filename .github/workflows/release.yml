@@ -1,0 +1,180 @@
+# Release workflow — Windows/Linux artifacts produced by scripts/release-local.ps1
+# on the maintainer host. The macos-build job below produces macOS .tar.gz on
+# free GHA macos-latest runners (free for public repos per github billing docs).
+# Trigger: gh workflow run release.yml -f version=1.0.0 -f release_tag=v1.0.0
+
+name: release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 1.0.0)'
+        required: true
+        type: string
+      release_tag:
+        description: 'Existing release tag (e.g. v1.0.0) — macos-build uploads to this'
+        required: true
+        default: ''
+        type: string
+
+permissions: read-all
+
+jobs:
+  notice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    permissions: {}
+    steps:
+      - run: |
+          echo "::notice::Win/Linux artifacts for v${{ inputs.version }} are produced via scripts/release-local.ps1. macOS artifacts produced by the macos-build job below. Windows .exe wrapper produced by the windows-build job below."
+
+  windows-build:
+    # Wrap the existing v<version> MSI in an Inno Setup .exe (consumer-friendly double-click format).
+    # windows-latest free for public repos per https://docs.github.com/en/billing/managing-billing-for-github-actions/about-billing-for-github-actions
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    if: ${{ inputs.release_tag != '' }}
+    steps:
+      - name: Checkout
+        # Use `main` (not the release tag) — the .iss wrapper script was added AFTER v1.0.0;
+        # checking out v1.0.0 would 404 on packaging/installer/windows/amore.iss.
+        # The MSI source is still pulled from the tag's release page below.
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Download v${{ inputs.version }} MSI from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "${{ inputs.release_tag }}" -p "amore-windows-x64.msi" -D packaging/installer/windows/ --clobber
+
+      - name: Install Inno Setup (free; ISC-equivalent license)
+        run: choco install innosetup --no-progress --confirm
+
+      - name: Compile .iss → .exe
+        shell: powershell
+        run: |
+          cd packaging/installer/windows
+          # Chocolatey installs Inno Setup to varying paths across versions; resolve robustly.
+          $iscc = Get-ChildItem -Path "C:\Program Files (x86)\Inno Setup*\ISCC.exe", "C:\Program Files\Inno Setup*\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $iscc) {
+            # PATH refresh fallback (chocolatey adds Inno to user PATH but workflow shell doesn't see it without refresh).
+            Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1" -ErrorAction SilentlyContinue
+            refreshenv 2>$null
+            $iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+          }
+          if (-not $iscc) { throw "ISCC.exe not found. Tried: C:\Program Files*\Inno Setup*\ISCC.exe and PATH refresh." }
+          $isccPath = if ($iscc.PSObject.Properties['Source']) { $iscc.Source } else { $iscc.FullName }
+          Write-Host "Using ISCC at: $isccPath"
+          & $isccPath /Q amore.iss
+          $exePath = "amore-windows-x64.exe"
+          if (-not (Test-Path $exePath)) { throw "ISCC did not produce $exePath" }
+          $sha = (Get-FileHash $exePath -Algorithm SHA256).Hash.ToLower()
+          echo "EXE_SHA=$sha" >> $env:GITHUB_ENV
+          echo "EXE_PATH=$(Resolve-Path $exePath)" >> $env:GITHUB_ENV
+
+      - name: Upload .exe to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: powershell
+        run: gh release upload "${{ inputs.release_tag }}" "$env:EXE_PATH" --clobber
+
+      - name: Surface SHA in summary
+        shell: powershell
+        run: |
+          echo "## Windows .exe wrapper complete" >> $env:GITHUB_STEP_SUMMARY
+          echo "- **amore-windows-x64.exe SHA256**: ``$env:EXE_SHA``" >> $env:GITHUB_STEP_SUMMARY
+
+  macos-build:
+    # macos-latest free for public repos per https://docs.github.com/en/billing/managing-billing-for-github-actions/about-billing-for-github-actions
+    runs-on: macos-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write   # gh release upload requires contents:write at job level (least-privilege per Scorecard Token-Permissions)
+    if: ${{ inputs.release_tag != '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [aarch64-apple-darwin, x86_64-apple-darwin]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.release_tag }}
+          persist-credentials: false
+
+      - name: Install build deps (protoc for tonic-build in amore-mcp)
+        run: brew install protobuf
+
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install 1.95 --profile minimal
+          rustup default 1.95
+          rustup target add ${{ matrix.target }}
+
+      - name: Build release binaries
+        run: cargo build --release --target ${{ matrix.target }} -p amore-cli -p amore-mcp -p amore-gui
+
+      - name: Package tar.gz + SHA256
+        id: package
+        run: |
+          set -euo pipefail
+          ARCH_SHORT="$(echo '${{ matrix.target }}' | cut -d- -f1)"
+          PKG_DIR="amore-${{ inputs.version }}-macos-${ARCH_SHORT}"
+          mkdir -p "${PKG_DIR}"
+          cp target/${{ matrix.target }}/release/amore "${PKG_DIR}/"
+          cp target/${{ matrix.target }}/release/amore-mcp "${PKG_DIR}/"
+          cp target/${{ matrix.target }}/release/amore-gui "${PKG_DIR}/"
+          cp LICENSE README.md "${PKG_DIR}/"
+          tar -czf "${PKG_DIR}.tar.gz" "${PKG_DIR}"
+          SHA="$(shasum -a 256 ${PKG_DIR}.tar.gz | cut -d' ' -f1)"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "tarball=${PKG_DIR}.tar.gz" >> "$GITHUB_OUTPUT"
+
+      - name: Build .pkg (unsigned, free pkgbuild — double-clickable installer)
+        id: pkg
+        run: |
+          set -euo pipefail
+          ARCH_SHORT="$(echo '${{ matrix.target }}' | cut -d- -f1)"
+          PKGROOT="pkgroot-${ARCH_SHORT}"
+          mkdir -p "${PKGROOT}/usr/local/bin"
+          cp target/${{ matrix.target }}/release/amore "${PKGROOT}/usr/local/bin/"
+          cp target/${{ matrix.target }}/release/amore-mcp "${PKGROOT}/usr/local/bin/"
+          cp target/${{ matrix.target }}/release/amore-gui "${PKGROOT}/usr/local/bin/"
+          PKG_FILE="amore-${{ inputs.version }}-macos-${ARCH_SHORT}.pkg"
+          pkgbuild --root "${PKGROOT}" --identifier ai.amore.cli --version ${{ inputs.version }} --install-location / "${PKG_FILE}"
+          SHA="$(shasum -a 256 ${PKG_FILE} | cut -d' ' -f1)"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "pkg=${PKG_FILE}" >> "$GITHUB_OUTPUT"
+
+      - name: Build .dmg (free hdiutil — drag-to-install disk image)
+        id: dmg
+        run: |
+          set -euo pipefail
+          ARCH_SHORT="$(echo '${{ matrix.target }}' | cut -d- -f1)"
+          DMG_FILE="amore-${{ inputs.version }}-macos-${ARCH_SHORT}.dmg"
+          DMGROOT="dmgroot-${ARCH_SHORT}"
+          mkdir -p "${DMGROOT}"
+          cp "${{ steps.pkg.outputs.pkg }}" "${DMGROOT}/"
+          hdiutil create -volname "Amore ${{ inputs.version }}" -srcfolder "${DMGROOT}" -ov -format UDZO "${DMG_FILE}"
+          SHA="$(shasum -a 256 ${DMG_FILE} | cut -d' ' -f1)"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "dmg=${DMG_FILE}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload tar.gz + .pkg + .dmg to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ inputs.release_tag }}" "${{ steps.package.outputs.tarball }}" --clobber
+          gh release upload "${{ inputs.release_tag }}" "${{ steps.pkg.outputs.pkg }}" --clobber
+          gh release upload "${{ inputs.release_tag }}" "${{ steps.dmg.outputs.dmg }}" --clobber
+
+      - name: Surface SHAs in summary
+        run: |
+          echo "## macOS ${{ matrix.target }} build complete" >> $GITHUB_STEP_SUMMARY
+          echo "- **tar.gz SHA256**: \`${{ steps.package.outputs.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **.pkg  SHA256**: \`${{ steps.pkg.outputs.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **.dmg  SHA256**: \`${{ steps.dmg.outputs.sha }}\`" >> $GITHUB_STEP_SUMMARY

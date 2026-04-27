@@ -1,0 +1,15 @@
+# Cross-compilation config — cross-rs/cross
+# Source: github.com/cross-rs/cross
+# Used by: scripts/release-local.ps1 step 4b (ARM64 Linux)
+
+[build]
+pre-build = ["apt-get update -qq && apt-get install --assume-yes -q protobuf-compiler"]
+
+[target.aarch64-unknown-linux-gnu]
+# W8-8C M2C: digest-pinned for SLSA L3 hermeticity.
+# Resolved 2026-05-27: docker pull ghcr.io/cross-rs/aarch64-unknown-linux-gnu:0.2.5
+#                      docker inspect --format='{{index .RepoDigests 0}}' ...
+image = "ghcr.io/cross-rs/aarch64-unknown-linux-gnu@sha256:7f8308a8734d9fcd2ebbe9a3e4bdea74af293f0799d80c3cc341e340cda49a4c"
+
+[target.aarch64-unknown-linux-gnu.env]
+passthrough = ["RUST_LOG", "SOURCE_DATE_EPOCH", "RUSTFLAGS"]

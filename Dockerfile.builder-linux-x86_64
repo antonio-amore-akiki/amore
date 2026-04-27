@@ -1,0 +1,57 @@
+# Dockerfile.builder-linux-x86_64
+# Pre-baked builder image for Amore x86_64-unknown-linux-gnu release builds.
+#
+# W8-8C M2 hermeticity fix: moves protobuf-compiler install out of the per-build
+# docker run command and into a pinned, locally-built image. This eliminates the
+# non-deterministic apt-get invocation that ran on every cargo build in Docker and
+# restores SLSA L3 hermeticity for the Linux x86_64 build path.
+#
+# W8.5C addition: Linux installer triple (AppImage + .deb + .rpm).
+# Added to this layer: cargo-deb, cargo-generate-rpm, cargo-appimage, appimagetool,
+# and GTK/ayatana dev libs required by tray-icon on Linux.
+#
+# Base image is digest-pinned for full supply-chain traceability.
+# Digest resolved 2026-05-27 via: docker pull rust:1.95-bookworm && docker inspect --format='{{index .RepoDigests 0}}' rust:1.95-bookworm
+#
+# Build this image once before releasing:
+#   pwsh ./scripts/build-builder-images.ps1
+# Then release normally:
+#   pwsh ./scripts/release-local.ps1 -Version <ver>
+#
+# See docs/RELEASING.md § "Builder images" and docs/SLSA-L3-ATTESTATION.md row 10+11.
+
+FROM rust@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1
+
+# Base build tooling + protobuf (W8-8C)
+RUN apt-get update -qq \
+    && apt-get install -y -q --no-install-recommends \
+        protobuf-compiler \
+        # GTK/ayatana headers for tray-icon (W8.5C) — tray silently fails without these
+        libgtk-3-dev \
+        libayatana-appindicator3-dev \
+        # libxdo required by libxdo crate (keyboard/mouse automation used by amore-gui)
+        libxdo-dev \
+        # appimagetool runtime dependencies
+        fuse \
+        wget \
+        file \
+        desktop-file-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install cargo-deb (v3.7.0 pinned — Adopt verdict, #5 cargo plugin, 53k dl/mo)
+RUN cargo install cargo-deb --version 3.7.0 --locked
+
+# Install cargo-generate-rpm (v0.21.0 pinned — Adopt verdict, #21 cargo plugin)
+RUN cargo install cargo-generate-rpm --version 0.21.0 --locked
+
+# Install cargo-appimage (v2.4.0 pinned — Adopt verdict; requires appimagetool in PATH)
+RUN cargo install cargo-appimage --version 2.4.0 --locked
+
+# Install appimagetool — the AppImage packaging runtime called by cargo-appimage.
+# SHA256 verified against github.com/AppImage/AppImageKit releases page (2026-05-27).
+RUN wget -q -O /usr/local/bin/appimagetool \
+        "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage" \
+    && chmod +x /usr/local/bin/appimagetool \
+    && appimagetool --version 2>&1 || true
+
+WORKDIR /work

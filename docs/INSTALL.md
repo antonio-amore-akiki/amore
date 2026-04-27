@@ -1,0 +1,70 @@
+stable: true
+
+# Installation — Amore
+
+5 paths, each yields the same v1.0.0 binaries.
+
+## 1. Homebrew (macOS/Linux)
+
+```bash
+brew install antonio-amore-akiki/tap/amore
+```
+
+## 2. WinGet (Windows)
+
+```powershell
+winget install Antonio.Amore
+```
+
+## 3. AUR (Arch Linux)
+
+```bash
+yay -S amore-bin
+```
+
+## 4. Docker (any OS)
+
+```bash
+docker pull ghcr.io/antonio-amore-akiki/amore:1.0.0
+docker run -p 7777:7777 ghcr.io/antonio-amore-akiki/amore:1.0.0
+```
+
+## 5. Binary download from GitHub
+
+```bash
+gh release download v1.0.0 --repo antonio-amore-akiki/amore --pattern 'amore-*-<OS>-<ARCH>.*'
+```
+
+Verify SHA256:
+
+```bash
+gh release download v1.0.0 --pattern 'sha256sums.txt'
+sha256sum -c sha256sums.txt
+```
+
+Verify signature (Sigstore keyless):
+
+```bash
+cosign verify-blob \
+  --bundle amore-v1.0.0-*.sigstore \
+  --certificate-identity-regexp "antonio-amore-akiki" \
+  --certificate-oidc-issuer "https://accounts.google.com" \
+  amore-v1.0.0-*.tar.gz
+```
+
+## First run
+
+```bash
+amore init      # creates ~/.local/share/amore + config
+amore doctor    # validates Qdrant + Ollama reachable
+amore serve     # starts MCP server on stdio
+```
+
+See `docs/quickstart/<ide>.md` for IDE-specific adapter setup.
+
+## Sources
+
+- brew.sh formula docs
+- learn.microsoft.com/en-us/windows/package-manager
+- wiki.archlinux.org/title/AUR
+- docs.docker.com

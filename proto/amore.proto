@@ -1,0 +1,94 @@
+// proto/amore.proto — Amore gRPC service (Phase H.6, ADR 0009).
+//
+// Mirrors the MCP tool surface so multi-IDE clients can attach to a single
+// Amore daemon over a local socket without paying the per-spawn stdio cost.
+//
+// Transport: Unix domain socket (Linux/macOS) or Windows named pipe by default.
+// TCP requires --grpc-listen tcp://<host>:<port> AND a non-loopback bind
+// additionally requires AMORE_GRPC_ALLOW_NETWORK=1 (ADR 0007 + 0009).
+
+syntax = "proto3";
+
+package amore;
+
+// ── Service ──────────────────────────────────────────────────────────────────
+
+service AmoreService {
+  // Hybrid vector+BM25 recall over the Amore observation store.
+  rpc Recall(RecallRequest) returns (RecallResponse);
+
+  // Topic-matched lookup against stable *.md canonical docs.
+  // TODO(v0.5.0): implement — ticket #amore-grpc-canonical
+  rpc CanonicalDocLookup(CanonicalDocRequest) returns (CanonicalDocResponse);
+
+  // SHA-256 envelope provenance verification.
+  // TODO(v0.5.0): implement — ticket #amore-grpc-provenance
+  rpc ProvenanceVerify(ProvenanceVerifyRequest) returns (ProvenanceVerifyResponse);
+
+  // Liveness check (Recall + Health must be wired end-to-end in v0.4.x).
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+// ── Recall ───────────────────────────────────────────────────────────────────
+
+message RecallRequest {
+  // Natural-language query text. Max 16 KiB enforced server-side.
+  string query = 1;
+  // Number of top hits to return. Clamped to [1, 100] server-side.
+  uint32 top_k = 2;
+}
+
+message RecallHit {
+  string doc_id  = 1;
+  double score   = 2;
+  string excerpt = 3;
+  string source  = 4;
+}
+
+message RecallResponse {
+  repeated RecallHit hits    = 1;
+  // True when one or more retrieval lanes are offline (mirrors Degraded flags).
+  bool               degraded = 2;
+}
+
+// ── Canonical-doc lookup ─────────────────────────────────────────────────────
+
+message CanonicalDocRequest {
+  string query = 1;
+}
+
+message CanonicalDocHit {
+  string path        = 1;
+  string title       = 2;
+  double topic_score = 3;
+  string excerpt     = 4;
+}
+
+message CanonicalDocResponse {
+  repeated CanonicalDocHit hits = 1;
+}
+
+// ── Provenance verify ────────────────────────────────────────────────────────
+
+message ProvenanceVerifyRequest {
+  // Canonical-JSON document payload to verify.
+  string document_json = 1;
+  // Expected SHA-256 hex digest.
+  string expected_sha256 = 2;
+}
+
+message ProvenanceVerifyResponse {
+  bool   valid          = 1;
+  string computed_sha256 = 2;
+}
+
+// ── Health ───────────────────────────────────────────────────────────────────
+
+message HealthRequest {}
+
+message HealthResponse {
+  // "ok" when all lanes live; "degraded" if one or more lanes offline.
+  string status = 1;
+  // Milliseconds since Amore daemon started (monotonic clock).
+  uint64 uptime_ms = 2;
+}

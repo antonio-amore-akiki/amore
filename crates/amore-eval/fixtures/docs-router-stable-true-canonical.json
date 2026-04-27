@@ -1,0 +1,14 @@
+{
+  "id": "docs-router-stable-true-canonical",
+  "class": "research",
+  "query": "canonical docs router stable true header keyword overlap topic score AMORE_DOCS_PATHS body scan",
+  "raw_context_files": [
+    "crates/amore-core/src/docs.rs",
+    "README.md"
+  ],
+  "canonical_docs_paths": [
+    ".",
+    "docs"
+  ],
+  "rationale": "Researcher asking how the canonical-docs router selects documents. docs.rs has the full BODY_KEYWORD_SCAN_CHARS, HEADER_SCAN_LINES, and stable:true gate logic."
+}

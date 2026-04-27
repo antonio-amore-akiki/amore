@@ -1,0 +1,52 @@
+{
+  "name": "@anto/amore",
+  "version": "0.5.0",
+  "description": "Universal MCP agent memory backbone — hybrid retrieval (BM25 + vector + canonical-docs router) + cryptographic provenance + 7 IDE adapters. Rust core, distributed as signed cross-OS binaries via GitHub Releases.",
+  "license": "Apache-2.0",
+  "author": "Antonio <antonioakiki15@gmail.com>",
+  "homepage": "https://github.com/antonio-amore-akiki/amore",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/antonio-amore-akiki/amore.git"
+  },
+  "bugs": {
+    "url": "https://github.com/antonio-amore-akiki/amore/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "agent-memory",
+    "retrieval-augmented-generation",
+    "rust",
+    "claude-code",
+    "cursor",
+    "codex",
+    "cline",
+    "windsurf",
+    "opencode",
+    "hermes"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "amore": "bin/amore.js",
+    "amore-mcp": "bin/amore-mcp.js"
+  },
+  "scripts": {
+    "postinstall": "node postinstall.js"
+  },
+  "files": [
+    "bin/",
+    "postinstall.js",
+    "README.md"
+  ],
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ]
+}

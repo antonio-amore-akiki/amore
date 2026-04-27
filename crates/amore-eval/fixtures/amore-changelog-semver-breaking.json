@@ -1,0 +1,14 @@
+{
+  "id": "amore-changelog-semver-breaking",
+  "class": "docs",
+  "query": "amore CHANGELOG semver version 0.2 breaking changes BM25 RRF IDE adapters npm",
+  "raw_context_files": [
+    "CHANGELOG.md",
+    "README.md"
+  ],
+  "canonical_docs_paths": [
+    ".",
+    "docs"
+  ],
+  "rationale": "User asking what changed in Amore v0.2.0. CHANGELOG.md has the full added/changed notes; README has the version badge."
+}

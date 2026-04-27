@@ -1,0 +1,41 @@
+# Toxiproxy chaos rig — Shopify's free OSS network-fault-injector (Apache-2.0, 11k+ stars)
+# Used by tests/qa/h12_toxiproxy_chaos.ps1 to inject latency + packet loss
+# between amore-mcp <-> Qdrant + Ollama, proving H.5 circuit breakers trip + recover.
+#
+# stable: false (chaos-test infrastructure only; not part of the standard amore stack)
+# topic: toxiproxy chaos network-fault latency packet-loss circuit-breaker h12
+# threat-model: stolen-laptop only; all ports bind to 127.0.0.1 only
+#
+# Usage:
+#   cd infra/toxiproxy
+#   docker compose up -d
+#   # Then run the chaos test:
+#   pwsh ./tests/qa/h12_toxiproxy_chaos.ps1
+#
+# Bring down after chaos test — this is not a persistent service.
+#   docker compose down
+
+services:
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.9.0
+    container_name: amore-toxiproxy
+    restart: unless-stopped
+    ports:
+      # Toxiproxy admin API — configure proxies + toxics via REST
+      - "127.0.0.1:8474:8474"
+      # Proxy ports — amore-mcp connects to these instead of direct Qdrant/Ollama
+      - "127.0.0.1:6433:6433"   # qdrant-rest-proxy  → real Qdrant REST  :6333
+      - "127.0.0.1:6434:6434"   # qdrant-grpc-proxy  → real Qdrant gRPC  :6334
+      - "127.0.0.1:11534:11534" # ollama-proxy        → real Ollama       :11434
+    networks:
+      - amore-chaos
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://127.0.0.1:8474/version || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+networks:
+  amore-chaos:
+    name: amore-chaos
+    driver: bridge

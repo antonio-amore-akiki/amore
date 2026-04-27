@@ -1,0 +1,14 @@
+{
+  "id": "ensemble-agent-vote-orchestrator",
+  "class": "coding",
+  "query": "multi-agent ensemble architect skeptic vote orchestrator confidence tally LlmClient trait mockall",
+  "raw_context_files": [
+    "crates/amore-core/src/ensemble.rs",
+    "crates/amore-core/src/world_model.rs"
+  ],
+  "canonical_docs_paths": [
+    ".",
+    "docs"
+  ],
+  "rationale": "Developer asking how the multi-agent orchestrator fan-out and vote tally works. ensemble.rs has AgentRole variants, system prompts, VOTE_SCHEMA, and tally logic."
+}

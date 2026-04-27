@@ -1,0 +1,14 @@
+{
+  "id": "clap-derive-subcommand-init-recall",
+  "class": "coding",
+  "query": "clap derive subcommand init serve recall doctor status amore CLI argparse",
+  "raw_context_files": [
+    "crates/amore-cli/src/main.rs",
+    "crates/amore-core/src/ide_adapter.rs"
+  ],
+  "canonical_docs_paths": [
+    ".",
+    "docs"
+  ],
+  "rationale": "Developer asking how the CLI subcommands are structured. cli/src/main.rs has the full clap derive setup with all subcommands including init, recall, doctor, status."
+}

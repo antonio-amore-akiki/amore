@@ -1,0 +1,28 @@
+# CodeQL SAST workflow — workflow_dispatch ONLY (zero GHA minutes per project constraint)
+# Activate post-public-flip by changing to push triggers. Source: github.com/github/codeql-action
+name: CodeQL
+
+on:
+  workflow_dispatch:
+
+permissions: read-all   # least-privilege top-level; job grants security-events:write only where needed
+
+jobs:
+  analyze:
+    name: Analyze Rust
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      actions: read
+      contents: read
+      security-events: write   # codeql upload-sarif requires this
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+      - uses: github/codeql-action/init@2c779ab0d087cd7fe7b826087247c2c81f27bfa6  # v3.27.1
+        with:
+          languages: rust
+          queries: security-extended
+      - uses: github/codeql-action/autobuild@2c779ab0d087cd7fe7b826087247c2c81f27bfa6  # v3.27.1
+      - uses: github/codeql-action/analyze@2c779ab0d087cd7fe7b826087247c2c81f27bfa6  # v3.27.1
+        with:
+          category: "/language:rust"

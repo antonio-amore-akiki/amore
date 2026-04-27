@@ -1,0 +1,13 @@
+{
+  "id": "backup-stack-veeam-migration",
+  "class": "docs",
+  "query": "veeam hasleo kopia backup migration",
+  "raw_context_files": [
+    "~/docs/setup-audit-20260523-103506.md",
+    "~/docs/host-state-audit-20260525T1140Z.md"
+  ],
+  "canonical_docs_paths": [
+    "~/docs"
+  ],
+  "rationale": "Migration-class question — backup-stack.md documents the active stack and what was replaced."
+}
