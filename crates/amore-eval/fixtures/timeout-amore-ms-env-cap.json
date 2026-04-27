@@ -1,0 +1,14 @@
+{
+  "id": "timeout-amore-ms-env-cap",
+  "class": "debugging",
+  "query": "AMORE_TIMEOUT_MS slow embedder timeout per-call cap parse_timeout floor 100ms with_timeout",
+  "raw_context_files": [
+    "crates/amore-core/src/timeout.rs",
+    "crates/amore-core/src/recall.rs"
+  ],
+  "canonical_docs_paths": [
+    ".",
+    "docs"
+  ],
+  "rationale": "Developer debugging why requests hang. timeout.rs has AMORE_TIMEOUT_MS, parse_timeout with 100ms floor, and with_timeout wrapper; recall.rs wires it around embed + search."
+}

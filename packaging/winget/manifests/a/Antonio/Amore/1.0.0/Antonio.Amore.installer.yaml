@@ -1,0 +1,9 @@
+PackageIdentifier: Antonio.Amore
+PackageVersion: 1.0.0
+Installers:
+  - Architecture: x64
+    InstallerType: wix
+    InstallerUrl: https://github.com/antonio-amore-akiki/amore/releases/download/v1.0.0/amore-windows-x64.msi
+    InstallerSha256: 378919C14BF3A1F7EF0FBE55BAD44DCF2AD90188DC4DE904CB12087D229D634E
+ManifestType: installer
+ManifestVersion: 1.6.0

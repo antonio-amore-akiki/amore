@@ -1,0 +1,28 @@
+# Amore semgrep config — Rust security ruleset + custom unwrap-blocker
+# Source: semgrep.dev/r + semgrep.dev/docs/writing-rules
+rules:
+  - id: rust-unwrap-in-prod
+    pattern: $E.unwrap()
+    paths:
+      exclude:
+        - "**/tests/**"
+        - "**/*_test.rs"
+        - "**/benches/**"
+        - "policy/test.mjs"
+    message: |
+      `.unwrap()` in non-test code is forbidden per Amore ADR 0010.
+      Use `.expect("documented invariant")` or proper error propagation with `?`.
+    severity: ERROR
+    languages: [rust]
+
+  - id: rust-eprintln-in-prod
+    pattern: |
+      eprintln!(...)
+    paths:
+      exclude:
+        - "**/tests/**"
+        - "**/*_test.rs"
+        - "crates/amore-eval/src/bin/**"
+    message: Use tracing::error!() not eprintln!() in production code paths.
+    severity: WARNING
+    languages: [rust]

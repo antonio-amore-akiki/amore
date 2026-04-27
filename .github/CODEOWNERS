@@ -1,0 +1,10 @@
+# Amore CODEOWNERS — single-author OSS project
+# Source: docs.github.com/about/code-owners
+
+* @antonio-amore-akiki
+
+/docs/ @antonio-amore-akiki
+/crates/ @antonio-amore-akiki
+/scripts/ @antonio-amore-akiki
+/.github/ @antonio-amore-akiki
+/packaging/ @antonio-amore-akiki

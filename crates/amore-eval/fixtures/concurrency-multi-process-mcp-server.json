@@ -1,0 +1,15 @@
+{
+  "id": "concurrency-multi-process-mcp-server",
+  "class": "research",
+  "query": "multi-process amore-mcp shared data dir WAL BEGIN IMMEDIATE concurrent readers writer Arc HybridRecall",
+  "raw_context_files": [
+    "docs/concurrency.md",
+    "crates/amore-core/src/sqlite_store.rs",
+    "crates/amore-core/tests/concurrency_writes.rs"
+  ],
+  "canonical_docs_paths": [
+    ".",
+    "docs"
+  ],
+  "rationale": "Researcher asking about multi-process safety guarantees. concurrency.md is the stable:true canonical reference for the WAL+IMMEDIATE posture and supported/unsupported deployment patterns."
+}

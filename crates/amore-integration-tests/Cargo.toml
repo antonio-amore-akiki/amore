@@ -1,0 +1,23 @@
+[package]
+name = "amore-integration-tests"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+# This crate has no library — it is purely integration test targets.
+publish = false
+
+[[test]]
+name = "cli_help"
+path = "tests/cli_help.rs"
+
+[[test]]
+name = "mcp_handshake"
+path = "tests/mcp_handshake.rs"
+
+[[test]]
+name = "init_dry_run"
+path = "tests/init_dry_run.rs"
+
+[dependencies]

@@ -1,0 +1,65 @@
+[package]
+name = "amore-gui"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "amore-gui"
+path = "src/main.rs"
+
+# lib target exposes ide_detect, ide_wire, tray, wizard modules for integration tests.
+[lib]
+name = "amore_gui"
+path = "src/lib.rs"
+
+[dependencies]
+# Native window + immediate-mode GUI (no Chromium, ~5-8 MB stripped binary).
+eframe = { version = "0.34", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
+# Native folder picker for the "Browse..." button.
+rfd = "0.15"
+# PATH lookup for Ollama auto-detect.
+which = "7"
+# Cross-platform default data directory (used by default_memory_dir()).
+dirs.workspace = true
+# HTTP client for F.installer-3 (Ollama silent download + readiness probe).
+# Workspace base has [default-features=false, json, rustls-tls]; we add "blocking"
+# so the worker thread can do synchronous chunked download without a tokio runtime.
+reqwest = { workspace = true, features = ["blocking"] }
+# JSON serialisation for --no-gui CI smoke output and IDE config wire-up.
+serde_json = { workspace = true }
+# YAML serialisation for Continue config.yaml wire-up.
+serde_yaml = { workspace = true }
+# Serde derive for wire/detect data types.
+serde = { workspace = true }
+# SHA-256 integrity check for the downloaded Ollama installer (security finding 10a).
+sha2 = { workspace = true }
+hex = { workspace = true }
+# System tray icon — W8.5D (Tauri-maintained, Adopt per prior-art-w8.5.md §6).
+tray-icon = { workspace = true }
+
+[dev-dependencies]
+# Temporary directory fixtures for IDE detect/wire tests.
+tempfile = "3"
+
+# ── Linux packaging metadata ──────────────────────────────────────────────────
+# W8.5C: AppImage wraps amore-gui (the user-facing binary).
+# cargo-appimage reads [package.metadata.appimage] to locate the icon and
+# configure the AppDir layout.
+
+[package.metadata.appimage]
+# Path relative to the crate root; cargo-appimage copies this into the AppDir.
+icon = "../../packaging/installer/linux/amore-icon.png"
+# auto_link embeds shared libraries; exclusion patterns skip standard system libs
+# so the AppImage remains portable across distributions.
+auto_link = true
+auto_link_exclude_list = [
+    "ld-linux*",
+    "libc.so*",
+    "libdl.so*",
+    "libm.so*",
+    "libpthread.so*",
+    "librt.so*",
+]

@@ -1,0 +1,13 @@
+{
+  "id": "backup-stack-hasleo-image",
+  "class": "docs",
+  "query": "hasleo backup image laptop t9 usb plug-in trigger",
+  "raw_context_files": [
+    "~/.claude/docs/setup-audit-20260523-103506.md",
+    "~/.claude/docs/host-state-audit-20260525T1140Z.md"
+  ],
+  "canonical_docs_paths": [
+    "~/.claude/docs"
+  ],
+  "rationale": "Real backup-tool question. Untaught agent would dump full setup-audit + host-state. Canonical backup-stack.md has the authoritative summary."
+}

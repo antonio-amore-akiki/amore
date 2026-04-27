@@ -1,0 +1,14 @@
+{
+  "id": "cosign-verify-blob-release-artifact",
+  "class": "debugging",
+  "query": "cosign verify-blob certificate identity rekor transparency log bundle amore release tarball",
+  "raw_context_files": [
+    ".github/workflows/release.yml",
+    "npm/postinstall.js",
+    "README.md"
+  ],
+  "canonical_docs_paths": [
+    "."
+  ],
+  "rationale": "Developer debugging cosign verify-blob command for Amore artifact. release.yml has the cosign workflow; README has the exact verify-blob command with rekor params."
+}

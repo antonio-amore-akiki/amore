@@ -1,0 +1,13 @@
+{
+  "id": "amore-install",
+  "class": "docs",
+  "query": "amore install npm postinstall cargo build cross-platform",
+  "raw_context_files": [
+    "npm/postinstall.js",
+    "npm/README.md"
+  ],
+  "canonical_docs_paths": [
+    "."
+  ],
+  "rationale": "Install-path question. README has the user-facing instructions; baseline = the actual postinstall implementation."
+}

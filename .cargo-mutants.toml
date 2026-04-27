@@ -1,0 +1,4 @@
+# Limit scope to amore-core only (full workspace exceeds 4h on dev machine)
+exclude_globs = ["crates/amore-mcp/**", "crates/amore-cli/**", "crates/amore-gui/**", "crates/amore-eval/**", "crates/amore-adapter-*/**", "crates/amore-integration-tests/**"]
+timeout_multiplier = 5.0
+gitignore = true

@@ -1,0 +1,13 @@
+{
+  "id": "backup-stack-kopia-snapshot",
+  "class": "docs",
+  "query": "kopia daily snapshot dpapi credentials usb event-410",
+  "raw_context_files": [
+    "~/.claude/docs/setup-audit-20260523-103506.md",
+    "~/.claude/docs/host-state-audit-20260525T1140Z.md"
+  ],
+  "canonical_docs_paths": [
+    "~/.claude/docs"
+  ],
+  "rationale": "Kopia config lookup — canonical backup-stack.md names the task, repo path, and credential location verbatim."
+}

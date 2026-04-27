@@ -1,0 +1,20 @@
+# Gitleaks secret scanner — workflow_dispatch ONLY per zero-GHA-minutes constraint.
+# Local pre-commit hook (see .githooks/pre-commit) is the primary surface.
+name: Gitleaks
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@cb7149b9b57195b609c63e8518d2c37a82b59e6e  # v2.3.6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

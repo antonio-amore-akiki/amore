@@ -1,0 +1,23 @@
+# Semgrep SAST — workflow_dispatch ONLY per zero-GHA-minutes constraint.
+name: Semgrep
+
+on:
+  workflow_dispatch:
+
+permissions: read-all   # least-privilege top-level; scan job grants security-events:write only where needed
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container:
+      image: returntocorp/semgrep:1.95.0@sha256:30e6afa99ebd8e7b4115d4904898108eb4bf77025819e9263f09cf14e6f6e549   # OSSF Scorecard Pinned-Dependencies
+    permissions:
+      contents: read
+      security-events: write   # upload-sarif requires this
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+      - run: semgrep ci --config p/rust --config .semgrep.yml --sarif --output semgrep.sarif
+      - uses: github/codeql-action/upload-sarif@2c779ab0d087cd7fe7b826087247c2c81f27bfa6  # v3.27.1
+        if: always()
+        with: { sarif_file: semgrep.sarif }

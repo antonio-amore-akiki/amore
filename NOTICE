@@ -1,0 +1,50 @@
+Amore (formerly obelion)
+Copyright 2026 Antonio <antonioakiki15@gmail.com>
+
+This product includes software developed by third parties under
+permissive licenses. Direct source dependencies (listed in Cargo.toml):
+
+  - qdrant-client (Apache-2.0) — Qdrant client crate
+    https://github.com/qdrant/rust-client
+    Copyright 2021-present Qdrant
+
+  - rmcp (MIT/Apache-2.0) — Official Anthropic Rust SDK for Model Context Protocol
+    https://github.com/modelcontextprotocol/rust-sdk
+    Copyright 2024-present Anthropic, PBC
+
+  - ollama-rs (MIT) — Community Ollama Rust client
+    https://github.com/pepperoni21/ollama-rs
+
+  - rusqlite (MIT) — SQLite bindings with bundled FTS5
+    https://github.com/rusqlite/rusqlite
+
+  - canonical_json (MIT) — Mozilla Canonical JSON serializer
+    https://github.com/mozilla-services/canonicaljson-rs
+
+  - tokio (MIT) — async runtime
+  - serde, serde_json (MIT/Apache-2.0) — serialization framework
+  - anyhow, thiserror (MIT/Apache-2.0) — error handling
+  - tracing, tracing-subscriber (MIT) — structured logging
+  - sha2, hex (MIT/Apache-2.0) — cryptographic primitives
+
+A complete machine-generated inventory of all transitive dependencies
+with their exact licenses can be produced with `cargo about generate`
+(planned for v0.2.0 distribution sprint, plan feature F11).
+
+This product also adopts technical patterns described in public
+documents:
+
+  - Canonical-JSON specification: https://wiki.laptop.org/go/Canonical_JSON
+    Patterns are not copyrightable; this notice acknowledges intellectual
+    debt only.
+
+  - portable-agent-memory paper (content-addressed observation envelope
+    with prev_hash chain). The new obelion is a clean-room Rust
+    implementation; no source code from the upstream paper repo was
+    vendored or copied. See crates/core/src/provenance.rs:1-12 for the
+    in-source spec citation.
+
+The repository at Gmail_Transformer/_archive/obelion-failed-experiment/
+is archived separately under its own license terms and is NOT part of
+this product. See RETROSPECTIVE-20260525.md in that directory for the
+failed-megamerge history.

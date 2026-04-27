@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Amore
+Comment=AI context memory — persistent recall across your coding agents
+Exec=/usr/bin/amore-gui
+Icon=amore
+Type=Application
+Categories=Development;Utility;
+StartupNotify=true
+StartupWMClass=amore-gui
+Keywords=AI;memory;context;coding;agent;recall;
+MimeType=
+Terminal=false

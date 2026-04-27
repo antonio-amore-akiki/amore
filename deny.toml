@@ -1,0 +1,59 @@
+# cargo-deny configuration for the Amore workspace.
+# Invoked nightly by scripts/security-baseline.ps1 and on any manual `cargo deny check`.
+# Reference: https://embarkstudios.github.io/cargo-deny/
+
+[advisories]
+# Yanked crates are a supply-chain risk — block them.
+yanked = "deny"
+# Triaged advisories — W1-1C 2026-05-26. Each entry reviewed in docs/RUSTSEC-TRIAGE-v0.5.0.md.
+# Sunset dates signal when each ignore must be re-evaluated (not auto-expired by cargo-deny).
+ignore = [
+    # INFO/Unmaintained — no CVSS, no active exploitability. Replace path documented in triage doc.
+    { id = "RUSTSEC-2025-0057", reason = "fxhash unmaintained (INFO only, no CVSS). Transitive via sled->amore-core. Replace with rustc-hash when sled dependency scheduled. Sunset 2026-12-31." },
+    { id = "RUSTSEC-2024-0384", reason = "instant unmaintained (INFO only, no CVSS). Transitive via sled/parking_lot/measure_time. Migrate to web-time when sled dependency scheduled. Sunset 2026-12-31." },
+    { id = "RUSTSEC-2025-0119", reason = "number_prefix unmaintained (INFO only, no CVSS). Transitive via indicatif->tokenizers->amore-core. Migrate to unit-prefix when indicatif releases update. Sunset 2026-12-31." },
+    { id = "RUSTSEC-2024-0436", reason = "paste archived (INFO only, no CVSS). Transitive via tokenizers/metal/macro_rules_attribute. Migrate to pastey (drop-in fork) when scheduled. Sunset 2026-12-31." },
+    { id = "RUSTSEC-2025-0134", reason = "rustls-pemfile archived Aug 2025 (INFO only, no CVSS). Transitive via tonic->qdrant-client/amore-mcp. Migrate to rustls-pki-types::PemObject when tonic releases update. Sunset 2026-12-31." },
+    # Unsound — Stacked Borrows violation in lru::IterMut::next / next_back ONLY. W9-fix-C 2026-05-27 verified
+    # unreachable in shipped v1.0.0 binary: tantivy 0.22.1 (sole compiled lru consumer; tracing-log's
+    # interest-cache feature is disabled, no amore-* crate imports lru) invokes only .new/.get/.put/.len/.peek_lru
+    # on its LruCache in src/store/reader.rs — never .iter_mut. Full reachability proof + every LruCache touchpoint
+    # enumerated in docs/RUSTSEC-TRIAGE-v0.5.0.md §RUSTSEC-2026-0002 and state/rustsec-2026-0002-analysis.md.
+    # Fix (lru 0.16.3+) requires tantivy 0.26+ (major migration, v-next backlog #34). Re-grep when tantivy bumped.
+    { id = "RUSTSEC-2026-0002", reason = "lru IterMut Stacked Borrows unsoundness is UNREACHABLE in tantivy 0.22.1 (only compiled consumer); tantivy invokes .new/.get/.put/.len/.peek_lru only, never .iter_mut. Verified W9-fix-C at docs/RUSTSEC-TRIAGE-v0.5.0.md §RUSTSEC-2026-0002 (file:line per touchpoint). No public PoC. Bump scheduled v-next #34 when tantivy 0.26+ adopted. Sunset 2026-12-31." },
+]
+
+[licenses]
+# Allow permissive and patent-grant licences. GPL/AGPL/SSPL are denied implicitly
+# (they are not in this list). Each licence here was verified present in the workspace
+# via `cargo license` at v0.2.1.
+allow = [
+    "Apache-2.0",
+    "MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-DFS-2016",
+    "Unicode-3.0",
+    "CC0-1.0",
+    "MPL-2.0",
+    "CDLA-Permissive-2.0",
+    "OpenSSL",
+    "Zlib",
+]
+exceptions = []
+# 0.93 threshold: cargo-deny requires this confidence to accept a detected licence.
+confidence-threshold = 0.93
+
+[bans]
+# Duplicate versions are allowed but warned — breaking one version per crate is v0.5.0 work.
+multiple-versions = "warn"
+# Wildcards in version requirements hide upgrades; deny them.
+wildcards = "deny"
+
+[sources]
+# Only allow the official crates.io registry; deny unknown registries and git sources
+# to guard against supply-chain substitution attacks.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

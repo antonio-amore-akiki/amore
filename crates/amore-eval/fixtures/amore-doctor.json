@@ -1,0 +1,12 @@
+{
+  "id": "amore-doctor",
+  "class": "debugging",
+  "query": "amore doctor self-diagnose ollama qdrant readyz health check cli",
+  "raw_context_files": [
+    "crates/amore-cli/src/main.rs"
+  ],
+  "canonical_docs_paths": [
+    "."
+  ],
+  "rationale": "Doctor CLI lookup. README references the doctor subcommand; baseline = the full CLI source."
+}

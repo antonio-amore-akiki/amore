@@ -1,0 +1,28 @@
+[book]
+title = "Amore — The Memory Layer Your AI Assistant Has Been Missing"
+description = "Local-first MCP memory backbone for AI coding assistants. Apache-2.0, Rust, zero-cloud, scales to 100M observations."
+authors = ["Antonio <antonioakiki15@gmail.com>"]
+language = "en"
+multilingual = false
+src = "src"
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/antonio-amore-akiki/amore"
+git-repository-icon = "fa-github"
+edit-url-template = "https://github.com/antonio-amore-akiki/amore/edit/main/docs/site/src/{path}"
+site-url = "/"
+input-404 = "404.md"
+
+[output.html.fold]
+enable = true
+level = 0
+
+[output.html.search]
+enable = true
+limit-results = 30
+teaser-word-count = 30
+use-boolean-and = true
+
+[preprocessor.links]

@@ -1,0 +1,15 @@
+PackageIdentifier: Antonio.Amore
+PackageVersion: 0.5.0
+PackageName: Amore
+Publisher: Antonio
+License: Apache-2.0
+PackageLocale: en-US
+ShortDescription: Local-first MCP memory backbone for AI coding assistants
+PackageUrl: https://github.com/antonio-amore-akiki/amore
+Installers:
+  - Architecture: x64
+    InstallerType: inno
+    InstallerUrl: https://github.com/antonio-amore-akiki/amore/releases/download/v0.5.0/Amore-Setup-v0.5.0.exe
+    InstallerSha256: PLACEHOLDER_amore-v0.5.0-x86_64-pc-windows-msvc.zip_SHA256
+ManifestType: singleton
+ManifestVersion: 1.6.0
