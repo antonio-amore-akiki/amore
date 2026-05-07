@@ -177,4 +177,117 @@ jobs:
           echo "## macOS ${{ matrix.target }} build complete" >> $GITHUB_STEP_SUMMARY
           echo "- **tar.gz SHA256**: \`${{ steps.package.outputs.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **.pkg  SHA256**: \`${{ steps.pkg.outputs.sha }}\`" >> $GITHUB_STEP_SUMMARY
+
+  linux-build:
+    # ubuntu-latest free for public repos. Produces .deb (cargo-deb) +
+    # .rpm (cargo-generate-rpm) + .AppImage (linuxdeploy + appimagetool).
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    if: ${{ inputs.release_tag != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends protobuf-compiler libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev pkg-config curl file
+
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install 1.95 --profile minimal
+          rustup default 1.95
+
+      - name: Install cargo packagers
+        run: |
+          cargo install cargo-deb --locked
+          cargo install cargo-generate-rpm --locked
+
+      - name: Build release binaries
+        run: cargo build --release -p amore-cli -p amore-mcp -p amore-gui
+
+      - name: Build .deb (cargo-deb)
+        id: deb
+        run: |
+          set -euo pipefail
+          cargo deb -p amore-cli --no-build --output target/debian/amore-${{ inputs.version }}-linux-amd64.deb || \
+            (cd crates/amore-cli && cargo deb --no-build -o ../../target/debian/amore-${{ inputs.version }}-linux-amd64.deb)
+          DEB=$(ls target/debian/amore-${{ inputs.version }}-linux-amd64.deb)
+          SHA=$(sha256sum "$DEB" | cut -d' ' -f1)
+          echo "deb=$DEB" >> $GITHUB_OUTPUT
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+
+      - name: Build .rpm (cargo-generate-rpm)
+        id: rpm
+        run: |
+          set -euo pipefail
+          cargo generate-rpm -p crates/amore-cli --output target/generate-rpm/amore-${{ inputs.version }}-linux-x86_64.rpm || \
+            cargo generate-rpm -p crates/amore-cli -o target/generate-rpm/amore-${{ inputs.version }}-linux-x86_64.rpm
+          RPM=$(ls target/generate-rpm/amore-${{ inputs.version }}-linux-x86_64.rpm)
+          SHA=$(sha256sum "$RPM" | cut -d' ' -f1)
+          echo "rpm=$RPM" >> $GITHUB_OUTPUT
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+
+      - name: Build .AppImage (linuxdeploy + appimagetool)
+        id: appimage
+        run: |
+          set -euo pipefail
+          # Bundle amore-gui as portable AppImage; double-click launches wizard.
+          mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
+          cp target/release/amore-gui AppDir/usr/bin/
+          cp target/release/amore AppDir/usr/bin/ 2>/dev/null || true
+          cp target/release/amore-mcp AppDir/usr/bin/ 2>/dev/null || true
+          # Minimal desktop entry
+          cat > AppDir/usr/share/applications/amore.desktop <<'DESKTOP'
+          [Desktop Entry]
+          Type=Application
+          Name=Amore
+          Exec=amore-gui
+          Icon=amore
+          Categories=Utility;Development;
+          Terminal=false
+          DESKTOP
+          cp AppDir/usr/share/applications/amore.desktop AppDir/
+          # Minimal icon (1x1 PNG fallback so appimagetool doesn't error)
+          if [ -f packaging/installer/linux/amore-icon.png ]; then
+            cp packaging/installer/linux/amore-icon.png AppDir/usr/share/icons/hicolor/256x256/apps/amore.png
+            cp packaging/installer/linux/amore-icon.png AppDir/amore.png
+          else
+            python3 -c "import struct,zlib;sig=b'\\x89PNG\\r\\n\\x1a\\n';ihdr=b'IHDR'+struct.pack('>IIBBBBB',1,1,8,2,0,0,0);ihdr=b'\\x00\\x00\\x00\\x0d'+ihdr+struct.pack('>I',zlib.crc32(ihdr));idat=zlib.compress(b'\\x00\\xff\\xff\\xff');idat=struct.pack('>I',len(idat))+b'IDAT'+idat;idat+=struct.pack('>I',zlib.crc32(b'IDAT'+zlib.compress(b'\\x00\\xff\\xff\\xff')));iend=b'\\x00\\x00\\x00\\x00IEND\\xaeB\\`\\x82';open('AppDir/amore.png','wb').write(sig+ihdr+idat+iend);open('AppDir/usr/share/icons/hicolor/256x256/apps/amore.png','wb').write(sig+ihdr+idat+iend)"
+          fi
+          # AppRun shim
+          cat > AppDir/AppRun <<'APPRUN'
+          #!/bin/bash
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          exec "${HERE}/usr/bin/amore-gui" "$@"
+          APPRUN
+          chmod +x AppDir/AppRun
+          # Download appimagetool
+          curl -sSL -o /tmp/appimagetool 'https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage'
+          chmod +x /tmp/appimagetool
+          # Run with --appimage-extract-and-run to avoid FUSE
+          ARCH=x86_64 /tmp/appimagetool --appimage-extract-and-run AppDir amore-gui-x86_64.AppImage
+          SHA=$(sha256sum amore-gui-x86_64.AppImage | cut -d' ' -f1)
+          echo "appimage=$(pwd)/amore-gui-x86_64.AppImage" >> $GITHUB_OUTPUT
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+
+      - name: Upload Linux artifacts to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ inputs.release_tag }}" "${{ steps.deb.outputs.deb }}" --clobber
+          gh release upload "${{ inputs.release_tag }}" "${{ steps.rpm.outputs.rpm }}" --clobber
+          gh release upload "${{ inputs.release_tag }}" "${{ steps.appimage.outputs.appimage }}" --clobber
+
+      - name: Surface SHAs
+        run: |
+          echo "## Linux build complete" >> $GITHUB_STEP_SUMMARY
+          echo "- **.deb SHA256**: \`${{ steps.deb.outputs.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **.rpm SHA256**: \`${{ steps.rpm.outputs.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **.AppImage SHA256**: \`${{ steps.appimage.outputs.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **.dmg  SHA256**: \`${{ steps.dmg.outputs.sha }}\`" >> $GITHUB_STEP_SUMMARY
