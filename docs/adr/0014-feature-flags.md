@@ -3,7 +3,7 @@
 
 ## Status
 
-Accepted 2026-05-26 (W3-3A zesty-foraging-lake plan).
+Accepted 2026-05-26.
 
 ## Context
 

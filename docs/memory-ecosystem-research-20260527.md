@@ -2,7 +2,7 @@
 stable: true
 topic: memory-ecosystem-supercharge-candidates + windows-code-signing-free-paths
 date: 2026-05-27
-research_basis: deep-research subagent a68d94c (Graphiti/LanceDB/Letta) + live signpath.io confirmation
+research_basis: deep-research pass a68d94c (Graphiti/LanceDB/Letta) + live signpath.io confirmation
 ---
 
 # Memory ecosystem supercharge research + Windows code-signing free paths

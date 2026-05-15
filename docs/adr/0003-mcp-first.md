@@ -92,6 +92,6 @@ IDE spawns it on demand. No always-on daemon, no listener, no port.
   - `canonical_doc_lookup(query)` — topic-match over stable: true docs
   - `observe(...)` — provenance-stamped writes (Phase H)
   - `world_model_query(...)` — typed graph projections (Phase H)
-  - `ensemble_decide(...)` — multi-agent vote orchestrator (v0.4.0)
+  - `ensemble_decide(...)` — multi-agent vote release process (v0.4.0)
   - `eig_question(...)` — clarification question selection (v0.4.0)
   - `provenance_verify(...)` — chain integrity check
