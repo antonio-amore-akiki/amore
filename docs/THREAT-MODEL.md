@@ -156,7 +156,7 @@ checklist; this file is the detailed architecture-level view.
 
 ## Review cadence
 
-- Every minor version bump: full re-review with `security-reviewer` subagent.
+- Every minor version bump: full re-review with dedicated security review.
 - Pre v1.0 tag: full re-review with `security-reviewer` + `cargo audit` +
   `cargo deny` + Scorecard + `cargo-geiger` output attached as release
   asset.

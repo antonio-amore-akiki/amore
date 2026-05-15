@@ -36,9 +36,9 @@ the circuit breaker opened and recall queries silently returned empty results fo
    exceeded the per-connection throughput ceiling for the default pool size of 16.
 3. **Why was the pool sized at 16 under 80k corpus load?** — `AMORE_POOL_MAX_SIZE=16`
    default was tuned for the stage-1-canary baseline (≤10k corpus); the 80k corpus
-   requirement was not in the W3 sizing matrix.
+   requirement was not in the  sizing matrix.
 4. **Why was 80k corpus not in the sizing matrix?** — the sizing matrix was authored at
-   W3 before extended self-dogfood at scale; no Prometheus-driven pool-auto-tune runbook
+    before extended self-dogfood at scale; no Prometheus-driven pool-auto-tune runbook
    existed to update the default.
 5. **Why was there no operational gap detected earlier?** — this is the first W10
    rehearsal exercise; the pool-sizing gap had never been exercised at this corpus scale
@@ -73,7 +73,7 @@ saturating all connections and triggering circuit breaker open state.
 
 - **14:40:00 UTC** — Antonio noticed anomalous silent-results pattern in Claude Code
 - **14:40:30 UTC** — opened amore-mcp JSON logs; identified pool exhaustion via log
-  lines showing `bb8::Pool::state() connections=16 idle=0` (per W2 OTel observability)
+  lines showing `bb8::Pool::state() connections=16 idle=0` (per  OTel observability)
 - **14:40:45 UTC** — restarted amore-mcp (`systemctl --user restart amore-mcp.service`
   on Linux equivalent; `amore status --stop && amore status --start` on Windows)
 - **14:41:00 UTC** — pool re-initialized; subsequent recall queries returned results
@@ -88,7 +88,7 @@ log, restart to re-initialize pool).
 |---|---|---|---|---|
 | Auto-tune `AMORE_POOL_MAX_SIZE` to ≥32 + idle ≥8 for corpus >50k observations | prevent | Antonio | issue#TBD | open |
 | Add Prometheus alert rule `amore_qdrant_pool_checkout_duration_seconds_p99 > 1s` sustained 5 min | mitigate | Antonio | issue#TBD | open |
-| Surface pool exhaustion state in tray icon via Recent Activity (W8.5D delivery) | mitigate | Antonio | issue#TBD | open |
+| Surface pool exhaustion state in tray icon via Recent Activity ( delivery) | mitigate | Antonio | issue#TBD | open |
 | Run quarterly self-dogfood stress test at 100k+ corpus to catch sizing drift | process | Antonio | issue#TBD | open |
 
 ## Lessons Learned
@@ -133,7 +133,7 @@ log, restart to re-initialize pool).
   motivates the pool-pressure alert addition (Action Item 2 above)
 - SLO error budget reference: `docs/SLO.md` Service Class A — 99.9% availability target,
   30-day rolling window, 43.2 min monthly budget; 17-min outage = ~39% budget consumed
-- Log excerpt (representative — from W2 OTel structured JSON output):
+- Log excerpt (representative — from  OTel structured JSON output):
   ```
   {"timestamp":"2026-06-15T14:40:30Z","level":"WARN","target":"amore_mcp::qdrant",
    "message":"pool_exhausted","connections":16,"idle":0,"checkout_wait_ms":5003,

@@ -45,7 +45,7 @@ fresh container. The `--rm` flag guarantees teardown. ARM64 uses `cross-rs/cross
 also launches a fresh Docker container (pinned in `Cross.toml`).
 
 **Reproducibility**: Two builds on the same `SOURCE_DATE_EPOCH` produce byte-identical
-SHA256 hashes. Verified W5. See `docs/RELEASING.md` → "Reproducible builds".
+SHA256 hashes. Verified at release. See `docs/RELEASING.md` → "Reproducible builds".
 
 **sha256sums bundle** (W5-5B addition): Step 7b of `scripts/release-local.ps1` generates
 `sha256sums.txt` (one `<sha256>  <filename>` line per artifact), signs it via cosign

@@ -99,7 +99,7 @@ The following security gates **MUST** be green before any release tag:
       done; coverage tests v0.4.0)*
 - [ ] **SLSA L3 provenance** on every release artifact. *(v1.0.0)*
 - [ ] **OSSF Scorecard ≥ 8.0** weekly cron. *(v0.9.0)*
-- [ ] **Security-reviewer subagent verdict = GO** on every release candidate. *(every tag)*
+- [ ] **Security review verdict = GO** on every release candidate. *(every tag)*
 
 The current security posture against this checklist is tracked in
 `docs/SECURITY-REVIEW-<version>.md`.

@@ -44,7 +44,7 @@ v-next action: add `wgpu` with `dx12`+`vulkan` features, write
 - `docs/assets/wizard-ide-detect.png` (Demo section, first screenshot)
 - `docs/assets/tray-menu.png` (Demo section, second screenshot)
 
-The W8.6A assembly step will stitch these into the final `README.md`.
+The  assembly step will stitch these into the final `README.md`.
 The animated GIF placeholder (`docs/assets/amore-demo.gif`) is still absent;
-the W8.6A assembler should replace the GIF `<img>` tag with a static screenshot
+the  assembler should replace the GIF `<img>` tag with a static screenshot
 or leave it as an empty placeholder pending v-next live capture.

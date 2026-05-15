@@ -2,7 +2,7 @@
 stable: true
 topic: first-run-wizard
 ---
-# First-Run Wizard — W8.5D
+# First-Run Wizard
 
 6-screen egui wizard shipped with `amore-gui`. Target: ≤2 min from launch to done on a fresh OS.
 

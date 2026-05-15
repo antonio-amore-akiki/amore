@@ -42,5 +42,5 @@ Notes on dry-run pattern: `amore init <ide> --dry-run` prints `# dry-run: <ide> 
 
 - Add a new binary contract: add a row here in the matching version section.
 - Promote a row from one version to the next: copy the row and adjust `must_not_contain`.
-- NEVER weaken `must_not_contain` assertions without a security-reviewer subagent verdict.
+- NEVER weaken `must_not_contain` assertions without a security-reviewer pass verdict.
 - Dry-run pattern source of truth: `crates/amore-cli/src/main.rs` `cmd_init` function — update row patterns if output format changes.

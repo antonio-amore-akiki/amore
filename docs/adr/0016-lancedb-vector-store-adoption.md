@@ -7,7 +7,7 @@ topic: lancedb-rust-embedded-vector-store-adoption-replaces-qdrant-daemon
 
 **Date**: 2026-05-27
 **Status**: Accepted (parallel implementation; full Qdrant replacement v1.2)
-**Decision driver**: deep-research subagent verdict 2026-05-27 (sources cited inline)
+**Decision driver**: deep-research pass verdict 2026-05-27 (sources cited inline)
 
 ## Context
 
@@ -18,7 +18,7 @@ Amore's current vector lane is `qdrant-client` 1.18.0 → external Qdrant daemon
 
 ## Alternatives evaluated
 
-Per deep-research 2026-05-27 (research subagent ID `a68d94c257db462f7`):
+Per deep-research 2026-05-27 (research pass ID `a68d94c257db462f7`):
 
 | Candidate | License | Native Rust | Embedded | Verdict |
 |---|---|---|---|---|

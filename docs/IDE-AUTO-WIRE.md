@@ -2,7 +2,7 @@
 stable: true
 topic: ide-auto-wire
 ---
-# IDE Auto-Wire — W8.5D
+# IDE Auto-Wire
 
 How Amore automatically wires itself into each supported AI tool's MCP config.
 
