@@ -45,7 +45,7 @@ Example:
 ```
 security: pin Ollama installer SHA-256 + fail-closed on mismatch
 
-Closes Critical 10a from docs/SECURITY-REVIEW-v0.3.0-live-fire.md.
+Closes Critical 10a from SECURITY.md.
 Hasher is incremental over the download stream so we do not read the
 857 MB file twice.
 ```

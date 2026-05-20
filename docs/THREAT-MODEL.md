@@ -149,7 +149,7 @@ checklist; this file is the detailed architecture-level view.
 
 - `SECURITY.md` — disclosure policy + supported versions
 - `docs/ACCEPTANCE-TESTS.md` — release-gate spec
-- `docs/results.tsv` — provenance + binary-contract proof rows
+- `test logs` — provenance + binary-contract proof rows
 - A5 cosign verify-blob proof — Sigstore Linux artifact chain proven on
   clean Debian (commit history `A5`)
 - F4 cryptographic provenance — commit `6a8d7f1`

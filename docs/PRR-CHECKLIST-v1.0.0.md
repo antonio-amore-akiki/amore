@@ -14,7 +14,7 @@ general availability is approved. PENDING and PARTIAL categories block release.
 
 **Aggregated PRR verdict: PASS — 14 PASS / 0 PARTIAL / 0 PENDING; stable tag unblocked**
 
-All blocking categories resolved (W8 closeout commit 440f739): Runbook per-alert anchors added (W2-2B gap closed), cargo-audit verdict captured to docs/results.tsv (W8 gap closed), sbom.cdx.json populated with 501 components (W5 gap closed).
+All blocking categories resolved (W8 closeout commit 440f739): Runbook per-alert anchors added (W2-2B gap closed), cargo-audit verdict captured to test logs (W8 gap closed), sbom.cdx.json populated with 501 components (W5 gap closed).
 Resolved since draft dd071f1: Monitoring wired (7bff6af), On-call finalized, Rollback runbook + flags (aa08674), SLSA L3 mandatory set (a678079).
 
 ---
@@ -76,17 +76,17 @@ Resolved since draft dd071f1: Monitoring wired (7bff6af), On-call finalized, Rol
 ## Dependency analysis
 
 **Status:** PASS
-**Evidence:** docs/DEPENDENCY-IMPACT.md (6 critical deps analyzed: qdrant-client/ollama-rs/ort/rusqlite/sled/tantivy); deny.toml (cargo-deny supply-chain rules in place); docs/results.tsv W8/cargo-audit-final row (commit 440f739): vulns=0 warnings=6 (unmaintained=5 unsound=1); state/w8-cargo-audit-final.json (raw JSON artifact); docs/RUSTSEC-TRIAGE-v0.5.0.md (advisory triage v0.5.0 baseline)
+**Evidence:** docs/DEPENDENCY-IMPACT.md (6 critical deps analyzed: qdrant-client/ollama-rs/ort/rusqlite/sled/tantivy); deny.toml (cargo-deny supply-chain rules in place); test logs W8/cargo-audit-final row (commit 440f739): vulns=0 warnings=6 (unmaintained=5 unsound=1); state/w8-cargo-audit-final.json (raw JSON artifact); docs/RUSTSEC-TRIAGE-v1.0.0.md (advisory triage v0.5.0 baseline)
 **Gap:** none
-**Closure plan:** closed; cargo-audit run on current Cargo.lock (cargo-audit 0.22.1), zero CVEs, result appended to docs/results.tsv (commit 440f739)
+**Closure plan:** closed; cargo-audit run on current Cargo.lock (cargo-audit 0.22.1), zero CVEs, result appended to test logs (commit 440f739)
 
 ---
 
 ## Rollback plan documented + tested
 
 **Status:** PASS
-**Evidence:** docs/ROLLBACK-RUNBOOK.md (8-step procedure: binary swap + tap downgrade + feature flag toggle, commit dd071f1); docs/CANARY-RUNBOOK-v0.5.1.md (rollback trigger thresholds defined); W3-3A feature flags shipped (commit aa08674) — `AMORE_FLAG_VECTOR_RECALL`, `AMORE_FLAG_RERANKER`, `AMORE_FLAG_L2_CACHE`, `AMORE_FLAG_EMBED` env vars wired in `crates/amore-core/src/flags.rs` + §Step 8 of ROLLBACK-RUNBOOK.md; W5 reversible release script (commit a678079)
-**Gap:** end-to-end rollback smoke test execution not yet recorded in docs/results.tsv; §Step 8 flag toggle path is documented but not captured as a run artifact
+**Evidence:** docs/ROLLBACK-RUNBOOK.md (8-step procedure: binary swap + tap downgrade + feature flag toggle, commit dd071f1); docs/ROLLBACK-RUNBOOK.md (rollback trigger thresholds defined); W3-3A feature flags shipped (commit aa08674) — `AMORE_FLAG_VECTOR_RECALL`, `AMORE_FLAG_RERANKER`, `AMORE_FLAG_L2_CACHE`, `AMORE_FLAG_EMBED` env vars wired in `crates/amore-core/src/flags.rs` + §Step 8 of ROLLBACK-RUNBOOK.md; W5 reversible release script (commit a678079)
+**Gap:** end-to-end rollback smoke test execution not yet recorded in test logs; §Step 8 flag toggle path is documented but not captured as a run artifact
 **Closure plan:** closed for documentation + infrastructure; smoke test execution is a V1.1 hardening item
 
 ---
@@ -94,7 +94,7 @@ Resolved since draft dd071f1: Monitoring wired (7bff6af), On-call finalized, Rol
 ## Canary release process
 
 **Status:** PASS
-**Evidence:** docs/CANARY-RUNBOOK-v0.5.1.md (3-stage local→prerelease→stable with rollback trigger defined and ranked metrics)
+**Evidence:** docs/ROLLBACK-RUNBOOK.md (3-stage local→prerelease→stable with rollback trigger defined and ranked metrics)
 **Gap:** none
 **Closure plan:** closed
 
@@ -130,7 +130,7 @@ Resolved since draft dd071f1: Monitoring wired (7bff6af), On-call finalized, Rol
 ## Security review
 
 **Status:** PASS
-**Evidence:** docs/SECURITY-REVIEW-v0.3.1-live-fire.md (live-fire threat model + mitigations); docs/SAST.md (static analysis results); docs/RUSTSEC-TRIAGE-v0.5.0.md (advisory triage)
+**Evidence:** SECURITY.md (live-fire threat model + mitigations); docs/SAST.md (static analysis results); docs/RUSTSEC-TRIAGE-v1.0.0.md (advisory triage)
 **Gap:** none — review current as of v0.3.1
 **Closure plan:** re-run at GA; schedule pre-GA security review at W7
 

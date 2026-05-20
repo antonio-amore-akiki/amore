@@ -10,9 +10,9 @@ purpose: blast radius + alternatives + rollback test plan for 6 critical deps
 stable: true
 owner: Antonio Amore AKIKI
 
-Cargo.lock source of truth. Advisory status from docs/RUSTSEC-TRIAGE-v0.5.0.md +
+Cargo.lock source of truth. Advisory status from docs/RUSTSEC-TRIAGE-v1.0.0.md +
 deny.toml (cargo-deny supply-chain rules). cargo-audit verdict to be appended
-to docs/results.tsv at W8 closure.
+to test logs
 
 ---
 
@@ -65,7 +65,7 @@ Estimated effort: 1 day. Existing `reqwest` workspace dep means zero new depende
 1. Vendor minimal Ollama HTTP client using existing `reqwest` dep (ADOPT path).
 2. Run `OBELION_TEST_OLLAMA=1 cargo test -p obelion-core --test ollama_embed -- --ignored`.
 3. All 4 integration tests must pass: 768-dim, determinism, distinctness, error-on-unreachable.
-4. Record result in docs/results.tsv.
+4. Record result in test logs.
 
 ---
 
@@ -81,7 +81,7 @@ candidate passages in the H3 reranking pipeline.
 **Blast radius if yanked:**
 - `amore-core` fails to compile → full binary build fails
 - Runtime: cross-encoder reranking unavailable; system falls back to vector-similarity
-  ranking only → NDCG degrades (quantified in docs/LONGMEMEVAL-CAPABILITY-REPORT-v0.5.0.md)
+  ranking only → NDCG degrades (quantified in docs/LONGMEMEVAL-CAPABILITY-REPORT-v1.0.0.md)
 - `AMORE_FLAG_RERANKER=off` disables reranker lane; recall continues without cross-encoder
 
 **Named alternative:** `tract` (sonos-ort/tract) — pure-Rust ONNX runtime, no C++ dep.
@@ -187,10 +187,10 @@ Preference: (c) SQLite FTS5 ADAPT path if tantivy is forced out — minimum depe
 
 ## cargo-audit status
 
-Current RUSTSEC triage: docs/RUSTSEC-TRIAGE-v0.5.0.md (v0.5.0 baseline).
+Current RUSTSEC triage: docs/RUSTSEC-TRIAGE-v1.0.0.md (v0.5.0 baseline).
 W8 closure action: run `cargo audit` against current Cargo.lock; append verdict row to
-docs/results.tsv as `W8\tcargo-audit\t<verdict>\t<advisory-count>`.
+test logs as `W8\tcargo-audit\t<verdict>\t<advisory-count>`.
 
 ---
 
-Source: Cargo.lock (deps + versions); docs/RUSTSEC-TRIAGE-v0.5.0.md; deny.toml
+Source: Cargo.lock (deps + versions); docs/RUSTSEC-TRIAGE-v1.0.0.md; deny.toml

@@ -224,5 +224,5 @@ After any rollback (binary or flag):
 
 ---
 
-Source: docs/CANARY-RUNBOOK-v0.5.1.md; docs/POSTMORTEM-TEMPLATE.md; docs/ON-CALL.md;
+Source: docs/ROLLBACK-RUNBOOK.md; docs/POSTMORTEM-TEMPLATE.md; docs/ON-CALL.md;
 docs/UPGRADING.md; sre.google/workbook/incident-response

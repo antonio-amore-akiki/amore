@@ -65,8 +65,8 @@ Availability: single-node 99.9% / cluster (RF=2) 99.99%.
 - SLSA L3 attestation (cosign keyless). Verify:
   `cosign verify-blob --bundle sha256sums.txt.sigstore sha256sums.txt`
 - OSSF Scorecard ≥ 7.5 (baseline 4.1, post-hardening ~7.1;
-  final score pending W10 — see `docs/SCORECARD-baseline.md`).
-- 6 RUSTSEC advisories triaged (see `docs/RUSTSEC-TRIAGE-v0.5.0.md`).
+  final score pending W10 — see `docs/SCORECARD-v1.0.0.md`).
+- 6 RUSTSEC advisories triaged (see `docs/RUSTSEC-TRIAGE-v1.0.0.md`).
   All transitive / no-network-path. Tree RUSTSEC-clean otherwise.
 - Adversarial-eval: 0 failures on 3 attack classes
   (prompt-injection-via-memory, memory-exfil, recall-poisoning).

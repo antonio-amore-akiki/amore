@@ -4,7 +4,7 @@
 # LongMemEval Capability Report — Amore v1.0.0
 
 **Dated**: 2026-05-27  
-**Carry-forward from**: `docs/LONGMEMEVAL-CAPABILITY-REPORT-v0.5.1.md`  
+**Carry-forward from**: `docs/LONGMEMEVAL-CAPABILITY-REPORT-v1.0.0.md`  
 **Status**: GATE PASS (mock-deps-only verdict — see Assessment limitations)
 
 > **Binding note**: The v0.5.1 measurement (R@5=1.0, R@10=1.0 on LongMemEval-S subset,
@@ -72,7 +72,7 @@ Measurements were taken in v0.5.1; method is unchanged and carried forward verba
 - **Dataset**: 20-instance synthetic corpus at `%LOCALAPPDATA%\Amore\datasets\longmemeval\test.jsonl`
 - **Result artifact**: `state/w1-longmemeval-v0.5.1-mock.json`
 
-Full elicitation detail: `docs/LONGMEMEVAL-CAPABILITY-REPORT-v0.5.1.md` §Elicitation method.
+Full elicitation detail: `docs/LONGMEMEVAL-CAPABILITY-REPORT-v1.0.0.md` §Elicitation method.
 
 ---
 

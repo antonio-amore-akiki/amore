@@ -2,7 +2,7 @@
 # System Card — Amore Reranker v1.0.0
 
 **Dated**: 2026-05-27  
-**Carry-forward from**: `docs/SYSTEM-CARD-reranker-v0.5.0.md`
+**Carry-forward from**: `docs/SYSTEM-CARD-reranker-v1.0.0.md`
 
 > Algorithm unchanged across v0.5.0→v1.0.0: same BAAI/bge-reranker-base ONNX model,
 > same recall pipeline, same RRF fusion. This System Card content remains binding for
