@@ -39,7 +39,7 @@ keyring.workspace = true
 rpassword = "7"
 
 # ── Linux packaging metadata ──────────────────────────────────────────────────
-# W8.5C: tray-icon on Linux requires GTK + ayatana runtime libraries.
+# tray-icon on Linux requires GTK + ayatana runtime libraries.
 # Omitting these causes silent tray failure on minimal installs.
 
 [package.metadata.deb]

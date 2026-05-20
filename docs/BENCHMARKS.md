@@ -138,7 +138,7 @@ amore-eval-longmemeval \
 
 ---
 
-## Test Suite Results (measured in earlier waves — see docs/results.tsv)
+## Test Suite Results (measured in earlier waves — see test logs)
 
 | Wave | Component | Result |
 |---|---|---|

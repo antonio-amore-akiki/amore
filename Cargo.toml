@@ -130,7 +130,7 @@ axum = "0.7"
 governor = "0.6"
 tower-governor = "0.4"
 
-# W8.5 — system-tray icon for non-technical-user installer/launcher
+# system-tray icon for non-technical-user installer/launcher
 tray-icon = "0.24"
 
 [profile.release]

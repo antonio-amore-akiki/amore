@@ -98,16 +98,16 @@ For detail on wiring specific IDEs (and manual wire-up for tools the wizard does
 
 ### Memory recall — LongMemEval
 
-| Metric | Amore v0.5.1 (mock corpus) | Stable-cut target (real corpus) |
+| Metric | Amore v1.0.0 (mock corpus) | Stable-cut target (real corpus) |
 |--------|----------------------------|---------------------------------|
 | R@5    | 1.0000 | ≥ 0.85 |
 | R@10   | 1.0000 | ≥ 0.90 |
 | MRR    | 1.0000 | — |
 | Instances | 20 (synthetic, BM25-only) | 500 (real `xiaowu0162/LongMemEval`) |
 
-Synthetic corpus produces a perfect score by construction; real-corpus numbers measured at v1.1 release. Source: [`docs/LONGMEMEVAL-CAPABILITY-REPORT-v0.5.1.md`](docs/LONGMEMEVAL-CAPABILITY-REPORT-v0.5.1.md). Reproduction: `cargo run --release --bin longmemeval_runner -- --dataset state/longmemeval-s/ --k 5,10`.
+Synthetic corpus produces a perfect score by construction; real-corpus numbers measured at v1.1 release. Source: [`docs/LONGMEMEVAL-CAPABILITY-REPORT-v1.0.0.md`](docs/LONGMEMEVAL-CAPABILITY-REPORT-v1.0.0.md). Reproduction: `cargo run --release --bin longmemeval_runner -- --dataset state/longmemeval-s/ --k 5,10`.
 
-### Latency (Windows MSVC x86_64 laptop, commit `df9f03d`, cold start)
+### Latency (Windows MSVC x86_64 laptop, v1.0.0, cold start)
 
 | Operation | Min | Avg | Target |
 |-----------|-----|-----|--------|
@@ -132,7 +132,7 @@ p50/p95/p99 under load measured at v1.1 release. Source: [`docs/perf-baseline.ts
 | Memory exfil | [OWASP LLM02](https://owasp.org/www-project-top-10-for-large-language-model-applications/) — sensitive doc scored zero on unrelated query |
 | Recall poisoning | Adversarial keyword-stuffed doc dominated 0/20 queries (threshold ≤ 2/20) |
 
-Source: [`docs/ADVERSARIAL-EVAL-RESULTS-v0.8.0.md`](docs/ADVERSARIAL-EVAL-RESULTS-v0.8.0.md).
+Source: [`docs/ADVERSARIAL-EVAL.md`](docs/ADVERSARIAL-EVAL.md).
 
 ### Comparison vs. similar systems (methodology caveats apply — see capability report)
 
@@ -168,12 +168,10 @@ All docs are in [`docs/`](docs/). Grouped by concern.
 | File | Description |
 |------|-------------|
 | [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md) | STRIDE-class threat enumeration, trust boundaries, mitigations per threat |
-| [`docs/ADVERSARIAL-EVAL.md`](docs/ADVERSARIAL-EVAL.md) | Adversarial eval methodology: 3 attack classes, test harness design, Greshake + OWASP sources |
-| [`docs/ADVERSARIAL-EVAL-RESULTS-v0.8.0.md`](docs/ADVERSARIAL-EVAL-RESULTS-v0.8.0.md) | Measured results: 3/3 PASS across prompt-injection, memory-exfil, and recall-poisoning |
+| [`docs/ADVERSARIAL-EVAL.md`](docs/ADVERSARIAL-EVAL.md) | Adversarial eval methodology + measured 3/3 PASS results (prompt-injection, memory-exfil, recall-poisoning) |
 | [`docs/SAST.md`](docs/SAST.md) | Static analysis toolchain: semgrep rules, CodeQL workflow, gitleaks secret scanning |
 | [`docs/FUZZING.md`](docs/FUZZING.md) | cargo-fuzz harnesses: canonical_json + mcp_protocol targets, corpus, coverage |
-| [`docs/MUTATION-BASELINE-v0.8.0.md`](docs/MUTATION-BASELINE-v0.8.0.md) | Mutation testing baseline (cargo-mutants) on amore-core: 614 mutants, baseline score |
-| [`docs/RUSTSEC-TRIAGE-v0.5.0.md`](docs/RUSTSEC-TRIAGE-v0.5.0.md) | RUSTSEC advisory triage per NIST SSDF RV: fix-available / transitive-no-fix disposition |
+| [`docs/RUSTSEC-TRIAGE-v1.0.0.md`](docs/RUSTSEC-TRIAGE-v1.0.0.md) | RUSTSEC advisory triage: fix-available / transitive-no-fix disposition |
 | [`docs/SECRETS.md`](docs/SECRETS.md) | Secret hygiene: keyring integration, fallback 0600 secrets.toml, gitleaks custom rules |
 | [`docs/SLSA-L3-ATTESTATION.md`](docs/SLSA-L3-ATTESTATION.md) | SLSA L3 attestation: ephemeral build env, cosign keyless provenance, consumer verification steps |
 | [`SECURITY.md`](SECURITY.md) | Private disclosure policy, severity SLA (5 days High/Critical, 30 days fix) |
@@ -185,7 +183,7 @@ All docs are in [`docs/`](docs/). Grouped by concern.
 | [`docs/SLO.md`](docs/SLO.md) | Service Level Objectives per Google SRE Ch.4: 3 service classes, SLI formulas, validity conditions |
 | [`docs/ERROR-BUDGET-POLICY.md`](docs/ERROR-BUDGET-POLICY.md) | Error budget policy per Google SRE Ch.3: freeze trigger at 50% budget burn within 30 days |
 | [`docs/MONITORING-ALERTS.md`](docs/MONITORING-ALERTS.md) | Prometheus alert rules, thresholds, and runbook anchor refs per alert |
-| [`docs/CANARY-RUNBOOK-v0.5.1.md`](docs/CANARY-RUNBOOK-v0.5.1.md) | 3-stage canary release process (Meta pattern): dogfood / prerelease / stable gates + rollback triggers |
+| [`docs/ROLLBACK-RUNBOOK.md`](docs/ROLLBACK-RUNBOOK.md) | 3-stage canary release process (Meta pattern): dogfood / prerelease / stable gates + rollback triggers |
 | [`docs/POSTMORTEM-TEMPLATE.md`](docs/POSTMORTEM-TEMPLATE.md) | Blameless postmortem template per Google SRE example-postmortem: 5-Whys, UTC timeline, action items |
 | [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | Operational runbook: per-alert response procedures, diagnostic commands, escalation |
 | [`docs/ON-CALL.md`](docs/ON-CALL.md) | Solo on-call memo: reach-by contact, self-rotation policy, escalation path |
@@ -202,8 +200,8 @@ All docs are in [`docs/`](docs/). Grouped by concern.
 | [`docs/COMPLIANCE-CHECKLIST.md`](docs/COMPLIANCE-CHECKLIST.md) | Per-control proof map: SLSA L3, NIST SSDF, CycloneDX SBOM, STRIDE, SAST, fuzz, mutation, adversarial |
 | [`docs/GDPR-SCOPING.md`](docs/GDPR-SCOPING.md) | GDPR Art.25 scoping memo: local-first out-of-scope analysis + privacy-by-design choices documented |
 | [`docs/ACCESSIBILITY-STATEMENT.md`](docs/ACCESSIBILITY-STATEMENT.md) | WCAG 2.2 AA aspirational + MSAA/UIA actual standard (Windows): egui/AccessKit integration status, known gaps |
-| [`docs/SYSTEM-CARD-reranker-v0.5.0.md`](docs/SYSTEM-CARD-reranker-v0.5.0.md) | System Card for BAAI/bge-reranker-base: intended use, training data, eval results, safety surface, update policy |
-| [`docs/LONGMEMEVAL-CAPABILITY-REPORT-v0.5.1.md`](docs/LONGMEMEVAL-CAPABILITY-REPORT-v0.5.1.md) | Capability Report (RSP-pattern): R@K measured, limitations, elicitation method, stable-cut prerequisites |
+| [`docs/SYSTEM-CARD-reranker-v1.0.0.md`](docs/SYSTEM-CARD-reranker-v1.0.0.md) | System Card for BAAI/bge-reranker-base: intended use, training data, eval results, safety surface, update policy |
+| [`docs/LONGMEMEVAL-CAPABILITY-REPORT-v1.0.0.md`](docs/LONGMEMEVAL-CAPABILITY-REPORT-v1.0.0.md) | Capability Report (RSP-pattern): R@K measured, limitations, elicitation method, stable-cut prerequisites |
 | [`docs/POSTMORTEM-REHEARSAL-v1.0.0.md`](docs/POSTMORTEM-REHEARSAL-v1.0.0.md) | Post-stable postmortem rehearsal: hypothetical incident walked end-to-end through the template |
 
 ---
@@ -330,7 +328,7 @@ has an unproven root cause is not a stable cut. The gate fires only when both la
 [`docs/ERROR-BUDGET-POLICY.md`](docs/ERROR-BUDGET-POLICY.md) ·
 [`docs/PRR-CHECKLIST-v1.0.0.md`](docs/PRR-CHECKLIST-v1.0.0.md) ·
 [`docs/POSTMORTEM-TEMPLATE.md`](docs/POSTMORTEM-TEMPLATE.md) ·
-[`docs/CANARY-RUNBOOK-v0.5.1.md`](docs/CANARY-RUNBOOK-v0.5.1.md) ·
+[`docs/ROLLBACK-RUNBOOK.md`](docs/ROLLBACK-RUNBOOK.md) ·
 [`docs/SLSA-L3-ATTESTATION.md`](docs/SLSA-L3-ATTESTATION.md) ·
 [`sbom.cdx.json`](sbom.cdx.json) ·
 [`docs/COMPLIANCE-CHECKLIST.md`](docs/COMPLIANCE-CHECKLIST.md) — full per-control proof matrix

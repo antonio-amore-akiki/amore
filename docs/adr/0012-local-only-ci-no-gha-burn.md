@@ -61,7 +61,7 @@ order:
 
 Results are written to `state/security-baseline-{date}.json` (gitignored;
 tier-2 operational state). A summary line is appended to
-`docs/results.tsv` (append-only; proof row per run).
+`test logs` (append-only; proof row per run).
 
 Release-tag GHA (`.github/workflows/release.yml`) runs only:
 `cargo audit` + `cargo deny check` + `cargo test --release` (~12 min).
@@ -119,7 +119,7 @@ ongoing policy.
 
 * Task Scheduler installer: `scripts/install-task.ps1`
 * Security baseline script: `scripts/security-baseline.ps1`
-* Results sink: `docs/results.tsv` (append-only; enforced by
+* Results sink: `test logs` (append-only; enforced by
   `results-tsv-append-only` rule in CLAUDE.md governance)
 * State dir: `state/` (gitignored; tier-2 operational)
 * GHA release workflow: `.github/workflows/release.yml`

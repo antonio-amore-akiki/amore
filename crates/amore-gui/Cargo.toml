@@ -37,7 +37,7 @@ serde = { workspace = true }
 # SHA-256 integrity check for the downloaded Ollama installer (security finding 10a).
 sha2 = { workspace = true }
 hex = { workspace = true }
-# System tray icon — W8.5D (Tauri-maintained, Adopt per prior-art-w8.5.md §6).
+# System tray icon (Tauri-maintained, Adopt per release docs §6).
 tray-icon = { workspace = true }
 
 [dev-dependencies]
@@ -45,7 +45,7 @@ tray-icon = { workspace = true }
 tempfile = "3"
 
 # ── Linux packaging metadata ──────────────────────────────────────────────────
-# W8.5C: AppImage wraps amore-gui (the user-facing binary).
+# AppImage wraps amore-gui (the user-facing binary).
 # cargo-appimage reads [package.metadata.appimage] to locate the icon and
 # configure the AppDir layout.
 

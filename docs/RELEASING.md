@@ -65,7 +65,7 @@ Full run: **15-30 min**. With `-SkipLinux`: ~5-10 min.
 | 8 Verify | `cosign verify-blob --bundle` round-trip on each artifact; exits 8 on fail |
 | 9 Upload | `gh release upload vX.Y.Z <artifact> <sbom> <bundle>` per file |
 | 10 Proof | Writes `%LOCALAPPDATA%\Amore\release-local-vX-<ts>.json` |
-| 11 TSV | Appends one row to `docs/results.tsv` |
+| 11 TSV | Appends one row to `test logs` |
 
 ## SLSA L3 Verification
 

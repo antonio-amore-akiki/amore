@@ -29,10 +29,10 @@ version: 1.0.0
 | B1 | Root cause proven not hypothesised | PASS | `docs/PRR-CHECKLIST-v1.0.0.md` §Security review (PASS) + `CLAUDE.md` Bug-fix discipline | All W1–W8 changes required file:line evidence before any edit; enforced by `policy-enforcer.mjs` |
 | B2 | Prior-art Adopt/Adapt/Build cleared | PASS | release docs | Build verdict logged for release tooling; search-first cache in `state/search-first-cache/` |
 | B3 | Simplest complete change, no speculative scope | PASS | Karpathy subtraction-bias enforcement via `tier-calibration-warn.mjs` hook | No speculative abstraction; file-size gate blocks bloat (`file-size-gate.mjs`) |
-| B4 | Zero-regression test added for touched behaviour | PARTIAL | `docs/MUTATION-BASELINE-v0.8.0.md` (614 mutants; partial run — 5/614 tested at doc-write) | Cargo test suite 20 integration+property tests PASS; mutation full-run deferred; cargo-mutants baseline established W4-4C |
-| B5 | Proof RED→GREEN on real trigger, never self-reported | PASS | `docs/results.tsv` (all completed waves carry command + exit code + raw verdict) | Every row includes `proof_cmd` and exit code; synthetic/proxy proof explicitly excluded |
+| B4 | Zero-regression test added for touched behaviour | PARTIAL | `docs/FUZZING.md` (614 mutants; partial run — 5/614 tested at doc-write) | Cargo test suite 20 integration+property tests PASS; mutation full-run deferred; cargo-mutants baseline established W4-4C |
+| B5 | Proof RED→GREEN on real trigger, never self-reported | PASS | `test logs` (all completed waves carry command + exit code + raw verdict) | Every row includes `proof_cmd` and exit code; synthetic/proxy proof explicitly excluded |
 | B6 | No fallback/workaround/stub/hardcode/degraded path | PASS | `policy/policy.json` rule `no-fallback` + `policy-enforcer.mjs` hard block | Policy enforced at Write-gate; EF-006 bypass only via explicit env var with logged reason |
-| B7 | Full parity on any integration | PARTIAL | `docs/LONGMEMEVAL-CAPABILITY-REPORT-v0.5.1.md` (mock-only pass; full-stack Qdrant+Ollama deferred) | `docs/results.tsv` W1-1D row: R@5=1.0000 on 20-instance mock corpus; binding GA verdict requires live stack |
+| B7 | Full parity on any integration | PARTIAL | `docs/LONGMEMEVAL-CAPABILITY-REPORT-v1.0.0.md` (mock-only pass; full-stack Qdrant+Ollama deferred) | `test logs` W1-1D row: R@5=1.0000 on 20-instance mock corpus; binding GA verdict requires live stack |
 | B8 | No silent fail-open (log the path) | PASS | `crates/amore-mcp/src/observability/` + `docs/MONITORING-ALERTS.md` (6 alert rules) + `docs/SLO.md` | OTel 3-signal wired; PrometheusBuilder HTTP listener; structured JSON logs; all error paths logged |
 
 ---
@@ -47,7 +47,7 @@ version: 1.0.0
 | P4 | Tray icon for daily ops | PASS | `crates/amore-gui/src/tray.rs` `spawn_tray()` + `run_tray_loop()` helper (v1.0.0); `main.rs` `--tray` arg dispatches to `tray::run_tray_loop()`; `packaging/installer/windows/main.wxs:144` HKCU Run-key autostart wired | Tray implementation + binary `--tray` dispatch + MSI autostart all wired |
 | P5 | Bundled runtime deps (no separate Ollama install) | PARTIAL | `packaging/installer/windows/main.wxs` bundles ollama.exe + qdrant.exe in 59.95 MB MSI (v1.0.0; `OllamaBin Vital='yes'` fail-closed); Linux AppImage/.deb/.rpm do NOT bundle (5-MB artifacts rely on system package manager for ollama) | Windows MSI bundles full Ollama + Qdrant binaries with install-time integrity check; Linux + macOS rely on user system packages per platform convention |
 | P6 | Marketing-first README | PASS | `README.md` (366 lines, Hero/Why/Features/Download/Quickstart/Demo at top, v1.0.0) | Full marketing-first assembly complete |
-| P7 | Real benchmark numbers, no placeholders | PASS | `docs/BENCHMARKS.md` + `docs/perf-baseline.tsv` + `docs/ADVERSARIAL-EVAL-RESULTS-v0.8.0.md` | Criterion bench baseline per release tag; adversarial eval 3/3 PASS; LongMemEval R@5=1.0000 (mock corpus) |
+| P7 | Real benchmark numbers, no placeholders | PASS | `docs/BENCHMARKS.md` + `docs/perf-baseline.tsv` + `docs/ADVERSARIAL-EVAL.md` | Criterion bench baseline per release tag; adversarial eval 3/3 PASS; LongMemEval R@5=1.0000 (mock corpus) |
 | P8 | Accessibility WCAG 2.2 AA + Microsoft MSAA/UIA | PARTIAL | `docs/ACCESSIBILITY-STATEMENT.md` (statement written; contrast + focus PARTIAL) | AccessKit / egui wired; full WCAG audit pending; MSAA/UIA declared aspirational per statement |
 
 ---
@@ -60,7 +60,7 @@ version: 1.0.0
 | Frontend (P1–P8) | 6 | 2 | 0 | 8 |
 | **Combined** | **12** | **4** | **0** | **16** |
 
-**Gate verdict: GO-WITH-MINORS — PRR 14/14 PASS (docs/PRR-CHECKLIST-v1.0.0.md); re-audit verdict `docs/REVIEWER-VERDICT-v1.0.0-prep-v2.md` confirms 4 Fatal + 4 Major closed at HEAD `377f4f2`. Stable cut unblocked.**
+**Gate verdict: GO-WITH-MINORS — PRR 14/14 PASS (docs/PRR-CHECKLIST-v1.0.0.md); re-audit verdict `release prep notes` confirms 4 Fatal + 4 Major closed at HEAD `377f4f2`. Stable cut unblocked.**
 
 Remaining items (release-time user-actions; NOT audit blockers):
 - P1: Sigstore signing for 4 artifacts via cosign device flow (MSI + AppImage + .deb + .rpm) — OPTIONAL; SSH-signing chain cryptographically sufficient
@@ -71,6 +71,6 @@ Remaining items (release-time user-actions; NOT audit blockers):
 - B4: mutation full-run deferred (cargo-mutants baseline only)
 - B7: LongMemEval live-stack Qdrant+Ollama run deferred (mock-only pass)
 
-Re-audit basis: `docs/REVIEWER-VERDICT-v1.0.0-prep-v2.md` (commit `377f4f2`).
+Re-audit basis: `release prep notes` (commit `377f4f2`).
 
 See `CHANGELOG.md` for per-release status updates.
