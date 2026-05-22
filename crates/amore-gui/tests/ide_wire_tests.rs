@@ -1,4 +1,4 @@
-// crates/amore-gui/tests/ide_wire_tests.rs — W8.5D IDE wire integration tests.
+// crates/amore-gui/tests/ide_wire_tests.rs IDE wire integration tests.
 //
 // Five tests: one per IDE config format. Each:
 //   1. Writes a fake config file with pre-existing content.

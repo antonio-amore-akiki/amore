@@ -1,4 +1,4 @@
-// crates/amore-gui/src/ide_detect.rs — W8.5D IDE auto-detect.
+// crates/amore-gui/src/ide_detect.rs IDE auto-detect.
 //
 // Scans well-known config file locations for each of the 5 supported IDEs.
 // Sources for config paths are cited per-IDE and in docs/IDE-AUTO-WIRE.md.

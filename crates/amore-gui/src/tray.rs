@@ -1,4 +1,4 @@
-// crates/amore-gui/src/tray.rs — W8.5D system tray icon.
+// crates/amore-gui/src/tray.rs system tray icon.
 //
 // Uses tray-icon 0.24 (Tauri-maintained, Adopt per docs/prior-art-w8.5.md §6).
 // Per prior-art note about winit standalone jank (winit #3835): uses
@@ -149,7 +149,7 @@ fn check_autostart_state() {
 fn windows_autostart_check() {
     // The MSI installer writes the Run registry key.
     // Tray reads it and logs; the user can disable via the Windows Startup manager.
-    // We do not write the key here — that is the installer's job (W8.5A).
+    // We do not write the key here — that is the installer's job ().
     use std::process::Command;
     let out = Command::new("reg")
         .args([
