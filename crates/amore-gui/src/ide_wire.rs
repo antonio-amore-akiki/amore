@@ -1,4 +1,4 @@
-// crates/amore-gui/src/ide_wire.rs — W8.5D IDE config wire-up.
+// crates/amore-gui/src/ide_wire.rs IDE config wire-up.
 //
 // Merges an `amore` MCP server entry into each detected IDE's config file.
 //

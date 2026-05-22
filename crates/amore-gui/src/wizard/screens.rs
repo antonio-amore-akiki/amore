@@ -1,4 +1,4 @@
-// crates/amore-gui/src/wizard/screens.rs — W8.5D per-screen render functions.
+// crates/amore-gui/src/wizard/screens.rs per-screen render functions.
 //
 // Each function renders one screen within the wizard CentralPanel.
 // State mutations (screen transitions, IDE detection) happen via &mut WizardState.

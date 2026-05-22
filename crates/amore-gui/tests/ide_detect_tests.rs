@@ -1,4 +1,4 @@
-// crates/amore-gui/tests/ide_detect_tests.rs — W8.5D IDE detect integration tests.
+// crates/amore-gui/tests/ide_detect_tests.rs IDE detect integration tests.
 //
 // Five tests, one per IDE. Each writes a fake config file under a tempfile::TempDir
 // and calls detect_with_roots() with the temp dir as the injected home/appdata root.

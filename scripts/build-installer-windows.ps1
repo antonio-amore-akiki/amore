@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# scripts/build-installer-windows.ps1 — W8.5A Windows MSI build pipeline.
+# scripts/build-installer-windows.ps1 — Windows MSI build pipeline.
 #
 # Prior-art: Adapt from release-local.ps1 (param block, Write-Log, Invoke-Required,
 # cosign block, $RepoRoot resolution) + release-dry-run.ps1 (Set-StrictMode,
@@ -102,7 +102,7 @@ function Get-BinaryFromZip {
 
 foreach ($d in @($BundledDir, $WixOut, $StateDir)) { New-Item -ItemType Directory -Force -Path $d | Out-Null }
 Set-Content -Path $LogFile -Value "" -Encoding UTF8
-Write-Log "=== W8.5A Windows MSI build start ==="
+Write-Log "=== Windows MSI build start ==="
 
 # Step 1: Bundled runtime deps
 Write-Log "-- Step 1: Fetch bundled runtime deps --"

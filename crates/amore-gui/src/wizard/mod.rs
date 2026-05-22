@@ -1,4 +1,4 @@
-// crates/amore-gui/src/wizard/mod.rs — W8.5D first-run wizard (6 screens).
+// crates/amore-gui/src/wizard/mod.rs first-run wizard (6 screens).
 // @file-size-exempt: 6-screen dispatch table — each screen is a distinct match arm; no reusable extraction without losing clarity
 //
 // egui state machine: each screen has Back/Next with screen-specific validation.

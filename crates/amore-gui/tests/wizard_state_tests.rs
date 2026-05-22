@@ -1,4 +1,4 @@
-// crates/amore-gui/tests/wizard_state_tests.rs — W8.5D wizard state-machine tests.
+// crates/amore-gui/tests/wizard_state_tests.rs wizard state-machine tests.
 //
 // Tests the 6-screen Next/Back state transitions and can_advance() gating.
 // No egui context needed — all logic is pure state mutation.
