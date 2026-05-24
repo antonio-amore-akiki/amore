@@ -12,9 +12,9 @@ Single-author local-first project — public roadmap is intentionally short and 
 - SSH-signed `sha256sums.txt`; CycloneDX SBOM `composition.aggregate = complete`; SLSA L3 attestation
 - LongMemEval R@5 = 1.0 / R@10 = 1.0 on mock corpus (live-stack run scheduled v1.1)
 - Adversarial-eval 0 failures across 3 attack classes (prompt-injection / memory-exfil / recall-poisoning)
-- 14/14 PRR PASS; SLO + error-budget policy live
+- 14/14 production-readiness checks PASS; SLO + error-budget policy live
 - **Repo public-flipped 2026-05-27** — source visible at https://github.com/antonio-amore-akiki/amore; free GHA macOS runners unlocked; OSSF Scorecard public scoring activated; Discussions discoverable
-- **v-next #34: eframe 0.29→0.34.3 + tantivy 0.22→0.26.1 + qdrant-client 1.15→1.18 migrations landed** (60 test binaries / 0 failures; cargo clippy -D warnings clean); reqwest + tonic deferred to qdrant 1.19+ per `docs/adr/0015`
+- **eframe 0.29→0.34.3 + tantivy 0.22→0.26.1 + qdrant-client 1.15→1.18 migrations landed** (60 test binaries / 0 failures; cargo clippy -D warnings clean); reqwest + tonic deferred to qdrant 1.19+ per ADR-0015
 
 ## v1.1 — next (no committed timeline; single-author throughput)
 
@@ -24,10 +24,10 @@ Single-author local-first project — public roadmap is intentionally short and 
 - **`crates.io` publication** — enables `cargo install amore-mcp` + rustdoc on docs.rs. Currently local-binary distribution only. Public-flip unblocks this
 - **Hosted docs site at `docs.amore.dev`** — mdBook → GitHub Pages. Currently `docs/` in-repo only
 
-## v-next — sustaining (no version commitment)
+## Later — sustaining work, no version commitment
 
 - **Apple Developer ID notarization** — ships signed `.pkg` / `.dmg` removing macOS Gatekeeper warning. Excluded under "only unlimited free options" constraint (Apple Dev ID is $99/yr). Re-evaluate if constraint changes
-- **reqwest 0.13 + tonic 0.14 + prost 0.14** — bump when qdrant-client 1.19+ relaxes transitive pins (currently blocked per `docs/adr/0015`)
+- **reqwest 0.13 + tonic 0.14 + prost 0.14** — bump when qdrant-client 1.19+ relaxes transitive pins (currently blocked per ADR-0015)
 - **OSSF Scorecard structural ceiling raise** — current score is structural ceiling for workflow_dispatch-only workflows. Re-measure after public-flip + relaxed constraints
 - **GitHub Discussions categories + community curation** — enabled at flip; activate categories + curate after first external users land
 - **Brand landing page at `amore.ai`** — separate marketing site. Sustained marketing copy + hosting; not a one-day item
