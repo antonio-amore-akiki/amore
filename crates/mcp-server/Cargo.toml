@@ -19,3 +19,9 @@ serde_json.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+
+[dev-dependencies]
+# Integration test (mcp_handshake.rs) spawns the binary, talks JSON-RPC over
+# stdio. Needs the same tokio runtime as main + serde_json for payloads.
+tokio = { workspace = true, features = ["process", "macros", "rt-multi-thread", "io-util", "time"] }
+serde_json.workspace = true

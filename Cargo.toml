@@ -20,7 +20,7 @@ rust-version = "1.95"
 
 [workspace.dependencies]
 # MCP — official Anthropic SDK
-rmcp = "1.7"
+rmcp = { version = "1.7", features = ["server", "macros", "transport-io"] }
 
 # Vector store — Qdrant (production scale)
 qdrant-client = "1.18"
