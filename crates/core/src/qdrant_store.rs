@@ -73,7 +73,12 @@ impl QdrantStore {
     /// Upsert a single point. Numeric IDs avoid the Qdrant string-id limit
     /// (must be Uuid for string ids); higher layers map observation envelopes
     /// to u64 via stable hashing.
-    pub async fn upsert(&self, id: u64, vector: Vec<f32>, payload: serde_json::Value) -> Result<()> {
+    pub async fn upsert(
+        &self,
+        id: u64,
+        vector: Vec<f32>,
+        payload: serde_json::Value,
+    ) -> Result<()> {
         let qpayload: Payload = payload
             .try_into()
             .with_context(|| "converting serde_json::Value into Qdrant Payload")?;
@@ -99,12 +104,12 @@ impl QdrantStore {
             .result
             .into_iter()
             .map(|p| {
-                let id = p
-                    .id
-                    .as_ref()
-                    .map(|pid| format!("{pid:?}"))
-                    .unwrap_or_default();
-                let payload_json = serde_json::to_value(&p.payload).unwrap_or(serde_json::Value::Null);
+                let id =
+                    p.id.as_ref()
+                        .map(|pid| format!("{pid:?}"))
+                        .unwrap_or_default();
+                let payload_json =
+                    serde_json::to_value(&p.payload).unwrap_or(serde_json::Value::Null);
                 SearchHit {
                     id,
                     score: p.score,

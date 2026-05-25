@@ -46,11 +46,31 @@ async fn end_to_end_index_and_recall() {
 
     // Index a 5-doc corpus of distinct topics.
     let corpus = [
-        (1u64, "rust_async_post", "Rust tokio async runtime and the await keyword for futures"),
-        (2u64, "baking_recipe", "Chocolate chip cookies need flour, butter, sugar, and eggs"),
-        (3u64, "alps_hiking", "Hiking the Matterhorn route requires acclimatization and crampons"),
-        (4u64, "rust_borrow", "The borrow checker in Rust prevents data races at compile time"),
-        (5u64, "javascript_npm", "Node.js packages from the npm registry use semver versioning"),
+        (
+            1u64,
+            "rust_async_post",
+            "Rust tokio async runtime and the await keyword for futures",
+        ),
+        (
+            2u64,
+            "baking_recipe",
+            "Chocolate chip cookies need flour, butter, sugar, and eggs",
+        ),
+        (
+            3u64,
+            "alps_hiking",
+            "Hiking the Matterhorn route requires acclimatization and crampons",
+        ),
+        (
+            4u64,
+            "rust_borrow",
+            "The borrow checker in Rust prevents data races at compile time",
+        ),
+        (
+            5u64,
+            "javascript_npm",
+            "Node.js packages from the npm registry use semver versioning",
+        ),
     ];
 
     for (id, source, text) in &corpus {
@@ -75,7 +95,12 @@ async fn end_to_end_index_and_recall() {
         top.text
     );
     assert_eq!(
-        top.source, if top.text.contains("borrow") { "rust_borrow" } else { "rust_async_post" },
+        top.source,
+        if top.text.contains("borrow") {
+            "rust_borrow"
+        } else {
+            "rust_async_post"
+        },
         "source field must be preserved through the payload roundtrip"
     );
     assert!(

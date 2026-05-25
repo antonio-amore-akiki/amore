@@ -6,14 +6,14 @@
 //
 // Status: skeleton, v0.1.0-pre-alpha.
 
-pub mod recall;
 pub mod docs;
 pub mod ensemble;
-pub mod world_model;
-pub mod provenance;
 pub mod ollama;
+pub mod provenance;
 pub mod qdrant_store;
+pub mod recall;
 pub mod sqlite_store;
+pub mod world_model;
 
 pub use recall::HybridRecall;
 

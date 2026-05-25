@@ -81,7 +81,14 @@ impl SqliteStore {
         self.conn.execute(
             "INSERT INTO observations (id, ts, source, payload, prev_hash, hash) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![env.id, ts, source, env.canonical_json, env.prev_hash, env.hash],
+            params![
+                env.id,
+                ts,
+                source,
+                env.canonical_json,
+                env.prev_hash,
+                env.hash
+            ],
         )?;
         Ok(env)
     }
@@ -138,9 +145,7 @@ mod tests {
     #[test]
     fn first_observation_chains_off_genesis() {
         let store = temp_store();
-        let env = store
-            .insert_observation("test", &json!({"x": 1}))
-            .unwrap();
+        let env = store.insert_observation("test", &json!({"x": 1})).unwrap();
         assert_eq!(env.prev_hash, GENESIS_PREV_HASH);
         store
             .verify_full_chain()
@@ -185,7 +190,10 @@ mod tests {
             )
             .unwrap();
         let result = store.verify_full_chain();
-        assert!(result.is_err(), "tampered payload must fail verify_full_chain");
+        assert!(
+            result.is_err(),
+            "tampered payload must fail verify_full_chain"
+        );
     }
 
     #[test]
@@ -200,9 +208,7 @@ mod tests {
     fn last_hash_tracks_head() {
         let store = temp_store();
         assert!(store.last_observation_hash().unwrap().is_none());
-        let env = store
-            .insert_observation("test", &json!({"x": 1}))
-            .unwrap();
+        let env = store.insert_observation("test", &json!({"x": 1})).unwrap();
         assert_eq!(store.last_observation_hash().unwrap(), Some(env.hash));
     }
 }

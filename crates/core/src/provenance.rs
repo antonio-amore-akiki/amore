@@ -55,6 +55,7 @@ impl Envelope {
 ///   1. Each envelope's hash matches its content (per-link integrity).
 ///   2. Each envelope's prev_hash equals the preceding envelope's hash (linkage).
 ///   3. The first envelope's prev_hash equals GENESIS_PREV_HASH.
+///
 /// Empty chains are vacuously valid.
 pub fn verify_chain(chain: &[Envelope]) -> Result<()> {
     if chain.is_empty() {

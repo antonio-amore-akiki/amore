@@ -1,0 +1,61 @@
+# Obelion CI — cross-OS Rust matrix.
+#
+# Substrate gate for v0.1.0 → v1.0.0 path. Runs on every push to main and on PRs.
+# Matches the local pre-flight: fmt + clippy + test (no --ignored, since CI
+# runners don't have Qdrant / Ollama daemons; those integration tests gate
+# locally via OBELION_TEST_{OLLAMA,QDRANT,E2E}=1 env vars).
+#
+# Cache strategy: Swatinem/rust-cache@v2 (target/ + cargo registry per OS+toolchain).
+# Concurrency: cancel-in-progress on superseded refs to save runner minutes.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Fast lane: fmt is OS-independent — single runner so we don't burn 3x minutes.
+  fmt:
+    name: fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: cargo fmt --check
+        run: cargo fmt --all --check
+
+  # Cross-OS lane: clippy + test on Linux + macOS + Windows.
+  build:
+    name: ${{ matrix.os }} / clippy + test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os }}
+      - name: cargo clippy --workspace -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: cargo test --workspace
+        run: cargo test --workspace --no-fail-fast

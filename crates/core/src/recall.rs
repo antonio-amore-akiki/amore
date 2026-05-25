@@ -57,11 +57,11 @@ impl HybridRecall {
             "source": source,
             "text": text,
         });
-        if let Some(extra) = extra_payload {
-            if let (Some(p), Some(e)) = (payload.as_object_mut(), extra.as_object()) {
-                for (k, v) in e {
-                    p.insert(k.clone(), v.clone());
-                }
+        if let Some(extra) = extra_payload
+            && let (Some(p), Some(e)) = (payload.as_object_mut(), extra.as_object())
+        {
+            for (k, v) in e {
+                p.insert(k.clone(), v.clone());
             }
         }
         self.qdrant.upsert(id, vec, payload).await?;
