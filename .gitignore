@@ -1,0 +1,31 @@
+# Rust build artifacts
+target/
+**/*.rs.bk
+Cargo.lock.bak
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local config + data
+.env
+.env.local
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Build outputs / releases
+dist/
+release/
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.msi

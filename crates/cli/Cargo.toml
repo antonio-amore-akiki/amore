@@ -1,0 +1,18 @@
+[package]
+name = "obelion-cli"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "obelion"
+path = "src/main.rs"
+
+[dependencies]
+obelion-core = { path = "../core" }
+tokio.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

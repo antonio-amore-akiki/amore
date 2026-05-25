@@ -1,0 +1,57 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/core",
+    "crates/mcp-server",
+    "crates/cli",
+    "crates/adapter-claude",
+    "crates/adapter-cursor",
+    "crates/adapter-codex",
+    "crates/adapter-cline",
+]
+
+[workspace.package]
+version = "0.1.0"
+authors = ["Antonio <antonioakiki15@gmail.com>"]
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/antonio-amore-akiki/obelion"
+rust-version = "1.95"
+
+[workspace.dependencies]
+# MCP — official Anthropic SDK
+rmcp = "1.7"
+
+# Vector store — Qdrant (production scale)
+qdrant-client = "1.18"
+
+# LLM + embeddings — Ollama (free unlimited local)
+ollama-rs = "0.3"
+
+# Metadata + BM25 — SQLite with bundled FTS5
+rusqlite = { version = "0.39", features = ["bundled"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Serde
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Crypto provenance (sha256 envelopes)
+sha2 = "0.10"
+hex = "0.4"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+opt-level = 3
