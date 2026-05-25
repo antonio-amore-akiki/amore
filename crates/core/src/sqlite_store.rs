@@ -1,31 +1,44 @@
 // SQLite store: observations, BM25 (FTS5), graph edges, ensemble votes, world-model.
-// Single file db, portable, embeds in-process.
-//
-// The observations table is the source-of-truth for the provenance chain
-// (see crate::provenance). Every insert seals an Envelope, persists the
-// (id, ts, source, canonical_json, prev_hash, hash) tuple, and returns the
-// envelope so callers can pin the new chain head.
+// observations_fts uses porter+unicode61 tokenizer; bm25() returns negative
+// scores (we flip in bm25_search so higher=better, matching cosine).
+// Connection is Mutex-wrapped so SqliteStore is Sync for rmcp Arc-handlers.
 
 use anyhow::Result;
 use rusqlite::{Connection, OptionalExtension, params};
 use std::path::Path;
+use std::sync::Mutex;
 
 use crate::provenance::{Envelope, GENESIS_PREV_HASH, verify_chain};
 
 pub struct SqliteStore {
-    conn: Connection,
+    conn: Mutex<Connection>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Bm25Hit {
+    pub id: String,
+    pub score: f32,
+    pub source: String,
+    pub text: String,
 }
 
 impl SqliteStore {
     pub fn open(path: &Path) -> Result<Self> {
-        let conn = Connection::open(path)?;
-        let store = Self { conn };
+        Self::from_conn(Connection::open(path)?)
+    }
+    pub fn open_in_memory() -> Result<Self> {
+        Self::from_conn(Connection::open_in_memory()?)
+    }
+    fn from_conn(conn: Connection) -> Result<Self> {
+        let store = Self {
+            conn: Mutex::new(conn),
+        };
         store.init_schema()?;
         Ok(store)
     }
 
     fn init_schema(&self) -> Result<()> {
-        self.conn.execute_batch(
+        self.conn.lock().unwrap().execute_batch(
             r#"
             CREATE TABLE IF NOT EXISTS observations (
                 id TEXT PRIMARY KEY,
@@ -66,8 +79,15 @@ impl SqliteStore {
     }
 
     /// Insert a new observation. Seals the payload into the chain after the
-    /// current head; returns the new envelope so the caller can keep tracking
+    /// current head, persists it, AND populates observations_fts for BM25
+    /// retrieval. Returns the new envelope so the caller can keep tracking
     /// the chain without re-querying.
+    ///
+    /// Indexable text is derived from the payload via `extract_indexable_text`:
+    /// if the payload is a JSON object with a string `text` field that wins,
+    /// otherwise the canonical_json itself is indexed (lossy but ensures every
+    /// observation is searchable by SOME token even when callers don't set a
+    /// dedicated text field).
     pub fn insert_observation(
         &self,
         source: &str,
@@ -78,7 +98,10 @@ impl SqliteStore {
             .unwrap_or_else(|| GENESIS_PREV_HASH.to_string());
         let env = Envelope::seal(&prev_hash, payload)?;
         let ts = now_unix_ms();
-        self.conn.execute(
+        let indexable = extract_indexable_text(payload, &env.canonical_json);
+        let conn = self.conn.lock().unwrap();
+        let tx = conn.unchecked_transaction()?;
+        tx.execute(
             "INSERT INTO observations (id, ts, source, payload, prev_hash, hash) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
@@ -90,15 +113,79 @@ impl SqliteStore {
                 env.hash
             ],
         )?;
+        tx.execute(
+            "INSERT INTO observations_fts (id, content) VALUES (?1, ?2)",
+            params![env.id, indexable],
+        )?;
+        tx.commit()?;
         Ok(env)
+    }
+
+    /// BM25 search across observations_fts. Returns at most `top_k` hits ranked
+    /// by relevance (higher score = better). The `query` string follows FTS5
+    /// MATCH grammar; callers passing raw user input should let FTS5 do bare-
+    /// token AND-by-default semantics — quoted-string special chars are
+    /// neutralised by enclosing the query in double quotes (FTS5 phrase form).
+    ///
+    /// FTS5's bm25() function returns NEGATIVE scores (lower = better match).
+    /// We flip the sign so the API mirrors Qdrant cosine (higher = better),
+    /// keeping the fusion math in HybridRecall uniform across both stores.
+    pub fn bm25_search(&self, query: &str, top_k: u64) -> Result<Vec<Bm25Hit>> {
+        // Sanitize: keep alphanumeric tokens only, AND-by-default. Drops every
+        // FTS5 special (`-`, `:`, `*`, `^`, `()`, `"`) without quoting so the
+        // result is a plain space-separated list of bare tokens — FTS5 treats
+        // those as conjunctive (each must appear). Empty query -> no hits.
+        let sanitized: String = query
+            .split_whitespace()
+            .map(|t| {
+                t.chars()
+                    .filter(|c| c.is_alphanumeric())
+                    .collect::<String>()
+            })
+            .filter(|t| !t.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ");
+        if sanitized.is_empty() {
+            return Ok(vec![]);
+        }
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT o.id, o.source, f.content, bm25(observations_fts) AS rank \
+             FROM observations_fts f \
+             JOIN observations o ON o.id = f.id \
+             WHERE observations_fts MATCH ?1 \
+             ORDER BY rank \
+             LIMIT ?2",
+        )?;
+        let hits = stmt
+            .query_map(params![sanitized, top_k as i64], |row| {
+                let raw_score: f64 = row.get(3)?;
+                Ok(Bm25Hit {
+                    id: row.get(0)?,
+                    source: row.get(1)?,
+                    text: row.get(2)?,
+                    // FTS5 returns negative; flip so higher=better.
+                    score: (-raw_score) as f32,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(hits)
+    }
+
+    /// Number of observations currently persisted. Cheap; useful for tests
+    /// + status reporting.
+    pub fn count_observations(&self) -> Result<u64> {
+        let conn = self.conn.lock().unwrap();
+        let n: i64 = conn.query_row("SELECT COUNT(*) FROM observations", [], |row| row.get(0))?;
+        Ok(n as u64)
     }
 
     /// Return the hash of the most recent observation (by ts DESC), or None
     /// if the chain is empty.
     pub fn last_observation_hash(&self) -> Result<Option<String>> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT hash FROM observations ORDER BY ts DESC, id DESC LIMIT 1")?;
+        let conn = self.conn.lock().unwrap();
+        let mut stmt =
+            conn.prepare("SELECT hash FROM observations ORDER BY ts DESC, id DESC LIMIT 1")?;
         let hash: Option<String> = stmt.query_row([], |row| row.get(0)).optional()?;
         Ok(hash)
     }
@@ -106,7 +193,8 @@ impl SqliteStore {
     /// Walk the full chain in insertion order (ts ASC) and verify integrity +
     /// linkage end-to-end. Returns Err on the first broken link.
     pub fn verify_full_chain(&self) -> Result<()> {
-        let mut stmt = self.conn.prepare(
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
             "SELECT id, prev_hash, payload, hash FROM observations ORDER BY ts ASC, id ASC",
         )?;
         let envelopes: Vec<Envelope> = stmt
@@ -130,16 +218,23 @@ fn now_unix_ms() -> i64 {
         .unwrap_or(0)
 }
 
+/// Extract the text payload that goes into the FTS5 index. Prefers an explicit
+/// `text` string field on the payload object; falls back to the canonical_json
+/// representation so even untyped payloads remain searchable by some token.
+fn extract_indexable_text(payload: &serde_json::Value, canonical_json: &str) -> String {
+    if let Some(t) = payload.get("text").and_then(|v| v.as_str()) {
+        return t.to_string();
+    }
+    canonical_json.to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
 
     fn temp_store() -> SqliteStore {
-        let conn = Connection::open_in_memory().unwrap();
-        let store = SqliteStore { conn };
-        store.init_schema().unwrap();
-        store
+        SqliteStore::open_in_memory().unwrap()
     }
 
     #[test]
@@ -184,6 +279,8 @@ mod tests {
         // Tamper with the persisted payload of env2 directly.
         store
             .conn
+            .lock()
+            .unwrap()
             .execute(
                 "UPDATE observations SET payload = ?1 WHERE id = ?2",
                 params![r#"{"step":99}"#, env2.id],
@@ -210,5 +307,84 @@ mod tests {
         assert!(store.last_observation_hash().unwrap().is_none());
         let env = store.insert_observation("test", &json!({"x": 1})).unwrap();
         assert_eq!(store.last_observation_hash().unwrap(), Some(env.hash));
+    }
+
+    #[test]
+    fn bm25_empty_index_returns_no_hits() {
+        let store = temp_store();
+        let hits = store.bm25_search("rust async", 5).unwrap();
+        assert!(hits.is_empty());
+    }
+
+    #[test]
+    fn bm25_indexes_observation_text_field() {
+        let store = temp_store();
+        store
+            .insert_observation(
+                "user_prompt",
+                &json!({"text":"Rust tokio async runtime and the await keyword for futures"}),
+            )
+            .unwrap();
+        store
+            .insert_observation(
+                "user_prompt",
+                &json!({"text":"Baking chocolate chip cookies needs flour, butter, sugar, eggs"}),
+            )
+            .unwrap();
+        let hits = store.bm25_search("rust async", 5).unwrap();
+        assert!(!hits.is_empty(), "expected at least one BM25 hit");
+        let top = &hits[0];
+        assert!(
+            top.text.contains("Rust") || top.text.contains("async"),
+            "BM25 top hit should mention rust/async, got: {}",
+            top.text
+        );
+        assert!(top.score > 0.0, "flipped BM25 score must be positive");
+    }
+
+    #[test]
+    fn bm25_ranks_more_relevant_higher() {
+        let store = temp_store();
+        store
+            .insert_observation("doc", &json!({"text":"rust rust rust async networking"}))
+            .unwrap();
+        store
+            .insert_observation(
+                "doc",
+                &json!({"text":"javascript node npm package management"}),
+            )
+            .unwrap();
+        let hits = store.bm25_search("rust async networking", 5).unwrap();
+        assert!(!hits.is_empty());
+        let top = &hits[0];
+        assert!(
+            top.text.contains("rust") && top.text.contains("async"),
+            "top BM25 hit must be the rust/async doc, got: {}",
+            top.text
+        );
+    }
+
+    #[test]
+    fn bm25_returns_indexed_text_and_source() {
+        let store = temp_store();
+        store
+            .insert_observation(
+                "edit_log",
+                &json!({"text":"refactor authentication module"}),
+            )
+            .unwrap();
+        let hits = store.bm25_search("authentication", 5).unwrap();
+        assert!(!hits.is_empty());
+        assert_eq!(hits[0].source, "edit_log");
+        assert!(hits[0].text.contains("authentication"));
+    }
+
+    #[test]
+    fn count_observations_tracks_inserts() {
+        let store = temp_store();
+        assert_eq!(store.count_observations().unwrap(), 0);
+        store.insert_observation("t", &json!({"text":"a"})).unwrap();
+        store.insert_observation("t", &json!({"text":"b"})).unwrap();
+        assert_eq!(store.count_observations().unwrap(), 2);
     }
 }

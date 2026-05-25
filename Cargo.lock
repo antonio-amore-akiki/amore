@@ -1366,6 +1366,7 @@ name = "obelion-mcp"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "dirs",
  "obelion-core",
  "rmcp",
  "serde",

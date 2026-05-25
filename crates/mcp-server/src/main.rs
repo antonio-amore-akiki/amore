@@ -17,6 +17,7 @@
 // production-grade path.
 
 use anyhow::{Context, Result};
+use obelion_core::docs::CanonicalDocsRouter;
 use obelion_core::ollama::OllamaClient;
 use obelion_core::qdrant_store::QdrantStore;
 use obelion_core::recall::HybridRecall;
@@ -29,6 +30,7 @@ use rmcp::transport::stdio;
 use rmcp::{
     ErrorData as McpError, ServerHandler, ServiceExt, schemars, tool, tool_handler, tool_router,
 };
+use std::path::PathBuf;
 use std::sync::Arc;
 use tracing_subscriber::EnvFilter;
 
@@ -46,11 +48,22 @@ fn default_top_k() -> usize {
     5
 }
 
-/// The obelion MCP server state. Holds an `Arc<HybridRecall>` so tool methods
-/// can clone cheaply across concurrent JSON-RPC calls.
+/// Parameters for the `canonical_doc_lookup` tool.
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct CanonicalLookupParams {
+    /// Natural-language query. Topic-matched against `*.md` files with
+    /// `stable: true` headers in the configured search paths.
+    pub query: String,
+}
+
+/// The obelion MCP server state. Holds `Arc<HybridRecall>` + canonical-docs
+/// router + resolved search paths so tool methods can clone cheaply across
+/// concurrent JSON-RPC calls.
 #[derive(Clone)]
 pub struct ObelionServer {
     recall: Arc<HybridRecall>,
+    docs_router: Arc<CanonicalDocsRouter>,
+    docs_paths: Arc<Vec<PathBuf>>,
     // Macro-populated field. The `#[tool_router]` macro reads this via
     // `Self::tool_router()` at attach time, but the read is invisible to
     // dead-code analysis (proc-macro expansion is opaque to the lint).
@@ -60,15 +73,17 @@ pub struct ObelionServer {
 
 #[tool_router]
 impl ObelionServer {
-    pub fn new(recall: HybridRecall) -> Self {
+    pub fn new(recall: HybridRecall, docs_paths: Vec<PathBuf>) -> Self {
         Self {
             recall: Arc::new(recall),
+            docs_router: Arc::new(CanonicalDocsRouter::new()),
+            docs_paths: Arc::new(docs_paths),
             tool_router: Self::tool_router(),
         }
     }
 
     #[tool(
-        description = "Hybrid recall over the obelion observation store. Embeds the query via Ollama (nomic-embed-text, 768-dim) and searches Qdrant by cosine similarity. Returns a JSON array of hits (id, score, text, source, payload) ranked by relevance."
+        description = "Hybrid recall over the obelion observation store. Embeds the query via Ollama (nomic-embed-text, 768-dim) and searches Qdrant by cosine; if a SQLite BM25 lane is attached, fuses both via Reciprocal Rank Fusion (k=60). Returns a JSON array of hits (id, score, text, source, payload) ranked by relevance."
     )]
     async fn recall(
         &self,
@@ -83,6 +98,23 @@ impl ObelionServer {
             .map_err(|e| McpError::internal_error(format!("serialize hits failed: {e}"), None))?;
         Ok(CallToolResult::success(vec![Content::text(body)]))
     }
+
+    #[tool(
+        description = "Canonical-docs lookup: topic-matches the query against *.md files with `stable: true` headers in the configured search paths (default: ~/.claude/docs, <cwd>/.claude/docs, <cwd>/docs). Deterministic source-of-truth surface for known domains — beats probabilistic recall when an authoritative doc exists. Returns a JSON array of {path, title, topic_score, excerpt}."
+    )]
+    async fn canonical_doc_lookup(
+        &self,
+        Parameters(params): Parameters<CanonicalLookupParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let paths: Vec<&std::path::Path> = self.docs_paths.iter().map(|p| p.as_path()).collect();
+        let hits = self
+            .docs_router
+            .route(&params.query, &paths)
+            .map_err(|e| McpError::internal_error(format!("canonical lookup failed: {e}"), None))?;
+        let body = serde_json::to_string(&hits)
+            .map_err(|e| McpError::internal_error(format!("serialize hits failed: {e}"), None))?;
+        Ok(CallToolResult::success(vec![Content::text(body)]))
+    }
 }
 
 #[tool_handler]
@@ -92,7 +124,7 @@ impl ServerHandler for ObelionServer {
             .with_server_info(Implementation::from_build_env())
             .with_protocol_version(ProtocolVersion::V_2024_11_05)
             .with_instructions(
-                "obelion-mcp: production-grade hybrid retrieval over Ollama embeddings + Qdrant cosine search. v0.1.0 path is pure vector; S8 adds BM25 + RRF fusion. Tool: recall(query, top_k=5)."
+                "obelion-mcp: production-grade hybrid retrieval. recall(query, top_k=5) returns vector + (optional) BM25 RRF-fused hits over the observation store. canonical_doc_lookup(query) topic-matches the query against `stable: true` *.md docs in the configured search paths for deterministic source-of-truth context."
                     .to_string(),
             )
     }
@@ -124,7 +156,8 @@ async fn main() -> Result<()> {
         .await
         .with_context(|| format!("opening Qdrant at {qdrant_url} collection={collection}"))?;
     let recall = HybridRecall::new(ollama, qdrant);
-    let server = ObelionServer::new(recall);
+    let docs_paths = resolve_docs_paths();
+    let server = ObelionServer::new(recall, docs_paths);
 
     let service = server
         .serve(stdio())
@@ -132,4 +165,27 @@ async fn main() -> Result<()> {
         .inspect_err(|e| tracing::error!("MCP serve error: {e:?}"))?;
     service.waiting().await?;
     Ok(())
+}
+
+/// Resolve canonical-docs search paths. OBELION_DOCS_PATHS env var (colon- or
+/// semicolon-separated) overrides; default is [~/.claude/docs, <cwd>/.claude/
+/// docs, <cwd>/docs]. Non-existent paths are kept (the router skips them at
+/// route time) so paths can be created later without restarting the server.
+fn resolve_docs_paths() -> Vec<PathBuf> {
+    if let Ok(val) = std::env::var("OBELION_DOCS_PATHS") {
+        let sep = if val.contains(';') { ';' } else { ':' };
+        return val
+            .split(sep)
+            .filter(|s| !s.is_empty())
+            .map(PathBuf::from)
+            .collect();
+    }
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let mut out = Vec::new();
+    if let Some(home) = dirs::home_dir() {
+        out.push(home.join(".claude").join("docs"));
+    }
+    out.push(cwd.join(".claude").join("docs"));
+    out.push(cwd.join("docs"));
+    out
 }

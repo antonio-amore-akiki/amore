@@ -132,6 +132,10 @@ async fn handshake_lists_recall_tool() {
         names.contains(&"recall"),
         "expected 'recall' in tools, got {names:?}"
     );
+    assert!(
+        names.contains(&"canonical_doc_lookup"),
+        "expected 'canonical_doc_lookup' in tools (S8), got {names:?}"
+    );
 
     // Cleanup: kill child + drop Qdrant collection so repeated runs don't leak.
     drop(stdin);
