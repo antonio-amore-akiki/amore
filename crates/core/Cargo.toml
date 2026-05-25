@@ -19,3 +19,4 @@ tracing.workspace = true
 sha2.workspace = true
 hex.workspace = true
 canonical_json.workspace = true
+reqwest.workspace = true
