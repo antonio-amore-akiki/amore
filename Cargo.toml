@@ -54,6 +54,12 @@ canonical_json = "0.7"
 # HTTP client (Ollama, Qdrant fallback)
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
+# CLI argument parsing (subcommands: init / serve / recall / status)
+clap = { version = "4", features = ["derive"] }
+
+# Cross-platform user-home / config-dir resolution
+dirs = "5"
+
 [profile.release]
 lto = true
 codegen-units = 1
