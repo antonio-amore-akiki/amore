@@ -14,6 +14,11 @@ path = "src/main.rs"
 obelion-core = { path = "../core" }
 obelion-adapter-claude = { path = "../adapter-claude" }
 obelion-adapter-cursor = { path = "../adapter-cursor" }
+obelion-adapter-codex = { path = "../adapter-codex" }
+obelion-adapter-cline = { path = "../adapter-cline" }
+obelion-adapter-opencode = { path = "../adapter-opencode" }
+obelion-adapter-windsurf = { path = "../adapter-windsurf" }
+obelion-adapter-hermes = { path = "../adapter-hermes" }
 clap.workspace = true
 tokio.workspace = true
 anyhow.workspace = true

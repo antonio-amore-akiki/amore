@@ -14,7 +14,12 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use obelion_adapter_claude::ClaudeAdapter;
+use obelion_adapter_cline::ClineAdapter;
+use obelion_adapter_codex::CodexAdapter;
 use obelion_adapter_cursor::CursorAdapter;
+use obelion_adapter_hermes::HermesAdapter;
+use obelion_adapter_opencode::OpencodeAdapter;
+use obelion_adapter_windsurf::WindsurfAdapter;
 use obelion_core::ide_adapter::{ApplyOutcome, IdeAdapter, apply, dry_run};
 
 #[derive(Parser)]
@@ -32,7 +37,7 @@ struct Cli {
 enum Command {
     /// Register the obelion MCP server in an IDE's config file.
     Init {
-        /// Which IDE to wire up. Supported: claude, cursor.
+        /// Which IDE to wire up. Supported: claude, cursor, codex, cline, opencode, windsurf, hermes.
         ide: String,
         /// Print the proposed merged config without writing.
         #[arg(long)]
@@ -71,9 +76,13 @@ fn cmd_init(ide: &str, dry: bool) -> Result<()> {
     let adapter: Box<dyn IdeAdapter> = match ide {
         "claude" => Box::new(ClaudeAdapter::new()),
         "cursor" => Box::new(CursorAdapter::new()),
+        "codex" => Box::new(CodexAdapter::new()),
+        "cline" => Box::new(ClineAdapter::new()),
+        "opencode" => Box::new(OpencodeAdapter::new()),
+        "windsurf" => Box::new(WindsurfAdapter::new()),
+        "hermes" => Box::new(HermesAdapter::new()),
         other => anyhow::bail!(
-            "unknown IDE '{other}'. Supported in v0.1.0: claude, cursor. \
-             Remaining adapters (codex, cline, continue, roo, zed) land in v0.2.0+."
+            "unknown IDE '{other}'. Supported: claude, cursor, codex, cline, opencode, windsurf, hermes."
         ),
     };
     if dry {

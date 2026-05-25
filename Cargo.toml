@@ -8,6 +8,9 @@ members = [
     "crates/adapter-cursor",
     "crates/adapter-codex",
     "crates/adapter-cline",
+    "crates/adapter-opencode",
+    "crates/adapter-windsurf",
+    "crates/adapter-hermes",
 ]
 
 [workspace.package]
@@ -59,6 +62,12 @@ clap = { version = "4", features = ["derive"] }
 
 # Cross-platform user-home / config-dir resolution
 dirs = "5"
+
+# TOML — required for Codex CLI adapter (~/.codex/config.toml)
+toml = "0.8"
+
+# YAML — required for Hermes Agent adapter (~/.hermes/config.yaml)
+serde_yaml = "0.9"
 
 [profile.release]
 lto = true

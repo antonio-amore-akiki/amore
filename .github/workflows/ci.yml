@@ -11,10 +11,12 @@
 name: ci
 
 on:
+  # Conserves GitHub Actions minutes per user directive 2026-05-26.
+  # Local pre-flight (cargo fmt --check && cargo clippy -- -D warnings
+  # && cargo test --workspace) covers every dev push. Matrix runners
+  # fire ONLY on release tags (vN.N.N) + explicit manual dispatch.
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    tags: ["v*"]
   workflow_dispatch:
 
 concurrency:
