@@ -23,3 +23,5 @@ dirs.workspace = true
 # Workspace base has [default-features=false, json, rustls-tls]; we add "blocking"
 # so the worker thread can do synchronous chunked download without a tokio runtime.
 reqwest = { workspace = true, features = ["blocking"] }
+# JSON serialisation for --no-gui CI smoke output.
+serde_json = { workspace = true }
