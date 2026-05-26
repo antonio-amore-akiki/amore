@@ -1,0 +1,69 @@
+# OSSF Scorecard — supply-chain hygiene scoring.
+#
+# Definition-only at v0.5.0: the repo is private per user mandate (paid GHA
+# minutes exhausted; private-repo Scorecard requires PAT setup that's deferred).
+# When the repo flips public, this workflow activates on the free public-repo
+# tier and re-measures the baseline tracked in docs/SCORECARD-baseline.md.
+#
+# Baseline tracked locally via Docker (gcr.io/openssf/scorecard:stable --local=.)
+# — see docs/SCORECARD-baseline.md for the v0.5.0 baseline run + remediation plan.
+#
+# Once public:
+#   - weekly cron @ Mon 05:00 UTC re-runs Scorecard against main
+#   - results upload to GitHub Security tab as SARIF
+#   - publish_results: true sends to https://api.scorecard.dev for the badge
+#
+# Required pre-public-flip hardening (tracked in SCORECARD-baseline.md):
+#   - Add top-level `permissions: read-all` to ci.yml + release.yml (Token-Permissions)
+#   - Add .github/dependabot.yml (Dependency-Update-Tool — Wave 3 G owner)
+#   - Pin GH actions + container images by @sha256 hash (Pinned-Dependencies)
+#   - Remove installer/windows/staging/*.exe from repo (Binary-Artifacts)
+
+name: scorecard
+
+on:
+  branch_protection_rule:
+  schedule:
+    # Weekly Monday 05:00 UTC — matches OSSF baseline guidance.
+    - cron: "0 5 * * 1"
+  push:
+    branches: [main]
+
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      # Required by ossf/scorecard-action to upload SARIF + publish results.
+      security-events: write
+      id-token: write
+      # Restrict read scope to repo metadata only.
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Run analysis
+        uses: ossf/scorecard-action@62b2cac7ed8198b15735ed49ab1e5cf35480ba46 # v2.4.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # Publish results to https://api.scorecard.dev for the badge.
+          publish_results: true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: SARIF file
+          path: results.sarif
+          retention-days: 5
+
+      - name: Upload to GitHub code-scanning
+        uses: github/codeql-action/upload-sarif@4f3212b61783c3c68e8309a0f18a699764811cda # v3.27.1
+        with:
+          sarif_file: results.sarif
