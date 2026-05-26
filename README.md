@@ -96,6 +96,18 @@ If you previously installed `obelion`, the first `amore-mcp` start automatically
 - A `migrated-from-obelion.txt` marker is written so the migration runs only once
 - Legacy `OBELION_*` env vars are still accepted with a deprecation warning (removed in v0.4.0)
 
+## Security
+
+Threat model and vulnerability reporting: [SECURITY.md](SECURITY.md).
+
+### Nightly supply-chain baseline (local — no GHA minutes)
+
+Windows Task Scheduler runs `scripts/security-baseline.ps1` nightly at 02:30 local
+(`Amore-Security-Baseline-Nightly`). It installs `cargo-audit`, `cargo-deny`, and
+`cargo-geiger` idempotently, then runs all three. Results land in
+`%LOCALAPPDATA%\Amore\security-baselines\<YYYYMMDD>.json`. A Tailscale/ntfy push
+alert fires on gate failure. License policy is in [deny.toml](deny.toml).
+
 ## License
 
 [Apache-2.0](LICENSE). Direct-dep attribution in [NOTICE](NOTICE).

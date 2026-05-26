@@ -224,11 +224,23 @@ fn spawn_save(state: &WizardState) {
     .collect();
     let memory_dir = state.memory_dir.clone();
     let brain_local = state.brain_local;
+    // Security fix 11a: resolve amore-cli relative to this executable's
+    // directory, not via PATH. On Windows, CreateProcess checks CWD before
+    // PATH — a malicious amore.exe in CWD would otherwise be invoked with
+    // AMORE_DATA_DIR pointing at the user's memory store.
+    let cli_path = std::env::current_exe()
+        .ok()
+        .and_then(|p| {
+            p.parent().map(|d| {
+                d.join(if cfg!(windows) { "amore.exe" } else { "amore" })
+            })
+        })
+        .unwrap_or_else(|| std::path::PathBuf::from("amore"));
     std::thread::spawn(move || {
         *status.lock().unwrap() = SaveStatus::Saving;
         // Shell out to amore-cli for each selected IDE.
         for ide in &ides {
-            let r = std::process::Command::new("amore")
+            let r = std::process::Command::new(&cli_path)
                 .args(["init", ide])
                 .env("AMORE_DATA_DIR", &memory_dir)
                 .env("AMORE_BRAIN", if brain_local { "local" } else { "cloud" })

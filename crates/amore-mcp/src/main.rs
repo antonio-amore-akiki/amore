@@ -85,12 +85,28 @@ impl fmt::Display for MainError {
 
 impl std::error::Error for MainError {}
 
+// ---------------------------------------------------------------------------
+// Input-validation limits for the `recall` tool (Security fix 6a).
+//
+// ### Limits
+// - `MAX_TOP_K`: ceiling on the number of hits returned. Values above this are
+//   silently clamped. In release profile `usize::MAX * 4` wraps to 0 and
+//   propagates junk fetch-counts to Qdrant; the clamp is the only safe guard.
+// - `MAX_QUERY_BYTES`: ceiling on the raw UTF-8 byte length of the query.
+//   Multi-MB queries trigger Ollama embedding with unbounded memory pressure
+//   and latency; requests above this threshold are rejected with a clean
+//   JSON-RPC error before any network call is made.
+// ---------------------------------------------------------------------------
+const MAX_TOP_K: usize = 100;
+const MAX_QUERY_BYTES: usize = 16 * 1024; // 16 KiB
+
 /// Parameters for the `recall` tool — embedded query + top-k cosine search.
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct RecallParams {
     /// Natural-language query text. Embedded via Ollama nomic-embed-text (768-dim).
+    /// Maximum: 16 KiB (16 384 bytes). Requests exceeding this limit are rejected.
     pub query: String,
-    /// Number of top hits to return. Defaults to 5 if omitted.
+    /// Number of top hits to return. Defaults to 5 if omitted. Clamped to [1, 100].
     #[serde(default = "default_top_k")]
     pub top_k: usize,
 }
@@ -140,9 +156,22 @@ impl AmoreServer {
         &self,
         Parameters(params): Parameters<RecallParams>,
     ) -> Result<CallToolResult, McpError> {
+        // Security fix 6a: reject oversized queries before hitting Ollama.
+        if params.query.len() > MAX_QUERY_BYTES {
+            return Err(McpError::invalid_params(
+                format!(
+                    "query exceeds {MAX_QUERY_BYTES} bytes (got {})",
+                    params.query.len()
+                ),
+                None,
+            ));
+        }
+        // Clamp top_k: release-profile overflow in `top_k * 4` wraps to 0 and
+        // sends a junk fetch-count to Qdrant; clamp is the only safe guard.
+        let top_k = params.top_k.clamp(1, MAX_TOP_K);
         let envelope = self
             .recall
-            .search(&params.query, params.top_k)
+            .search(&params.query, top_k)
             .await
             .map_err(|e| McpError::internal_error(format!("recall failed: {e}"), None))?;
         let body = serde_json::to_string(&envelope).map_err(|e| {

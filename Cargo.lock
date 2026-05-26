@@ -48,7 +48,7 @@ dependencies = [
 
 [[package]]
 name = "amore-adapter-claude"
-version = "0.2.1"
+version = "0.3.1"
 dependencies = [
  "amore-core",
  "anyhow",
@@ -59,7 +59,7 @@ dependencies = [
 
 [[package]]
 name = "amore-adapter-cline"
-version = "0.2.1"
+version = "0.3.1"
 dependencies = [
  "amore-core",
  "anyhow",
@@ -70,7 +70,7 @@ dependencies = [
 
 [[package]]
 name = "amore-adapter-codex"
-version = "0.2.1"
+version = "0.3.1"
 dependencies = [
  "amore-core",
  "anyhow",
@@ -82,7 +82,7 @@ dependencies = [
 
 [[package]]
 name = "amore-adapter-cursor"
-version = "0.2.1"
+version = "0.3.1"
 dependencies = [
  "amore-core",
  "anyhow",
@@ -93,7 +93,7 @@ dependencies = [
 
 [[package]]
 name = "amore-adapter-hermes"
-version = "0.2.1"
+version = "0.3.1"
 dependencies = [
  "amore-core",
  "anyhow",
@@ -105,7 +105,7 @@ dependencies = [
 
 [[package]]
 name = "amore-adapter-opencode"
-version = "0.2.1"
+version = "0.3.1"
 dependencies = [
  "amore-core",
  "anyhow",
@@ -116,7 +116,7 @@ dependencies = [
 
 [[package]]
 name = "amore-adapter-windsurf"
-version = "0.2.1"
+version = "0.3.1"
 dependencies = [
  "amore-core",
  "anyhow",
@@ -127,7 +127,7 @@ dependencies = [
 
 [[package]]
 name = "amore-cli"
-version = "0.2.1"
+version = "0.3.1"
 dependencies = [
  "amore-adapter-claude",
  "amore-adapter-cline",
@@ -150,7 +150,7 @@ dependencies = [
 
 [[package]]
 name = "amore-core"
-version = "0.2.1"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "canonical_json",
@@ -169,7 +169,7 @@ dependencies = [
 
 [[package]]
 name = "amore-eval"
-version = "0.2.1"
+version = "0.3.1"
 dependencies = [
  "amore-core",
  "anyhow",
@@ -185,23 +185,25 @@ dependencies = [
 
 [[package]]
 name = "amore-gui"
-version = "0.2.1"
+version = "0.3.1"
 dependencies = [
  "dirs",
  "eframe",
+ "hex",
  "reqwest",
  "rfd",
  "serde_json",
+ "sha2",
  "which",
 ]
 
 [[package]]
 name = "amore-integration-tests"
-version = "0.2.1"
+version = "0.3.1"
 
 [[package]]
 name = "amore-mcp"
-version = "0.2.1"
+version = "0.3.1"
 dependencies = [
  "amore-core",
  "anyhow",

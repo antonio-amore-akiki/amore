@@ -8,16 +8,13 @@
 # (aarch64-apple-darwin + aarch64-unknown-linux-gnu) land in v0.5.0 once
 # v0.1.0 has shipped + been validated by friends/family Tier-1 users.
 #
-# Signing posture (per plan EXECUTION ROADMAP S10):
-#   S10a Linux:   Sigstore cosign keyless via GitHub OIDC token. FREE.
-#                 Verifiable with `cosign verify-blob --bundle amore-*.bundle`.
-#   S10b Windows: Authenticode skeleton — blocked_on:user EV cert (~$300-500/yr).
-#                 Until cert lands, ship unsigned + SmartScreen warning is
-#                 expected on first run; users right-click → Properties →
-#                 Unblock to clear it.
-#   S10c macOS:   notarytool skeleton — blocked_on:user Apple Developer ID
-#                 ($99/yr). Until cert lands, ship unsigned + Gatekeeper warning
-#                 cleared by user-initiated right-click → Open.
+# Signing posture (per plan EXECUTION ROADMAP S10, updated S10b):
+#   S10a+S10b: Sigstore cosign keyless via GitHub OIDC token on ALL runners.
+#              FREE. Verifiable with `cosign verify-blob --bundle amore-*.bundle`.
+#              postinstall.js enforces verification as MANDATORY (fail-closed).
+#   S10c macOS: notarytool skeleton — blocked_on:user Apple Developer ID
+#               ($99/yr). Until cert lands, ship with Gatekeeper warning
+#               cleared by user-initiated right-click → Open.
 #
 # Distribution channels populated by this workflow:
 #   GitHub Releases — single source-of-truth, signed artifacts attached
@@ -116,13 +113,13 @@ jobs:
           fi
           echo "name=${name}" >> "$GITHUB_OUTPUT"
 
-      # ---- S10a Sigstore (Linux only — keyless OIDC, FREE) ----
+      # ---- S10a Sigstore keyless OIDC — all platforms (S10b fix) ----
+      # id-token:write is set at workflow level; cosign-installer works on all
+      # three OS runners. Each step adds ~1-2 min; total +3-4 min/tag push.
       - name: Install cosign
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
         uses: sigstore/cosign-installer@v3.7.0
 
-      - name: Sigstore sign Linux artifact
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
+      - name: Sigstore sign artifact
         shell: bash
         run: |
           cosign sign-blob --yes \
@@ -170,12 +167,8 @@ jobs:
           fail_on_unmatched_files: true
           files: ${{ steps.archive.outputs.path }}
 
-      # Sigstore bundle only produced for Linux (S10b/c skeletons pending user
-      # certs). Splitting the upload keeps fail_on_unmatched_files=true for
-      # safety on the archive without forcing a bundle that doesn't exist on
-      # macOS/Windows runners.
-      - name: Upload Sigstore bundle (Linux only)
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
+      # Upload the Sigstore bundle produced above for all three platforms.
+      - name: Upload Sigstore bundle
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}

@@ -25,3 +25,6 @@ dirs.workspace = true
 reqwest = { workspace = true, features = ["blocking"] }
 # JSON serialisation for --no-gui CI smoke output.
 serde_json = { workspace = true }
+# SHA-256 integrity check for the downloaded Ollama installer (security finding 10a).
+sha2 = { workspace = true }
+hex = { workspace = true }

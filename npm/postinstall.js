@@ -3,8 +3,19 @@
 //
 // Fetches the matching signed binary tarball from the Amore GitHub Release
 // for the current `package.json:version` and the host OS/arch, verifies the
-// Sigstore bundle when cosign is on PATH (Linux only — Windows/macOS sign-
-// skeletons land in S10b/c), extracts the binaries into ./bin/, and exits.
+// Sigstore bundle (MANDATORY when bundle exists — fail-closed), extracts the
+// binaries into ./bin/, and exits.
+//
+// Sigstore verification policy (S10b fix — security finding 10b):
+//   - If a .bundle file is present on the release (HTTP 200): verification is
+//     MANDATORY. cosign is located on PATH, or downloaded on-demand into
+//     ~/.amore-cache/cosign-<platform>. If neither succeeds, install ABORTS.
+//   - If the .bundle is absent (HTTP 404): the release was not signed for this
+//     platform. Install ABORTS with a clear error + manual-verify instructions.
+//   - Escape hatch: AMORE_NPM_SKIP_SIGSTORE=1 bypasses, but emits a LOUD
+//     multi-line stderr warning on every use.
+//   - "HTTPS + GitHub URL proves transport only, not content integrity" — this
+//     script enforces content integrity via Sigstore keyless attestation.
 //
 // Adapted from the esbuild + ripgrep-prebuilt + @vscode/ripgrep npm patterns
 // (cited in prior-art-verdict.json). All three are Apache-2.0/MIT compatible
@@ -17,6 +28,7 @@
 // effort". Either we install the real signed binary or we error out.
 
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const https = require("node:https");
 const { spawnSync } = require("node:child_process");
@@ -30,6 +42,13 @@ const PLATFORM_TARGETS = {
   "linux:x64":  { target: "x86_64-unknown-linux-gnu", ext: "tar.gz" },
   "darwin:x64": { target: "x86_64-apple-darwin",      ext: "tar.gz" },
   "win32:x64":  { target: "x86_64-pc-windows-msvc",   ext: "zip"    },
+};
+
+// cosign download URLs used when cosign is absent from PATH.
+const COSIGN_URLS = {
+  "linux:x64":  "https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64",
+  "darwin:x64": "https://github.com/sigstore/cosign/releases/latest/download/cosign-darwin-amd64",
+  "win32:x64":  "https://github.com/sigstore/cosign/releases/latest/download/cosign-windows-amd64.exe",
 };
 
 function platformKey() {
@@ -63,6 +82,29 @@ function resolveToken() {
     process.env.GH_TOKEN ||
     ""
   );
+}
+
+// Probe whether a URL exists without downloading its body.
+// Returns the HTTP status code (follows redirects up to 5 hops).
+function httpHead(url, { headers = {} } = {}, hops = 0) {
+  return new Promise((resolve, reject) => {
+    if (hops > 5) { reject(new Error(`Too many redirects probing ${url}`)); return; }
+    const u = new URL(url);
+    const req = https.request(u, {
+      method: "HEAD",
+      headers: { "User-Agent": "anto-amore-postinstall", ...headers },
+    }, (res) => {
+      res.resume();
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        httpHead(new URL(res.headers.location, u).toString(), { headers }, hops + 1)
+          .then(resolve).catch(reject);
+        return;
+      }
+      resolve(res.statusCode);
+    });
+    req.on("error", reject);
+    req.end();
+  });
 }
 
 function httpGet(url, { headers = {}, expectJson = false } = {}) {
@@ -234,28 +276,77 @@ function chmodExecBinaries(outDir) {
   }
 }
 
-function verifySigstoreIfAvailable(archivePath, bundlePath) {
-  // Optional integrity check — only enforced when cosign is on PATH.
-  // On a fresh user machine without cosign, fall through; the GitHub
-  // Releases URL itself plus HTTPS already provides transport integrity.
-  // For supply-chain attestation, install cosign and re-run `npm rebuild`.
-  if (!fs.existsSync(bundlePath)) return; // no bundle for this OS
-  const probe = spawnSync("cosign", ["version"], { stdio: "ignore" });
-  if (probe.status !== 0) return;
-  const r = spawnSync(
-    "cosign",
-    ["verify-blob", "--bundle", bundlePath,
-     "--certificate-identity-regexp", `https://github\\.com/${REPO_OWNER}/${REPO_NAME}/`,
-     "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
-     archivePath],
-    { stdio: "inherit" },
-  );
-  if (r.status !== 0) {
-    throw new Error(
-      `Sigstore signature verification FAILED for ${path.basename(archivePath)}. ` +
-      `Refusing to install an unverified binary.`,
-    );
+// Locate cosign: PATH first, then ~/.amore-cache/, then download on-demand.
+// fail-closed: throws if cosign cannot be obtained. Never silent fail-open.
+async function resolveCosign() {
+  if (spawnSync("cosign", ["version"], { stdio: "ignore" }).status === 0) return "cosign";
+
+  const key = platformKey();
+  const isWin = process.platform === "win32";
+  const cacheDir = path.join(os.homedir(), ".amore-cache");
+  const cacheBin = path.join(cacheDir, `cosign-${key.replace(":", "-")}${isWin ? ".exe" : ""}`);
+
+  if (fs.existsSync(cacheBin)) {
+    if (spawnSync(cacheBin, ["version"], { stdio: "ignore" }).status === 0) return cacheBin;
+    fs.unlinkSync(cacheBin); // corrupted — re-download
   }
+
+  const cosignUrl = COSIGN_URLS[key];
+  if (!cosignUrl) throw new Error(
+    `No cosign URL for platform ${key}. Install manually: ` +
+    `https://docs.sigstore.dev/cosign/system_config/installation/`,
+  );
+  console.log(`[@anto/amore] downloading cosign to ${cacheBin} …`);
+  fs.mkdirSync(cacheDir, { recursive: true });
+  await downloadToFile(cosignUrl, cacheBin, { "User-Agent": "anto-amore-postinstall" });
+  if (!isWin) fs.chmodSync(cacheBin, 0o755);
+  if (spawnSync(cacheBin, ["version"], { stdio: "ignore" }).status !== 0) throw new Error(
+    `cosign self-test failed at ${cacheBin}. ` +
+    `Install manually: https://docs.sigstore.dev/cosign/system_config/installation/`,
+  );
+  return cacheBin;
+}
+
+// fail-closed Sigstore verification — mandatory when bundle exists (bundleStatus 200).
+// 404 = platform not signed → abort. Non-200/404 → abort. Escape hatch: AMORE_NPM_SKIP_SIGSTORE=1.
+async function verifySigstore(archivePath, bundlePath, bundleStatus) {
+  if (process.env.AMORE_NPM_SKIP_SIGSTORE === "1") {
+    process.stderr.write(
+      "\n╔══════════════════════════════════════════════════════════════════════╗\n" +
+      "║  WARNING: AMORE_NPM_SKIP_SIGSTORE=1 — Sigstore verification SKIPPED ║\n" +
+      "║  You are installing an UNVERIFIED binary. Abort now if untrusted.    ║\n" +
+      "║  See README.md § 'Verify manually' to check the artifact yourself.   ║\n" +
+      "╚══════════════════════════════════════════════════════════════════════╝\n\n",
+    );
+    return;
+  }
+
+  if (bundleStatus === 404) throw new Error(
+    `No Sigstore bundle for ${path.basename(archivePath)} (HTTP 404). ` +
+    `This platform's artifact was not signed. Refusing to install an unverified binary.\n` +
+    `Set AMORE_NPM_SKIP_SIGSTORE=1 to override, or verify manually:\n` +
+    `  https://github.com/${REPO_OWNER}/${REPO_NAME}#verify-manually`,
+  );
+
+  if (bundleStatus !== 200) throw new Error(
+    `Unexpected HTTP ${bundleStatus} fetching Sigstore bundle. ` +
+    `Cannot verify integrity — aborting (fail-closed). Set AMORE_NPM_SKIP_SIGSTORE=1 to override.`,
+  );
+
+  const cosignBin = await resolveCosign();
+  console.log(`[@anto/amore] verifying Sigstore bundle …`);
+  const r = spawnSync(cosignBin, [
+    "verify-blob", "--bundle", bundlePath,
+    "--certificate-identity-regexp", `https://github\\.com/${REPO_OWNER}/${REPO_NAME}/`,
+    "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
+    archivePath,
+  ], { stdio: "inherit" });
+  if (r.status !== 0) throw new Error(
+    `Sigstore verification FAILED for ${path.basename(archivePath)}.\n` +
+    `Refusing to install — possible tampering. See README.md § 'Verify manually' or\n` +
+    `open an issue: https://github.com/${REPO_OWNER}/${REPO_NAME}/issues`,
+  );
+  console.log(`[@anto/amore] Sigstore verification OK.`);
 }
 
 async function main() {
@@ -263,21 +354,22 @@ async function main() {
   const archiveName = `amore-v${VERSION}-${target}.${ext}`;
   const binDir = path.join(__dirname, "bin");
   const archivePath = path.join(__dirname, archiveName);
+  const bundleName = `${archiveName}.bundle`;
   const bundlePath = `${archivePath}.bundle`;
 
   const tag = `v${VERSION}`;
   console.log(`[@anto/amore] downloading ${archiveName} from GitHub Release ${tag}…`);
   await fetchReleaseAsset(REPO_OWNER, REPO_NAME, tag, archiveName, archivePath);
 
-  // Best-effort fetch of the Sigstore bundle (Linux artifacts only — verify
-  // function above no-ops when bundle absent).
-  try {
-    await fetchReleaseAsset(REPO_OWNER, REPO_NAME, tag, `${archiveName}.bundle`, bundlePath);
-  } catch (_) {
-    // ignore: bundles only published for x86_64-unknown-linux-gnu
+  // Probe bundle existence before downloading. fail-closed: 200 = must verify,
+  // 404 = platform not signed → abort (unless AMORE_NPM_SKIP_SIGSTORE=1).
+  const bundleUrl = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/${tag}/${bundleName}`;
+  const bundleStatus = await httpHead(bundleUrl);
+  if (bundleStatus === 200) {
+    await fetchReleaseAsset(REPO_OWNER, REPO_NAME, tag, bundleName, bundlePath);
   }
+  await verifySigstore(archivePath, bundlePath, bundleStatus);
 
-  verifySigstoreIfAvailable(archivePath, bundlePath);
   console.log(`[@anto/amore] extracting → ${binDir}`);
   extract(archivePath, ext, binDir);
   chmodExecBinaries(binDir);

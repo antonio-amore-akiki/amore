@@ -2,7 +2,69 @@
 
 All notable changes per release. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — F.0 Rename obelion -> Amore
+## [Unreleased] — Phase G hygiene + supply-chain (v0.4.0 target)
+
+### Planned
+- No-unwrap policy: `clippy::unwrap_used = "deny"` across production paths.
+- `cargo geiger` + Scorecard nightly added to local Task Scheduler (`cargo audit` + `cargo deny` shipped in v0.3.1).
+- proptest property tests on parsers (provenance, MCP message, canonical-doc header).
+- cargo-fuzz harnesses on each parser (nightly Task Scheduler runs).
+- Documentation set: ARCHITECTURE.md, RUNBOOK.md, SLO.md, SCALE-100M.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md, 12 ADRs in docs/adr/, 7 per-IDE quickstarts.
+- Reproducible-builds proof via local `cargo build --release --locked` SHA-256 diff.
+- SBOM via cargo-cyclonedx attached to release.
+
+## [0.3.1-live-fire] — 2026-05-26
+
+Security review NO-GO from the security-reviewer subagent at v0.3.0 closed
+in one parallel-fixer sprint. v0.3.1 is the **post-security-review production
+candidate** for the v0.3.x line. See full review: `docs/SECURITY-REVIEW-v0.3.0-live-fire.md`.
+
+### Security (Critical)
+- **Critical 10a — Ollama installer SHA-256 verification** (`crates/amore-gui/src/install.rs`): the first-run wizard downloaded `OllamaSetup.exe` over HTTPS and immediately executed it with no integrity check. Any `ollama.com` BGP/DNS/CDN compromise would have silently RCE'd every fresh Amore install. Fix: pinned `OLLAMA_INSTALLER_SHA256 = "38ef4715a31b6fede8f37be840c5e1e1524150d2c637d1acca94227980daf300"` constant; hash computed incrementally (single-pass over the 857 MB download stream); fail-closed on mismatch — `run_installer` is unreachable if the hash doesn't match.
+- **Critical 10b — npm Sigstore verification mandatory + all-3-OS bundles** (`npm/postinstall.js` + `.github/workflows/release.yml`): bundle verification was previously OPT-IN ("if cosign is on PATH") and only Linux artifacts were signed in the first place. Fix: bundle verification is now mandatory (fail-closed); cosign installed on demand into `~/.amore-cache/`; release.yml emits Sigstore keyless bundles for all three OS matrix rows; `AMORE_NPM_SKIP_SIGSTORE=1` escape hatch emits a loud stderr warning every install.
+
+### Security (Major)
+- **Major 11a — absolute-path child spawn** (`crates/amore-gui/src/main.rs`): `Command::new("amore")` previously PATH-resolved; on Windows, CWD-first semantics could let a dropped `amore.exe` in the user's Downloads folder hijack the `amore init <ide>` calls with `AMORE_DATA_DIR` pointing at user-chosen memory. Fix: resolve via `current_exe().parent().join("amore.exe")` (one-line).
+- **Major 6a — MCP `recall` tool input bounds** (`crates/amore-mcp/src/main.rs`): `top_k: usize` and `query: String` were unbounded; release-profile arithmetic on large `top_k` wrapped silently into junk Qdrant params. Fix: `MAX_TOP_K = 100` clamp + `MAX_QUERY_BYTES = 16 * 1024` reject with `McpError::invalid_params`. Two new regression tests in `crates/amore-mcp/tests/mcp_handshake.rs`.
+
+### Security (Hygiene)
+- **Local nightly cargo-audit + cargo-deny + cargo-geiger** via Windows Task Scheduler at 02:30 daily — NO GitHub Actions minutes consumed per user mandate "no git actions or credits". `scripts/security-baseline.ps1` runs the full audit; writes `%LOCALAPPDATA%\Amore\security-baselines\<date>.json`; gates on high-severity findings; optional ntfy notification on FAIL when Tailscale + ntfy.log are present.
+- **`deny.toml`** allow-list of license SPDX IDs (Apache-2.0 / MIT / BSD / ISC / Unicode / MPL-2.0 / CDLA-Permissive-2.0 / OpenSSL / Zlib) + ban wildcards + restrict to crates.io registry — GPL/AGPL/SSPL implicitly denied.
+
+### Documentation
+- `SECURITY.md` disclosure policy + 5-day-response / 30-day-fix SLA for High/Critical.
+- `docs/THREAT-MODEL.md` STRIDE-per-asset + DREAD top-3.
+- `docs/SECURITY-REVIEW-v0.3.0-live-fire.md` formal review report (verdict, findings, what's-already-good).
+
+### Workspace
+- Version bump 0.2.1 → 0.3.1.
+- New workspace dep usage: `sha2` + `hex` added to `amore-gui` for Critical 10a verification.
+
+### Verdict
+- 4 parallel executor subagents closed 2 Criticals + 3 Majors in ~5 wall-minutes.
+- `cargo build --release --workspace` exit 0.
+- `cargo test --release -p amore-integration-tests` 9 passed, 0 failed.
+- All 4 release binaries pass `binary-contracts.json` post-fix (manual spawn capture).
+- Phase G nightly cargo-audit now active (no GHA minutes consumed).
+- Phase G remaining: no-unwrap policy + coverage gate + proptest/fuzz/mutants + remaining docs (ARCHITECTURE / RUNBOOK / SLO / SCALE-100M / CONTRIBUTING / CODE_OF_CONDUCT / 12 ADRs / 7 quickstarts) — see `~/.claude/plans/amore-v1-no-gha-roadmap-20260526.md`.
+
+## [0.3.0-live-fire] — 2026-05-26
+
+First milestone where binary contracts are PROVEN, not just compiled. See
+release notes: https://github.com/antonio-amore-akiki/amore/releases/tag/v0.3.0-live-fire
+
+### Added
+- **DG.2 integration tests:** `crates/amore-integration-tests/` ships 9 cargo tests that spawn the release binaries via `std::process::Command` + `Stdio::piped()`. Coverage: `cli_help` (Usage + 5 subcommands), `mcp_handshake` (JSON-RPC initialize round-trip with stderr-error-leak check), `init_dry_run` × 7 (one per IDE adapter).
+- **DG.3 acceptance-tests spec:** `docs/ACCEPTANCE-TESTS.md` formal release-gate spec for v0.3.0 / v0.5.0 / v1.0 with literal `cmd : expected_stdout_pattern : must_not_contain` rows. Source: `crates/amore-cli/src/main.rs` for dry-run output pattern.
+- **DG.7 amore-gui CLI flags:** `--version`, `--help`, `--no-gui` exit cleanly without opening the egui window. `--no-gui` emits a config-summary JSON for CI smoke. `/SUBSYSTEM:WINDOWS` preserved for production; CLI emit goes to both stdout + stderr so headless validation sees output regardless of redirection.
+- **F.installer-1+2+3 Windows installer + GUI wizard:** Inno Setup `.iss` builds `Amore-Setup-v0.3.0.exe` (7.6 MB). egui-based first-run wizard (`amore-gui.exe`) with 7 IDE checkboxes, memory-dir picker, local-vs-cloud-AI toggle, Ollama silent-install background pipeline.
+- **SECURITY.md** disclosure policy + supported-versions matrix + posture checklist.
+- **docs/THREAT-MODEL.md** STRIDE per asset with DREAD top-3 scoring. Inherits the "stolen-laptop only" threat model from CLAUDE.md.
+
+### Fixed
+- **DG-D anyhow Display leak:** `amore-mcp::main()` no longer prints `Error: connection closed: initialize request` (rmcp::ServerInitializeError + anyhow chain). New `MainError` enum (`IdeDisconnected`, `DepUnreachable`, `ConfigInvalid`, `Other`) with plain-English Display: "Waiting for your IDE — start the editor and connect via MCP." See commit `9db9d73`.
+- **DG-E empty-stdin race:** `amore-mcp` previously exited non-zero on empty stdin (lost every IDE connection if the server started before the IDE wrote). Now matches `ServerInitializeError::ConnectionClosed` → logs `INFO: Waiting for your IDE` → exits 0. Commit `9db9d73`.
+- **DG-F qdrant version skew:** Pinned `qdrant-client = "1.15"` (was `1.18`) to match the bundled local Qdrant server. Eliminates the `Client version 1.18.0 is not compatible with server version 1.15.4` warning on first launch. Commit `353aacd`.
 
 ### Changed (breaking for installations — one-minor-release transition window)
 - **Product renamed:** `obelion` -> `Amore`. All crate names, binary names, env vars, data paths, and npm package updated.
