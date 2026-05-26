@@ -200,3 +200,4 @@ ts	step	feature	artifacts	proof_cmd	verdict	notes	commit
 2026-05-26T11:56Z	e6a7d67	F.0-rename	residual rg obelion .js	ACCEPTABLE	2 intentional (OBELION_GITHUB_TOKEN legacy alias)	workspace	e6a7d67
 2026-05-26T12:30:00Z	F.installer-1+2	windows-installer-iss-plus-egui-gui-wizard	PASS	binary_size_kb	3961	installer/windows/amore.iss + crates/amore-gui/	release-build-zero-warning
 2026-05-26T13:00:00Z	F.installer-3	ollama-silent-install-3-phase-pipeline	PASS	binary_size_kb	7029	crates/amore-gui/src/install.rs	clippy-D-warnings-clean
+2026-05-26T13:30:00Z	F.installer-1-iscc-build	inno-setup-compiler-end-to-end	PASS	installer_size_kb	7613	target/installer/Amore-Setup-v0.3.0.exe	iscc-8.985s-success

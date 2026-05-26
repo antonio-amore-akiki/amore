@@ -43,7 +43,7 @@ ArchitecturesAllowed=x64compatible
 DisableProgramGroupPage=yes
 UninstallDisplayIcon={app}\{#MyAppExeName}
 SetupLogging=yes
-SetupIconFile=..\..\branding\amore.ico
+; SetupIconFile=..\..\branding\amore.ico  ; v0.3.0: branding ico not yet shipped; default Inno icon used
 ShowLanguageDialog=auto
 LicenseFile=..\..\LICENSE
 WizardSizePercent=120,120
@@ -65,7 +65,9 @@ Source: "staging\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 
 ; Bundled ONNX embedding model (bge-small-en-v1.5, ~120 MB).
 ; Small variant; full variant (nomic-embed-text ~500 MB) downloaded on demand.
-Source: "staging\models\bge-small-en-v1.5.onnx"; DestDir: "{app}\models"; Flags: ignoreversion
+; skipifsourcedoesntexist: dev-time iscc validation succeeds without the model
+; staged; release CI populates staging/models/ via a separate fetch step.
+Source: "staging\models\bge-small-en-v1.5.onnx"; DestDir: "{app}\models"; Flags: ignoreversion skipifsourcedoesntexist
 
 ; License + attribution.
 Source: "..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
@@ -78,7 +80,7 @@ Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilen
 
 [Registry]
 ; Auto-start on login (HKCU; no admin needed). Tasks: autostart gates this.
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Amore"; ValueData: "\"{app}\{#MyAppExeName}\" --tray"; Tasks: autostart; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Amore"; ValueData: """{app}\{#MyAppExeName}"" --tray"; Tasks: autostart; Flags: uninsdeletevalue
 ; Register the user-mode MCP server path so IDE adapters can discover it via
 ; HKCU\Software\Amore\McpServerPath without env-var/PATH lookups.
 Root: HKCU; Subkey: "Software\Amore"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"; Flags: uninsdeletekey

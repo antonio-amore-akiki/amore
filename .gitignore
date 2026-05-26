@@ -29,3 +29,6 @@ release/
 *.deb
 *.rpm
 *.msi
+
+# Inno Setup staging dir (CI populates from cargo build artifacts).
+installer/windows/staging/
