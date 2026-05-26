@@ -21,6 +21,7 @@ use std::sync::Arc;
 use crate::ollama::OllamaClient;
 use crate::qdrant_store::{QdrantStore, SearchHit};
 use crate::sqlite_store::{Bm25Hit, SqliteStore};
+use crate::timeout::{resolve_timeout, with_timeout};
 
 /// Reciprocal Rank Fusion constant. 60 = mem0 / LlamaIndex / Weaviate default.
 const RRF_K: f32 = 60.0;
@@ -116,10 +117,13 @@ impl<E: Embedder> HybridRecall<E> {
     pub async fn search(&self, query: &str, top_k: usize) -> Result<RecallEnvelope> {
         let fetch = (top_k * 4).max(top_k) as u64;
         let mut degraded = Degraded::default();
-        // Vector lane = embed + qdrant.search. Either failure WARNs +
-        // flags the offline dep.
-        let vec_hits = match self.embedder.embed_query(query).await {
-            Ok(qv) => match self.qdrant.search(qv, fetch).await {
+        // Vector lane = embed + qdrant.search, each capped via with_timeout
+        // (B3: OBELION_TIMEOUT_MS env, default 4000ms). Either failure WARNs
+        // + flags the offline dep. Timeout surfaces as Err so the existing
+        // match arm handles it the same as "connection refused".
+        let t = resolve_timeout();
+        let vec_hits = match with_timeout(t, self.embedder.embed_query(query)).await {
+            Ok(qv) => match with_timeout(t, self.qdrant.search(qv, fetch)).await {
                 Ok(hits) => hits,
                 Err(e) => {
                     tracing::warn!(
@@ -157,10 +161,9 @@ impl<E: Embedder> HybridRecall<E> {
                 }
             },
             None => {
-                // Pure-vector mode: SQLite intentionally not attached. Not a
-                // failure; just no BM25 lane to consult. Only flag it as
-                // degraded if the vector lane ALSO failed (then we have zero
-                // usable lanes and the caller deserves to know both reasons).
+                // Pure-vector mode: SQLite not attached. Only flag the BM25
+                // lane degraded when the vector lane ALSO failed (the caller
+                // deserves to know zero lanes are alive, with both causes).
                 if degraded.ollama_unavailable || degraded.qdrant_unavailable {
                     degraded.bm25_unavailable = true;
                 }

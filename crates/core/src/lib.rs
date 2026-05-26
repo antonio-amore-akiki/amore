@@ -15,6 +15,7 @@ pub mod provenance;
 pub mod qdrant_store;
 pub mod recall;
 pub mod sqlite_store;
+pub mod timeout;
 pub mod world_model;
 
 pub use recall::HybridRecall;

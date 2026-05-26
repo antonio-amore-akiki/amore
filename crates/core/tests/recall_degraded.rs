@@ -39,6 +39,20 @@ impl Embedder for OkEmbedder {
     }
 }
 
+/// Slow embedder — sleeps `delay_ms` then returns Ok. Exercises the B3
+/// timeout-cap path: when delay_ms > OBELION_TIMEOUT_MS, the with_timeout
+/// wrapper in recall.rs surfaces an Err that flips ollama_unavailable=true.
+struct SlowEmbedder {
+    delay_ms: u64,
+}
+
+impl Embedder for SlowEmbedder {
+    async fn embed_query(&self, _text: &str) -> Result<Vec<f32>> {
+        tokio::time::sleep(std::time::Duration::from_millis(self.delay_ms)).await;
+        Ok(vec![0.0_f32; 768])
+    }
+}
+
 /// Build an in-memory SQLite + FTS5 store and index a few sample observations.
 fn sqlite_with_corpus() -> Arc<SqliteStore> {
     let store = SqliteStore::open_in_memory().expect("open_in_memory");
@@ -164,6 +178,42 @@ async fn both_vector_lanes_dead_and_no_sqlite_returns_err_actionable() {
             || msg.contains("ollama")
             || msg.contains("qdrant"),
         "Err must mention which lanes are dead, got: {msg}"
+    );
+}
+
+#[tokio::test]
+async fn b3_slow_embedder_times_out_and_flips_ollama_unavailable() {
+    // Production rule (CLAUDE.md no-silent-fail-open): a slow Ollama must NOT
+    // hang the recall — the OBELION_TIMEOUT_MS cap fires, embed returns Err,
+    // BM25 lane serves the response with ollama_unavailable=true.
+    unsafe { std::env::set_var("OBELION_TIMEOUT_MS", "150") };
+    let qdrant = QdrantStore::open_lazy("http://127.0.0.1:1", "b3_test").expect("open_lazy");
+    let sqlite = sqlite_with_corpus();
+    let recall =
+        HybridRecall::with_embedder(SlowEmbedder { delay_ms: 2000 }, qdrant).with_sqlite(sqlite);
+
+    let started = std::time::Instant::now();
+    let envelope = recall
+        .search("ollama runtime", 5)
+        .await
+        .expect("BM25 lane must serve hits even while vector lane times out");
+    let elapsed = started.elapsed();
+
+    unsafe { std::env::remove_var("OBELION_TIMEOUT_MS") };
+
+    assert!(
+        envelope.degraded.ollama_unavailable,
+        "timeout must flip ollama_unavailable=true, got {:?}",
+        envelope.degraded
+    );
+    assert!(
+        elapsed < std::time::Duration::from_millis(1500),
+        "recall must return within timeout cap (<<2000ms slow-embed), got {:?}",
+        elapsed
+    );
+    assert!(
+        !envelope.hits.is_empty(),
+        "BM25 lane must populate hits during vector timeout"
     );
 }
 
