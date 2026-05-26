@@ -35,9 +35,9 @@ Click your OS → double-click the file → done. No terminal, no setup.
 
 | Platform | Download | SHA256 |
 |---|---|---|
-| Windows 10/11 — installer `.msi` (double-click; also works for GPO/SCCM/Intune) | [amore-windows-x64.msi](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-windows-x64.msi) | `378919c1…` |
-| macOS 12+ Apple Silicon | [amore-1.0.0-macos-aarch64.dmg](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-1.0.0-macos-aarch64.dmg) | `5af28551…` |
-| macOS 12+ Intel | [amore-1.0.0-macos-x86_64.dmg](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-1.0.0-macos-x86_64.dmg) | `0b0a5c43…` |
+| Windows 10/11 — installer `.msi` (double-click; also works for GPO/SCCM/Intune) | [amore-windows-x64.msi](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-windows-x64.msi) | `a59eb99d…` |
+| macOS 12+ Apple Silicon | [amore-1.0.0-macos-aarch64.dmg](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-1.0.0-macos-aarch64.dmg) | `ad9614cc…` |
+| macOS 12+ Intel | [amore-1.0.0-macos-x86_64.dmg](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-1.0.0-macos-x86_64.dmg) | `34473b6b…` |
 | Linux portable AppImage | [amore-gui-x86_64.AppImage](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-gui-x86_64.AppImage) | `3e433ae1…` |
 | Linux Debian / Ubuntu `.deb` | [amore-1.0.0-linux-amd64.deb](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-1.0.0-linux-amd64.deb) | `ebaeea57…` |
 | Linux Fedora / RHEL `.rpm` | [amore-1.0.0-linux-x86_64.rpm](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-1.0.0-linux-x86_64.rpm) | `9c850d22…` |
