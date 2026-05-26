@@ -7,10 +7,16 @@
 //   status              Print resolved daemon URLs + version info.
 //   doctor              Self-diagnose all dep states (Ollama, Qdrant, SQLite,
 //                       data dir writable). Outputs machine-readable JSON.
+//   snapshot create     Bundle Qdrant + SQLite into tar.gz + .sha256 sidecar.
+//   snapshot restore    Verify sha256, untar, restore Qdrant + SQLite.
 
 // ADR 0010: no-unwrap policy. Test modules exempted via cfg_attr.
 #![deny(clippy::unwrap_used)]
 #![cfg_attr(test, allow(clippy::unwrap_used))]
+
+mod commands {
+    pub mod snapshot;
+}
 
 use amore_adapter_claude::ClaudeAdapter;
 use amore_adapter_cline::ClineAdapter;
@@ -59,6 +65,34 @@ enum Command {
     /// FAIL check is detected. Use this to triage "why isn't Amore
     /// working?" without scrolling MCP server logs.
     Doctor,
+    /// Create or restore a point-in-time snapshot (tar.gz + .sha256 sidecar).
+    Snapshot {
+        #[command(subcommand)]
+        action: SnapshotCommand,
+    },
+}
+
+#[derive(Subcommand)]
+enum SnapshotCommand {
+    /// Bundle Qdrant collection snapshots + SQLite db into <path>.tar.gz
+    /// with a <path>.tar.gz.sha256 sidecar.
+    Create {
+        /// Output archive path (e.g. /tmp/amore-snap.tar.gz).
+        path: PathBuf,
+        /// Directory containing amore.db (defaults to $AMORE_DATA_DIR or
+        /// the platform config dir / Amore).
+        #[arg(long)]
+        data_dir: Option<PathBuf>,
+    },
+    /// Verify the .sha256 sidecar, untar, restore Qdrant snapshots via upload
+    /// API, and atomically replace the SQLite database.
+    Restore {
+        /// Archive path produced by `snapshot create`.
+        path: PathBuf,
+        /// Directory where amore.db should be written (defaults to same as create).
+        #[arg(long)]
+        data_dir: Option<PathBuf>,
+    },
 }
 
 #[tokio::main]
@@ -75,7 +109,35 @@ async fn main() -> Result<()> {
         Command::Recall { query, top_k } => cmd_recall(query, top_k),
         Command::Status => cmd_status(),
         Command::Doctor => cmd_doctor().await,
+        Command::Snapshot { action } => cmd_snapshot(action).await,
     }
+}
+
+async fn cmd_snapshot(action: SnapshotCommand) -> Result<()> {
+    match action {
+        SnapshotCommand::Create { path, data_dir } => {
+            let dd = resolve_data_dir(data_dir);
+            commands::snapshot::create(&path, &dd).await
+        }
+        SnapshotCommand::Restore { path, data_dir } => {
+            let dd = resolve_data_dir(data_dir);
+            commands::snapshot::restore(&path, &dd).await
+        }
+    }
+}
+
+fn resolve_data_dir(override_dir: Option<PathBuf>) -> PathBuf {
+    if let Some(d) = override_dir {
+        return d;
+    }
+    if let Ok(v) = std::env::var("AMORE_DATA_DIR").or_else(|_| std::env::var("OBELION_DATA_DIR")) {
+        return PathBuf::from(v);
+    }
+    dirs::config_dir()
+        .or_else(dirs::data_dir)
+        .or_else(dirs::home_dir)
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("Amore")
 }
 
 fn cmd_init(ide: &str, dry: bool) -> Result<()> {
