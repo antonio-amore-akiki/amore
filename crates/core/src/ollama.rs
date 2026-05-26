@@ -36,6 +36,20 @@ struct EmbedResponse {
     embedding: Vec<f32>,
 }
 
+#[derive(Debug, Serialize)]
+struct GenerateRequest<'a> {
+    model: &'a str,
+    prompt: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    system: Option<&'a str>,
+    stream: bool,
+}
+
+#[derive(Debug, Deserialize)]
+struct GenerateResponse {
+    response: String,
+}
+
 impl OllamaClient {
     /// Create a new client with default models (`nomic-embed-text` + `qwen3:8b`)
     /// and a 30s request timeout.
@@ -102,6 +116,35 @@ impl OllamaClient {
     /// TODO(F5): POST /api/generate with an extraction prompt, parse JSON facts.
     pub async fn extract_facts(&self, _observation: &str) -> Result<Vec<String>> {
         Ok(vec![])
+    }
+
+    /// LLM completion via Ollama's `/api/generate` (non-streaming).
+    /// Returns the raw `response` string. Caller is responsible for parsing
+    /// any structured output (e.g. JSON-mode in the ensemble agents).
+    pub async fn generate(&self, system: Option<&str>, prompt: &str) -> Result<String> {
+        let url = format!("{}/api/generate", self.base_url);
+        let resp = self
+            .http
+            .post(&url)
+            .json(&GenerateRequest {
+                model: &self.llm_model,
+                prompt,
+                system,
+                stream: false,
+            })
+            .send()
+            .await
+            .with_context(|| format!("POST {url}"))?;
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            anyhow::bail!("Ollama generate failed: HTTP {status} — body: {body}");
+        }
+        let parsed: GenerateResponse = resp
+            .json()
+            .await
+            .with_context(|| "decoding Ollama /api/generate response")?;
+        Ok(parsed.response)
     }
 
     /// Accessor for diagnostics + tests.
