@@ -11,6 +11,7 @@
 #![cfg_attr(test, allow(clippy::unwrap_used))]
 
 pub mod circuit_breaker;
+pub(crate) mod porter1;
 pub mod docs;
 pub mod ensemble;
 pub mod ide_adapter;
