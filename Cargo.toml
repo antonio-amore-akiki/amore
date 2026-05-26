@@ -37,6 +37,12 @@ ollama-rs = "0.3"
 # Metadata + BM25 — SQLite with bundled FTS5
 rusqlite = { version = "0.39", features = ["bundled"] }
 
+# Tantivy BM25 lane — H.1 production swap-in for SQLite FTS5 (per ADR 0011)
+tantivy = "0.22"
+
+# WAL + LRU-on-disk store — H.8 streaming ingest + H.13 multi-level cache
+sled = "0.34"
+
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 
