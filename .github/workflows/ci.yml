@@ -13,10 +13,9 @@ name: ci
 on:
   # Conserves GitHub Actions minutes per user directive 2026-05-26.
   # Local pre-flight (cargo fmt --check && cargo clippy -- -D warnings
-  # && cargo test --workspace) covers every dev push. Matrix runners
-  # fire ONLY on release tags (vN.N.N) + explicit manual dispatch.
-  push:
-    tags: ["v*"]
+  # && cargo test --workspace) covers every dev push. release.yml owns
+  # the tag trigger (build + sign + publish); ci.yml stays manual-only
+  # so we don't double-burn matrix runners on tag pushes.
   workflow_dispatch:
 
 concurrency:
