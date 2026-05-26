@@ -253,12 +253,14 @@ jobs:
           Terminal=false
           DESKTOP
           cp AppDir/usr/share/applications/amore.desktop AppDir/
-          # Minimal icon (1x1 PNG fallback so appimagetool doesn't error)
+          # Icon — use packaged icon if present, else 1x1 PNG fallback via base64.
           if [ -f packaging/installer/linux/amore-icon.png ]; then
             cp packaging/installer/linux/amore-icon.png AppDir/usr/share/icons/hicolor/256x256/apps/amore.png
             cp packaging/installer/linux/amore-icon.png AppDir/amore.png
           else
-            python3 -c "import struct,zlib;sig=b'\\x89PNG\\r\\n\\x1a\\n';ihdr=b'IHDR'+struct.pack('>IIBBBBB',1,1,8,2,0,0,0);ihdr=b'\\x00\\x00\\x00\\x0d'+ihdr+struct.pack('>I',zlib.crc32(ihdr));idat=zlib.compress(b'\\x00\\xff\\xff\\xff');idat=struct.pack('>I',len(idat))+b'IDAT'+idat;idat+=struct.pack('>I',zlib.crc32(b'IDAT'+zlib.compress(b'\\x00\\xff\\xff\\xff')));iend=b'\\x00\\x00\\x00\\x00IEND\\xaeB\\`\\x82';open('AppDir/amore.png','wb').write(sig+ihdr+idat+iend);open('AppDir/usr/share/icons/hicolor/256x256/apps/amore.png','wb').write(sig+ihdr+idat+iend)"
+            # Minimal 1x1 transparent PNG (base64) — 67 bytes
+            echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" | base64 -d > AppDir/amore.png
+            cp AppDir/amore.png AppDir/usr/share/icons/hicolor/256x256/apps/amore.png
           fi
           # AppRun shim
           cat > AppDir/AppRun <<'APPRUN'
