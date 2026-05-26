@@ -19,6 +19,8 @@
 
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
+mod install;
+
 use eframe::egui;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -54,7 +56,9 @@ struct WizardState {
 
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
-enum DepStatus {
+#[derive(Default)]
+pub(crate) enum DepStatus {
+    #[default]
     Unknown,
     Detecting,
     InstalledAt(PathBuf),
@@ -65,11 +69,6 @@ enum DepStatus {
     Failed(String), // plain-English message
 }
 
-impl Default for DepStatus {
-    fn default() -> Self {
-        DepStatus::Unknown
-    }
-}
 
 #[derive(Clone, Debug, Default)]
 enum SaveStatus {
@@ -86,9 +85,11 @@ struct AmoreWizard {
 
 impl AmoreWizard {
     fn new(_cc: &eframe::CreationContext<'_>) -> Self {
-        let mut state = WizardState::default();
-        state.brain_local = true;
-        state.memory_dir = default_memory_dir().to_string_lossy().into_owned();
+        let state = WizardState {
+            brain_local: true,
+            memory_dir: default_memory_dir().to_string_lossy().into_owned(),
+            ..Default::default()
+        };
         // Kick off Ollama detection in a background thread.
         let ollama = state.ollama_status.clone();
         std::thread::spawn(move || {
@@ -123,11 +124,10 @@ impl eframe::App for AmoreWizard {
             ui.label(egui::RichText::new("2) Where should Amore keep your memory?").size(16.0));
             ui.horizontal(|ui| {
                 ui.text_edit_singleline(&mut self.state.memory_dir);
-                if ui.button("Browse…").clicked() {
-                    if let Some(p) = rfd::FileDialog::new().pick_folder() {
+                if ui.button("Browse…").clicked()
+                    && let Some(p) = rfd::FileDialog::new().pick_folder() {
                         self.state.memory_dir = p.to_string_lossy().into_owned();
                     }
-                }
             });
 
             ui.separator();
@@ -141,7 +141,15 @@ impl eframe::App for AmoreWizard {
             if matches!(ollama, DepStatus::Missing)
                 && ui.button("Install Ollama automatically").clicked()
             {
-                spawn_install_ollama(self.state.ollama_status.clone());
+                install::spawn_ollama(self.state.ollama_status.clone(), ctx.clone());
+            }
+            // Keep the UI live-painting while a download / install is in flight so the
+            // user sees the progress bar update without having to mouse-move.
+            if matches!(
+                ollama,
+                DepStatus::Downloading { .. } | DepStatus::Installing | DepStatus::Detecting
+            ) {
+                ctx.request_repaint_after(std::time::Duration::from_millis(100));
             }
 
             ui.separator();
@@ -197,20 +205,6 @@ fn default_memory_dir() -> PathBuf {
     dirs::data_local_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("Amore")
-}
-
-fn spawn_install_ollama(status: Arc<Mutex<DepStatus>>) {
-    std::thread::spawn(move || {
-        *status.lock().unwrap() = DepStatus::Downloading { pct: 0.0 };
-        // F.installer-3 will replace this stub with a real downloader:
-        //   * reqwest blocking GET https://ollama.com/download/OllamaSetup.exe
-        //   * write to %TEMP%/OllamaSetup.exe with periodic pct updates
-        //   * spawn the installer with /SILENT /SUPPRESSMSGBOXES
-        //   * poll http://localhost:11434/api/version until reachable
-        *status.lock().unwrap() = DepStatus::Failed(
-            "Auto-install not yet implemented. Please download Ollama from ollama.com.".into(),
-        );
-    });
 }
 
 fn spawn_save(state: &WizardState) {
