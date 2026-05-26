@@ -191,3 +191,10 @@ ts	step	feature	artifacts	proof_cmd	verdict	notes	commit
 2026-05-26T11:04Z	A9-fx-world-model-bayesian-laplace-preferences	cargo run -p obelion-eval --bin token-reduction	PASS	coding_reduction	baseline=6756/optimized=419/reduction=93.8%/hits=2	crates/eval/fixtures/world-model-bayesian-laplace-preferences.json	UNCOMMITTED
 2026-05-26T11:04Z	A9-fx-world-model-graph-projects-tools	cargo run -p obelion-eval --bin token-reduction	PASS	research_reduction	baseline=4964/optimized=419/reduction=91.6%/hits=2	crates/eval/fixtures/world-model-graph-projects-tools.json	UNCOMMITTED
 2026-05-26T11:04Z	A9	cargo run -p obelion-eval --bin token-reduction	PASS	token_reduction	avg=92.7%/worst=80.1%(class=docs,id=hasleo-usb-plugin-image-backup)/N=43	crates/eval/src/main.rs	UNCOMMITTED
+2026-05-26T11:56Z	e6a7d67	F.0-rename	cargo fmt --check	PASS	0 diffs	workspace	e6a7d67
+2026-05-26T11:56Z	e6a7d67	F.0-rename	cargo clippy --workspace -D warnings	PASS	0 errors	workspace	e6a7d67
+2026-05-26T11:56Z	e6a7d67	F.0-rename	cargo test --workspace	PASS	129 passed 0 failed	workspace	e6a7d67
+2026-05-26T11:56Z	e6a7d67	F.0-rename	gh repo view antonio-amore-akiki/amore	PASS	repo name=amore	github	e6a7d67
+2026-05-26T11:56Z	e6a7d67	F.0-rename	residual rg obelion (toml/yaml/yml/json/sh/ps1)	PASS	0 matches	workspace	e6a7d67
+2026-05-26T11:56Z	e6a7d67	F.0-rename	residual rg obelion .rs	ACCEPTABLE	90 intentional (legacy aliases + migration + tests)	workspace	e6a7d67
+2026-05-26T11:56Z	e6a7d67	F.0-rename	residual rg obelion .js	ACCEPTABLE	2 intentional (OBELION_GITHUB_TOKEN legacy alias)	workspace	e6a7d67
