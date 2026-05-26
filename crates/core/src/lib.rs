@@ -9,6 +9,7 @@
 pub mod docs;
 pub mod ensemble;
 pub mod ide_adapter;
+pub mod mining;
 pub mod ollama;
 pub mod provenance;
 pub mod qdrant_store;
