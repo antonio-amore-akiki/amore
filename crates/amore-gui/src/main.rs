@@ -228,16 +228,31 @@ fn spawn_save(state: &WizardState) {
     // directory, not via PATH. On Windows, CreateProcess checks CWD before
     // PATH — a malicious amore.exe in CWD would otherwise be invoked with
     // AMORE_DATA_DIR pointing at the user's memory store.
+    //
+    // C-2 (2026-05-26): fail closed if current_exe() fails rather than falling
+    // back to bare-name PATH lookup, which would re-introduce the 11a vulnerability
+    // on any OS anomaly (proc-fd unlink, unsupported platform, container quirk).
     let cli_path = std::env::current_exe()
         .ok()
-        .and_then(|p| {
-            p.parent().map(|d| {
-                d.join(if cfg!(windows) { "amore.exe" } else { "amore" })
-            })
-        })
-        .unwrap_or_else(|| std::path::PathBuf::from("amore"));
+        .and_then(|p| p.parent().map(|d| {
+            d.join(if cfg!(windows) { "amore.exe" } else { "amore" })
+        }));
+    let Some(cli_path) = cli_path else {
+        *status.lock().unwrap() = SaveStatus::Failed(
+            "Couldn't locate the Amore CLI binary. Please reinstall Amore.".into(),
+        );
+        return;
+    };
     std::thread::spawn(move || {
         *status.lock().unwrap() = SaveStatus::Saving;
+        // C-2: verify the CLI binary exists before invoking it to surface a clear
+        // error instead of a cryptic OS process-spawn failure.
+        if !cli_path.exists() {
+            *status.lock().unwrap() = SaveStatus::Failed(
+                "Couldn't locate the Amore CLI binary. Please reinstall Amore.".into(),
+            );
+            return;
+        }
         // Shell out to amore-cli for each selected IDE.
         for ide in &ides {
             let r = std::process::Command::new(&cli_path)

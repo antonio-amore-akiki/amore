@@ -7,15 +7,10 @@
 // binaries into ./bin/, and exits.
 //
 // Sigstore verification policy (S10b fix — security finding 10b):
-//   - If a .bundle file is present on the release (HTTP 200): verification is
-//     MANDATORY. cosign is located on PATH, or downloaded on-demand into
-//     ~/.amore-cache/cosign-<platform>. If neither succeeds, install ABORTS.
-//   - If the .bundle is absent (HTTP 404): the release was not signed for this
-//     platform. Install ABORTS with a clear error + manual-verify instructions.
-//   - Escape hatch: AMORE_NPM_SKIP_SIGSTORE=1 bypasses, but emits a LOUD
-//     multi-line stderr warning on every use.
-//   - "HTTPS + GitHub URL proves transport only, not content integrity" — this
-//     script enforces content integrity via Sigstore keyless attestation.
+//   Bundle present (HTTP 200): verification MANDATORY via cosign (PATH or
+//   ~/.amore-cache/). Bundle absent (HTTP 404): ABORT — platform not signed.
+//   Escape hatch: AMORE_NPM_SKIP_SIGSTORE=1 emits a LOUD warning and bypasses.
+//   "HTTPS proves transport only" — content integrity is via Sigstore attestation.
 //
 // Adapted from the esbuild + ripgrep-prebuilt + @vscode/ripgrep npm patterns
 // (cited in prior-art-verdict.json). All three are Apache-2.0/MIT compatible
@@ -32,6 +27,25 @@ const os = require("node:os");
 const path = require("node:path");
 const https = require("node:https");
 const { spawnSync } = require("node:child_process");
+const { createHash } = require("node:crypto");
+
+// Cosign v2.4.3 SHA-256 pins (verified 2026-05-26 against
+// https://github.com/sigstore/cosign/releases/download/v2.4.3/cosign_checksums.txt).
+// To re-verify: download cosign_checksums.txt from the release page, grep the binary name.
+const COSIGN_VERSION = "2.4.3";
+const COSIGN_SHA256 = {
+  "linux-amd64":       "caaad125acef1cb81d58dcdc454a1e429d09a750d1e9e2b3ed1aed8964454708",
+  "darwin-amd64":      "98a3bfd691f42c6a5b721880116f89210d8fdff61cc0224cd3ef2f8e55a466fb",
+  "darwin-arm64":      "edfc761b27ced77f0f9ca288ff4fac7caa898e1e9db38f4dfdf72160cdf8e638",
+  "windows-amd64.exe": "a2ac24e197111c9430cb2a98f10a641164381afb83df036504868e4ea5720800",
+};
+
+// Cosign download URLs — pinned to COSIGN_VERSION (never "latest"); one entry per COSIGN_SHA256 key.
+const COSIGN_URLS = {
+  "linux:x64":  `https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64`,
+  "darwin:x64": `https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-darwin-amd64`,
+  "win32:x64":  `https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-windows-amd64.exe`,
+};
 
 const PKG = require("./package.json");
 const VERSION = PKG.version;
@@ -42,13 +56,6 @@ const PLATFORM_TARGETS = {
   "linux:x64":  { target: "x86_64-unknown-linux-gnu", ext: "tar.gz" },
   "darwin:x64": { target: "x86_64-apple-darwin",      ext: "tar.gz" },
   "win32:x64":  { target: "x86_64-pc-windows-msvc",   ext: "zip"    },
-};
-
-// cosign download URLs used when cosign is absent from PATH.
-const COSIGN_URLS = {
-  "linux:x64":  "https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64",
-  "darwin:x64": "https://github.com/sigstore/cosign/releases/latest/download/cosign-darwin-amd64",
-  "win32:x64":  "https://github.com/sigstore/cosign/releases/latest/download/cosign-windows-amd64.exe",
 };
 
 function platformKey() {
@@ -69,12 +76,7 @@ function resolveTarget() {
 }
 
 function resolveToken() {
-  // Allow private-repo installs during the MVP window: any of
-  // AMORE_GITHUB_TOKEN > GITHUB_TOKEN > GH_TOKEN is consumed as a Bearer
-  // credential to the GitHub REST API. Once the Amore repo flips to public
-  // (post-v1.0), no token is needed and the browser-style
-  // releases/download/<tag>/<asset> URL serves the asset directly.
-  // Legacy OBELION_GITHUB_TOKEN is also accepted for backward compat.
+  // AMORE_GITHUB_TOKEN > OBELION_GITHUB_TOKEN > GITHUB_TOKEN > GH_TOKEN (Bearer); empty = public-repo.
   return (
     process.env.AMORE_GITHUB_TOKEN ||
     process.env.OBELION_GITHUB_TOKEN ||
@@ -84,8 +86,7 @@ function resolveToken() {
   );
 }
 
-// Probe whether a URL exists without downloading its body.
-// Returns the HTTP status code (follows redirects up to 5 hops).
+// HEAD probe for URL existence; follows up to 5 redirects; returns HTTP status code.
 function httpHead(url, { headers = {} } = {}, hops = 0) {
   return new Promise((resolve, reject) => {
     if (hops > 5) { reject(new Error(`Too many redirects probing ${url}`)); return; }
@@ -135,9 +136,7 @@ function httpGet(url, { headers = {}, expectJson = false } = {}) {
 }
 
 async function lookupAssetIdByName(owner, repo, tag, assetName, token) {
-  // Resolve the asset's numeric id via the API, so we can download via the
-  // private-repo-capable asset endpoint instead of the browser-only
-  // releases/download path.
+  // Resolve asset numeric id via API for private-repo-capable download endpoint.
   const apiUrl = `https://api.github.com/repos/${owner}/${repo}/releases/tags/${tag}`;
   const headers = {
     Accept: "application/vnd.github+json",
@@ -163,8 +162,7 @@ function downloadToFile(url, destPath, headers, maxRedirects = 10) {
         return;
       }
       const u = new URL(currentUrl);
-      // GitHub's API responds with a 302 to a signed CDN URL (objects.githubusercontent.com)
-      // that REJECTS the Authorization header. Send creds only to github.com hosts.
+      // GitHub CDN redirects reject the Authorization header — send creds only to github.com.
       const sendAuth = u.hostname === "api.github.com" || u.hostname === "github.com";
       const reqHeaders = sendAuth ? headers : { "User-Agent": "anto-amore-postinstall" };
       const req = https.get(currentUrl, { headers: reqHeaders }, (res) => {
@@ -244,10 +242,7 @@ function extract(archivePath, ext, outDir) {
 }
 
 function flattenNestedTargetDir(outDir) {
-  // Defense against zip archives that preserve the build-output relative path
-  // (target/<triple>/release/amore[.exe]) instead of putting binaries at the
-  // root. v0.2.1 windows-msvc.zip had this shape; release.yml is patched for
-  // v0.2.2+ but this keeps existing tagged artifacts installable.
+  // Flatten target/<triple>/release/ layout from v0.2.1 windows zip (patched v0.2.2+).
   const targetDir = path.join(outDir, "target");
   if (!fs.existsSync(targetDir) || !fs.statSync(targetDir).isDirectory()) return;
   const moveFromDir = (dir) => {
@@ -276,8 +271,7 @@ function chmodExecBinaries(outDir) {
   }
 }
 
-// Locate cosign: PATH first, then ~/.amore-cache/, then download on-demand.
-// fail-closed: throws if cosign cannot be obtained. Never silent fail-open.
+// Locate cosign: PATH first, then ~/.amore-cache/ (verified by SHA-256 pin), then download.
 async function resolveCosign() {
   if (spawnSync("cosign", ["version"], { stdio: "ignore" }).status === 0) return "cosign";
 
@@ -296,9 +290,26 @@ async function resolveCosign() {
     `No cosign URL for platform ${key}. Install manually: ` +
     `https://docs.sigstore.dev/cosign/system_config/installation/`,
   );
-  console.log(`[@anto/amore] downloading cosign to ${cacheBin} …`);
+  // Map platform key → COSIGN_SHA256 key.
+  const shaKey = isWin ? "windows-amd64.exe"
+    : process.platform === "darwin"
+      ? (process.arch === "arm64" ? "darwin-arm64" : "darwin-amd64")
+      : "linux-amd64";
+  const expectedSha = COSIGN_SHA256[shaKey];
+  if (!expectedSha) throw new Error(`No SHA-256 pin for cosign key "${shaKey}" — update COSIGN_SHA256.`);
+  console.log(`[@anto/amore] downloading cosign v${COSIGN_VERSION} to ${cacheBin} …`);
   fs.mkdirSync(cacheDir, { recursive: true });
   await downloadToFile(cosignUrl, cacheBin, { "User-Agent": "anto-amore-postinstall" });
+  // C-1 fix: verify SHA-256 before executing the downloaded binary (fail-closed).
+  const actualSha = createHash("sha256").update(fs.readFileSync(cacheBin)).digest("hex");
+  if (actualSha !== expectedSha) {
+    fs.unlinkSync(cacheBin);
+    throw new Error(
+      `cosign SHA-256 mismatch — download may be tampered.\n` +
+      `  Expected: ${expectedSha}\n  Got: ${actualSha}\n` +
+      `Aborting. Install cosign manually: https://docs.sigstore.dev/cosign/system_config/installation/`,
+    );
+  }
   if (!isWin) fs.chmodSync(cacheBin, 0o755);
   if (spawnSync(cacheBin, ["version"], { stdio: "ignore" }).status !== 0) throw new Error(
     `cosign self-test failed at ${cacheBin}. ` +

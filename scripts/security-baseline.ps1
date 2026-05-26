@@ -13,6 +13,35 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# ── C-3: Self-register the nightly Task Scheduler task if absent ───────────────
+# Ensures the task survives a Task Scheduler wipe or re-deployment without
+# requiring a manual orchestrator step. Uses $PSCommandPath so the registered
+# action path is always the script's real on-disk location.
+# Skip with: $env:AMORE_SKIP_SELF_REGISTER = '1'  (CI / test escape hatch)
+if ($env:AMORE_SKIP_SELF_REGISTER -ne '1') {
+    $TaskName   = 'Amore-Security-Baseline-Nightly'
+    $ScriptPath = $PSCommandPath
+    $existing   = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+    if ($null -eq $existing) {
+        $action  = New-ScheduledTaskAction -Execute 'pwsh.exe' `
+                       -Argument "-NonInteractive -File `"$ScriptPath`""
+        $trigger = New-ScheduledTaskTrigger -Daily -At '02:30'
+        $settings = New-ScheduledTaskSettingsSet `
+                       -StartWhenAvailable `
+                       -AllowStartIfOnBatteries `
+                       -DontStopIfGoingOnBatteries
+        Register-ScheduledTask -TaskName $TaskName `
+            -Action $action -Trigger $trigger -Settings $settings `
+            -RunLevel Limited -Force | Out-Null
+        $nextRun = (Get-ScheduledTask -TaskName $TaskName |
+                        Get-ScheduledTaskInfo).NextRunTime
+        Write-Host "[security-baseline] Registered task $TaskName (next run: $nextRun)"
+    } else {
+        $nextRun = (Get-ScheduledTaskInfo -TaskName $TaskName).NextRunTime
+        Write-Host "[security-baseline] Task already registered (status: $($existing.State)) (next run: $nextRun)"
+    }
+}
+
 # ── Paths ──────────────────────────────────────────────────────────────────────
 $OutputDir = Join-Path $env:LOCALAPPDATA 'Amore\security-baselines'
 $Today     = (Get-Date -Format 'yyyyMMdd')

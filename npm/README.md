@@ -22,7 +22,13 @@ Supported targets in v0.2.0: `linux-x64`, `darwin-x64`, `win32-x64`. ARM lanes
 If `npm install` fails with `Sigstore verification FAILED`:
 
 ```bash
-# 1. Install cosign: https://docs.sigstore.dev/cosign/system_config/installation/
+# 1. Install cosign v2.4.3 (pinned version used by postinstall):
+#    https://github.com/sigstore/cosign/releases/tag/v2.4.3
+#    SHA-256 pins (from cosign_checksums.txt, verified 2026-05-26):
+#      linux-amd64:       caaad125acef1cb81d58dcdc454a1e429d09a750d1e9e2b3ed1aed8964454708
+#      darwin-amd64:      98a3bfd691f42c6a5b721880116f89210d8fdff61cc0224cd3ef2f8e55a466fb
+#      darwin-arm64:      edfc761b27ced77f0f9ca288ff4fac7caa898e1e9db38f4dfdf72160cdf8e638
+#      windows-amd64.exe: a2ac24e197111c9430cb2a98f10a641164381afb83df036504868e4ea5720800
 # 2. Download the artifact + bundle from the GitHub Release page
 cosign verify-blob \
   --bundle amore-v<VERSION>-<TARGET>.<EXT>.bundle \
