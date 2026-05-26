@@ -27,13 +27,63 @@ use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
     CallToolResult, Content, Implementation, ProtocolVersion, ServerCapabilities, ServerInfo,
 };
+use rmcp::service::ServerInitializeError;
 use rmcp::transport::stdio;
 use rmcp::{
     ErrorData as McpError, ServerHandler, ServiceExt, schemars, tool, tool_handler, tool_router,
 };
+use std::fmt;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tracing_subscriber::EnvFilter;
+
+// ---------------------------------------------------------------------------
+// MainError — plain-English error type for user-facing process exit messages.
+// No Rust-internal strings (anyhow chains, rmcp variant names) may leak here.
+// ---------------------------------------------------------------------------
+
+/// Actionable error classes for the amore-mcp process. Each variant maps to a
+/// single plain-English message — no Rust-internal detail on stderr.
+#[derive(Debug)]
+pub enum MainError {
+    /// rmcp closed the connection before receiving an `initialize` JSON-RPC
+    /// request. Happens when the IDE adapter starts amore-mcp before it is
+    /// ready to write on the pipe (DG-D / DG-E).
+    IdeDisconnected,
+    /// Ollama or Qdrant was not reachable during the first startup probe.
+    DepUnreachable(String),
+    /// env / CLI argument validation failed.
+    ConfigInvalid(String),
+    /// Any other start-up error not covered by a specific variant.
+    Other(String),
+}
+
+impl fmt::Display for MainError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            MainError::IdeDisconnected => write!(
+                f,
+                "Waiting for your IDE — start the editor and connect via MCP."
+            ),
+            MainError::DepUnreachable(_) => write!(
+                f,
+                "Couldn't reach a required service (Ollama or Qdrant). \
+                 Run `amore doctor` to diagnose."
+            ),
+            MainError::ConfigInvalid(_) => write!(
+                f,
+                "Amore couldn't read its configuration. \
+                 Check AMORE_DATA_DIR + AMORE_BRAIN env vars."
+            ),
+            MainError::Other(_) => write!(
+                f,
+                "Amore couldn't start. Run `amore doctor` to see details."
+            ),
+        }
+    }
+}
+
+impl std::error::Error for MainError {}
 
 /// Parameters for the `recall` tool — embedded query + top-k cosine search.
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
@@ -151,7 +201,7 @@ fn env_with_legacy(amore_key: &str, legacy_key: &str) -> Option<String> {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), MainError> {
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
@@ -175,12 +225,14 @@ async fn main() -> Result<()> {
     let ollama = OllamaClient::new(&ollama_url);
     let qdrant = QdrantStore::open(&qdrant_url, &collection)
         .await
-        .with_context(|| format!("opening Qdrant at {qdrant_url} collection={collection}"))?;
+        .with_context(|| format!("opening Qdrant at {qdrant_url} collection={collection}"))
+        .map_err(|e| MainError::DepUnreachable(format!("{e:#}")))?;
 
     // BM25 lane via SQLite — required for graceful degradation when Qdrant or
     // Ollama is down (B1/B2 QA gates). Path resolves from AMORE_DATA_DIR or
     // defaults to <data_dir>/Amore/amore.db. Schema is created idempotently.
-    let sqlite_path = resolve_sqlite_path()?;
+    let sqlite_path = resolve_sqlite_path()
+        .map_err(|e| MainError::ConfigInvalid(format!("{e:#}")))?;
     if let Some(parent) = sqlite_path.parent() {
         std::fs::create_dir_all(parent).ok();
     }
@@ -188,7 +240,8 @@ async fn main() -> Result<()> {
     maybe_migrate_data_dir(&sqlite_path);
     let sqlite = std::sync::Arc::new(
         SqliteStore::open(&sqlite_path)
-            .with_context(|| format!("opening SQLite store at {}", sqlite_path.display()))?,
+            .with_context(|| format!("opening SQLite store at {}", sqlite_path.display()))
+            .map_err(|e| MainError::ConfigInvalid(format!("{e:#}")))?,
     );
     tracing::info!(
         "SQLite BM25 lane attached at {} ({} prior observations)",
@@ -200,11 +253,28 @@ async fn main() -> Result<()> {
     let docs_paths = resolve_docs_paths();
     let server = AmoreServer::new(recall, docs_paths);
 
-    let service = server
-        .serve(stdio())
+    // Handle ConnectionClosed: rmcp closes before receiving `initialize` when
+    // the IDE adapter hasn't written to stdin yet (empty-stdin race, DG-D/DG-E).
+    // Exit 0 with a plain-English INFO message — not an error from the OS view.
+    let service = match server.serve(stdio()).await {
+        Ok(svc) => svc,
+        Err(ServerInitializeError::ConnectionClosed(_)) => {
+            tracing::info!(
+                "Waiting for your IDE — start the editor and connect via MCP."
+            );
+            return Ok(());
+        }
+        Err(e) => {
+            let detail = format!("{e}");
+            tracing::error!("MCP serve error: {detail}");
+            return Err(MainError::Other(detail));
+        }
+    };
+
+    service
+        .waiting()
         .await
-        .inspect_err(|e| tracing::error!("MCP serve error: {e:?}"))?;
-    service.waiting().await?;
+        .map_err(|e| MainError::Other(format!("service join error: {e}")))?;
     Ok(())
 }
 
@@ -213,7 +283,7 @@ async fn main() -> Result<()> {
 /// deprecation warning); default = `<config_dir>/Amore/amore.db` per
 /// XDG / Windows AppData conventions. Returns Err only if the system has no
 /// home directory at all (extreme corner case).
-fn resolve_sqlite_path() -> Result<PathBuf> {
+fn resolve_sqlite_path() -> anyhow::Result<PathBuf> {
     if let Some(dir) = env_with_legacy("AMORE_DATA_DIR", "OBELION_DATA_DIR") {
         return Ok(PathBuf::from(dir).join("amore.db"));
     }
