@@ -1,0 +1,13 @@
+{
+  "id": "obelion-overview",
+  "class": "research",
+  "query": "obelion universal mcp memory backbone rust hybrid retrieval rrf",
+  "raw_context_files": [
+    "crates/core/src/recall.rs",
+    "crates/core/src/lib.rs"
+  ],
+  "canonical_docs_paths": [
+    "."
+  ],
+  "rationale": "High-level product question. README.md at repo root carries stable: true and summarizes the architecture in <50 lines; baseline forces reading the actual code."
+}

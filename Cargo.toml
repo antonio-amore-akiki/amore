@@ -11,6 +11,7 @@ members = [
     "crates/adapter-opencode",
     "crates/adapter-windsurf",
     "crates/adapter-hermes",
+    "crates/eval",
 ]
 
 [workspace.package]
