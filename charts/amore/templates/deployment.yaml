@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "amore.fullname" . }}
+  labels:
+    {{- include "amore.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.amore.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "amore.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "amore.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: amore
+          image: "{{ .Values.amore.image.repository }}:{{ .Values.amore.image.tag }}"
+          imagePullPolicy: {{ .Values.amore.image.pullPolicy }}
+          ports:
+            - name: mcp
+              containerPort: {{ .Values.amore.service.port }}
+              protocol: TCP
+          env:
+            {{- range $key, $value := .Values.amore.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.amore.resources | nindent 12 }}
+          livenessProbe:
+            exec:
+              command: ["amore", "doctor", "--json"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
