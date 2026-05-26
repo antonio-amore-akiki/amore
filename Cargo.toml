@@ -44,7 +44,8 @@ tantivy = "0.22"
 sled = "0.34"
 
 # ONNX inference — H.3 cross-encoder reranker (BAAI/bge-reranker-base) per ADR
-ort = "2"
+# ort 2 stable not yet released; 2.0.0-rc.12 is the latest RC (must be explicit)
+ort = "2.0.0-rc.12"
 
 # HuggingFace tokenizers — paired with ort for reranker input tokenization
 tokenizers = "0.20"

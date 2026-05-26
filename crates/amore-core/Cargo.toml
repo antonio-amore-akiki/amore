@@ -27,6 +27,9 @@ flate2 = "1.0"
 tantivy.workspace = true
 sled.workspace = true
 moka.workspace = true
+ort.workspace = true
+tokenizers.workspace = true
+dirs.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true

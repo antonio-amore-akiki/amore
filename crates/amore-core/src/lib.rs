@@ -6,6 +6,7 @@
 //
 // H.4 + H.5: qdrant_pool + circuit_breaker modules added.
 // H.8: wal + streaming_ingest added (sled-backed WAL, kill-mid-ingest zero loss).
+// H.3: reranker added (BAAI/bge-reranker-base cross-encoder via ort + tokenizers).
 
 #![deny(clippy::unwrap_used)]
 #![cfg_attr(test, allow(clippy::unwrap_used))]
@@ -22,6 +23,7 @@ pub mod provenance;
 pub mod qdrant_pool;
 pub mod qdrant_store;
 pub mod recall;
+pub mod reranker;
 pub mod sqlite_store;
 pub mod streaming_ingest;
 pub mod tantivy_index;
