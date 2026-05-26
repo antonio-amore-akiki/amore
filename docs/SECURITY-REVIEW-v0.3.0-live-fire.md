@@ -588,3 +588,21 @@ The remaining Majors / Minors are acceptable defer-to-v0.5 / v1.0 with rationale
 - `cargo audit` advisory DB: `last-updated 2026-05-23T18:31:49-04:00`,
   `advisory-count 1098`.
 - `cargo license` output captured at audit time over 580+ resolved deps.
+
+---
+
+## Re-review at v0.3.1
+
+**Re-review date:** 2026-05-26
+**Re-review commit:** `7f4594a` (tag `v0.3.1-live-fire`)
+**Re-review file:** `docs/SECURITY-REVIEW-v0.3.1-live-fire.md`
+
+The v0.3.0 verdict above (NO-GO) **stands as a historical record** and is NOT
+modified. The post-fix state has been re-reviewed at `7f4594a` and the verdict
+has moved to **GO-WITH-CONDITIONS** for the v0.3.1-live-fire friends/family
+preview. All 2 Critical + 3 Major findings named above are closed; one new
+Major (cosign-download TOFU in `npm/postinstall.js`) is introduced by the fix
+sprint and is tracked as condition C-1 against the v0.4.0 public ship.
+
+See `docs/SECURITY-REVIEW-v0.3.1-live-fire.md` for per-finding verdicts and the
+full list of conditions (C-1 through C-5).
