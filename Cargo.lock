@@ -196,6 +196,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "amore-integration-tests"
+version = "0.2.1"
+
+[[package]]
 name = "amore-mcp"
 version = "0.2.1"
 dependencies = [
