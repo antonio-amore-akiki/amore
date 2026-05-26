@@ -1,0 +1,8 @@
+ts	commit	host	metric	value	gate	verdict
+2026-05-26T11:25Z	df9f03d	windows-msvc-x86_64-laptop	obelion_binary_size_kb	6728.5	<=81920	PASS
+2026-05-26T11:25Z	df9f03d	windows-msvc-x86_64-laptop	obelion_mcp_binary_size_kb	10080.0	<=81920	PASS
+2026-05-26T11:25Z	df9f03d	windows-msvc-x86_64-laptop	obelion_version_cold_min_ms	11	<=500	PASS
+2026-05-26T11:25Z	df9f03d	windows-msvc-x86_64-laptop	obelion_version_cold_avg_ms	12.2	<=500	PASS
+2026-05-26T11:25Z	df9f03d	windows-msvc-x86_64-laptop	obelion_doctor_full_probe_min_ms	22	<=2000	PASS
+2026-05-26T11:25Z	df9f03d	windows-msvc-x86_64-laptop	obelion_mcp_idle_working_set_mb	21.41	<=80	PASS
+2026-05-26T11:25Z	df9f03d	windows-msvc-x86_64-laptop	obelion_mcp_idle_private_mem_mb	3.63	<=80	PASS
