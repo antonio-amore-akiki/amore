@@ -60,6 +60,20 @@ canonical_json = "0.7"
 # HTTP client (Ollama, Qdrant fallback)
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
+# Connection pooling (H.4 Qdrant gRPC pool)
+bb8 = "0.8"
+
+# Async trait support for bb8::ManageConnection impl (H.4)
+async-trait = "0.1"
+
+# gRPC transport (Phase H.6 — ADR 0009)
+tonic = { version = "0.12", features = ["transport"] }
+prost = "0.13"
+tonic-build = "0.12"
+
+# Snapshot archive (tar + flate2 already transitive; tar needs explicit dep)
+tar = "0.4"
+
 # CLI argument parsing (subcommands: init / serve / recall / status)
 clap = { version = "4", features = ["derive"] }
 
@@ -71,6 +85,9 @@ toml = "0.8"
 
 # YAML — required for Hermes Agent adapter (~/.hermes/config.yaml)
 serde_yaml = "0.9"
+
+# Property-based testing (dev only)
+proptest = "1.5"
 
 [profile.release]
 lto = true
