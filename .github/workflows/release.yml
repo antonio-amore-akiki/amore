@@ -1,0 +1,166 @@
+# Obelion release — build + sign + publish on tag push.
+#
+# Trigger: only fires when an `vX.Y.Z` tag is pushed OR a maintainer manually
+# dispatches the workflow. No dev-push burn (per user directive 2026-05-26
+# "stop using my github actions because i dont have many anymore").
+#
+# Matrix: x86_64 Linux + x86_64 macOS + x86_64 Windows (3 runners). ARM lanes
+# (aarch64-apple-darwin + aarch64-unknown-linux-gnu) land in v0.5.0 once
+# v0.1.0 has shipped + been validated by friends/family Tier-1 users.
+#
+# Signing posture (per plan EXECUTION ROADMAP S10):
+#   S10a Linux:   Sigstore cosign keyless via GitHub OIDC token. FREE.
+#                 Verifiable with `cosign verify-blob --bundle obelion-*.bundle`.
+#   S10b Windows: Authenticode skeleton — blocked_on:user EV cert (~$300-500/yr).
+#                 Until cert lands, ship unsigned + SmartScreen warning is
+#                 expected on first run; users right-click → Properties →
+#                 Unblock to clear it.
+#   S10c macOS:   notarytool skeleton — blocked_on:user Apple Developer ID
+#                 ($99/yr). Until cert lands, ship unsigned + Gatekeeper warning
+#                 cleared by user-initiated right-click → Open.
+#
+# Distribution channels populated by this workflow:
+#   GitHub Releases — single source-of-truth, signed artifacts attached
+#   npm wrapper     — `npm/postinstall.js` fetches matching tagged asset
+#   Homebrew tap    — manual bottle bump after release lands (v0.5.0+)
+#   winget          — manifest PR after release lands (v0.5.0+)
+
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v0.2.0). Required when dispatched manually."
+        required: true
+
+permissions:
+  contents: write   # gh release create + upload artifacts
+  id-token: write   # OIDC for Sigstore cosign keyless signing
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  build:
+    name: build-${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            archive: tar.gz
+            bin_ext: ""
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            archive: tar.gz
+            bin_ext: ""
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            archive: zip
+            bin_ext: ".exe"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.target }}
+
+      - name: Build release binaries
+        run: cargo build --release --target ${{ matrix.target }} -p obelion-cli -p obelion-mcp
+
+      - name: Resolve tag
+        id: tag
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Archive artifact
+        id: archive
+        shell: bash
+        run: |
+          tag="${{ steps.tag.outputs.tag }}"
+          name="obelion-${tag}-${{ matrix.target }}"
+          mkdir -p dist
+          src="target/${{ matrix.target }}/release"
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            7z a -tzip "dist/${name}.zip" \
+              "${src}/obelion${{ matrix.bin_ext }}" \
+              "${src}/obelion-mcp${{ matrix.bin_ext }}"
+            echo "path=dist/${name}.zip" >> "$GITHUB_OUTPUT"
+          else
+            tar -C "${src}" -czf "dist/${name}.tar.gz" \
+              "obelion${{ matrix.bin_ext }}" \
+              "obelion-mcp${{ matrix.bin_ext }}"
+            echo "path=dist/${name}.tar.gz" >> "$GITHUB_OUTPUT"
+          fi
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+
+      # ---- S10a Sigstore (Linux only — keyless OIDC, FREE) ----
+      - name: Install cosign
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        uses: sigstore/cosign-installer@v3.7.0
+
+      - name: Sigstore sign Linux artifact
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        shell: bash
+        run: |
+          cosign sign-blob --yes \
+            --bundle "${{ steps.archive.outputs.path }}.bundle" \
+            "${{ steps.archive.outputs.path }}"
+
+      # ---- S10b Authenticode (Windows) — skeleton, blocked_on:user EV cert ----
+      # When cert lands, populate AZURE_KV_KEY_VAULT_URI + AZURE_KV_CLIENT_ID +
+      # AZURE_KV_TENANT_ID + AZURE_KV_CERT_NAME + AZURE_KV_CLIENT_SECRET in
+      # repo Secrets, then enable the AzureSignTool block below:
+      # - if: matrix.target == 'x86_64-pc-windows-msvc'
+      #   shell: pwsh
+      #   run: |
+      #     dotnet tool install --global AzureSignTool
+      #     AzureSignTool sign -kvu $env:AZURE_KV_KEY_VAULT_URI `
+      #       -kvi $env:AZURE_KV_CLIENT_ID -kvt $env:AZURE_KV_TENANT_ID `
+      #       -kvc $env:AZURE_KV_CERT_NAME -kvs $env:AZURE_KV_CLIENT_SECRET `
+      #       -tr http://timestamp.digicert.com -td sha256 `
+      #       "target/x86_64-pc-windows-msvc/release/obelion.exe" `
+      #       "target/x86_64-pc-windows-msvc/release/obelion-mcp.exe"
+
+      # ---- S10c notarytool (macOS) — skeleton, blocked_on:user Apple Dev ID ----
+      # When cert lands, populate APPLE_ID + APPLE_TEAM_ID + APPLE_NOTARY_PW
+      # + APPLE_CERT_P12 + APPLE_CERT_PW in repo Secrets, then enable:
+      # - if: matrix.target == 'x86_64-apple-darwin'
+      #   shell: bash
+      #   run: |
+      #     echo "$APPLE_CERT_P12" | base64 -d > cert.p12
+      #     security create-keychain -p "$APPLE_CERT_PW" build.keychain
+      #     security import cert.p12 -k build.keychain -P "$APPLE_CERT_PW"
+      #     codesign --deep --force --options runtime --sign "Developer ID Application" \
+      #       "target/x86_64-apple-darwin/release/obelion" \
+      #       "target/x86_64-apple-darwin/release/obelion-mcp"
+      #     xcrun notarytool submit "${{ steps.archive.outputs.path }}" \
+      #       --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+      #       --password "$APPLE_NOTARY_PW" --wait
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.tag }}
+          draft: false
+          prerelease: ${{ startsWith(steps.tag.outputs.tag, 'v0.') }}
+          fail_on_unmatched_files: true
+          files: |
+            ${{ steps.archive.outputs.path }}
+            ${{ steps.archive.outputs.path }}.bundle

@@ -1,0 +1,52 @@
+{
+  "name": "@anto/obelion",
+  "version": "0.1.0",
+  "description": "Universal MCP agent memory backbone — hybrid retrieval (BM25 + vector + canonical-docs router) + cryptographic provenance + 7 IDE adapters. Rust core, distributed as signed cross-OS binaries via GitHub Releases.",
+  "license": "Apache-2.0",
+  "author": "Antonio <antonioakiki15@gmail.com>",
+  "homepage": "https://github.com/antonio-amore-akiki/obelion",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/antonio-amore-akiki/obelion.git"
+  },
+  "bugs": {
+    "url": "https://github.com/antonio-amore-akiki/obelion/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "agent-memory",
+    "retrieval-augmented-generation",
+    "rust",
+    "claude-code",
+    "cursor",
+    "codex",
+    "cline",
+    "windsurf",
+    "opencode",
+    "hermes"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "obelion": "bin/obelion.js",
+    "obelion-mcp": "bin/obelion-mcp.js"
+  },
+  "scripts": {
+    "postinstall": "node postinstall.js"
+  },
+  "files": [
+    "bin/",
+    "postinstall.js",
+    "README.md"
+  ],
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ]
+}
