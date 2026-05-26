@@ -1,0 +1,10 @@
+target/
+.git/
+.github/
+node_modules/
+*.log
+.idea/
+.vscode/
+installer/
+docs/
+tests/

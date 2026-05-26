@@ -1,0 +1,21 @@
+# syntax=docker/dockerfile:1.6
+ARG RUST_VERSION=1.95
+ARG DEBIAN_VERSION=bookworm
+
+FROM rust:${RUST_VERSION}-${DEBIAN_VERSION} AS builder
+RUN apt-get update && apt-get install -y --no-install-recommends protobuf-compiler && rm -rf /var/lib/apt/lists/*
+WORKDIR /work
+COPY . .
+RUN cargo build --release --workspace --bins
+
+FROM debian:${DEBIAN_VERSION}-slim AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /work/target/release/amore /usr/local/bin/amore
+COPY --from=builder /work/target/release/amore-mcp /usr/local/bin/amore-mcp
+COPY --from=builder /work/target/release/amore-gui /usr/local/bin/amore-gui
+COPY --from=builder /work/LICENSE /usr/share/doc/amore/LICENSE
+COPY --from=builder /work/README.md /usr/share/doc/amore/README.md
+EXPOSE 6333 6334 7777
+HEALTHCHECK --interval=10s --timeout=3s CMD ["/usr/local/bin/amore", "doctor", "--json"]
+ENTRYPOINT ["/usr/local/bin/amore"]
+CMD ["serve"]
