@@ -1,0 +1,14 @@
+{
+  "id": "adversarial-mining-ledger-parse",
+  "class": "coding",
+  "query": "adversarial test mining ledger JSONL parse failure corrected AdversarialTest session end hook",
+  "raw_context_files": [
+    "crates/core/src/mining.rs",
+    "crates/core/src/ensemble.rs"
+  ],
+  "canonical_docs_paths": [
+    ".",
+    "docs"
+  ],
+  "rationale": "Developer asking how adversarial test stubs are mined from session ledgers. mining.rs has parse_ledger, mine_adversarials, and AdversarialTest struct."
+}

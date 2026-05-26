@@ -1,0 +1,15 @@
+{
+  "id": "ollama-unavailable-degraded-envelope",
+  "class": "debugging",
+  "query": "ollama unavailable degraded envelope flag warning ollama_unavailable embed error fallback",
+  "raw_context_files": [
+    "crates/core/src/recall.rs",
+    "crates/core/tests/recall_degraded.rs",
+    "crates/core/src/ollama.rs"
+  ],
+  "canonical_docs_paths": [
+    ".",
+    "docs"
+  ],
+  "rationale": "Developer debugging what happens when Ollama goes down mid-recall. recall.rs has the degraded envelope logic; recall_degraded.rs has the FlakyEmbedder test fixture."
+}

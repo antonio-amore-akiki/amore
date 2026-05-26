@@ -1,0 +1,13 @@
+{
+  "id": "npm-postinstall-private-repo-github-token",
+  "class": "debugging",
+  "query": "npm postinstall private repo asset download OBELION_GITHUB_TOKEN GITHUB_TOKEN authenticated release",
+  "raw_context_files": [
+    "npm/postinstall.js",
+    "npm/README.md"
+  ],
+  "canonical_docs_paths": [
+    "."
+  ],
+  "rationale": "Developer debugging npm install failing on private repo. postinstall.js has the OBELION_GITHUB_TOKEN > GITHUB_TOKEN > GH_TOKEN resolution logic and resolveToken() function."
+}

@@ -1,0 +1,13 @@
+{
+  "id": "bitwarden-kopia-dpapi-backup-key",
+  "class": "docs",
+  "query": "bitwarden master key kopia DPAPI backup 2FA google authenticator secure note password vault",
+  "raw_context_files": [
+    "~/.claude/docs/backup-stack.md",
+    "~/.claude/CLAUDE.md"
+  ],
+  "canonical_docs_paths": [
+    "~/.claude/docs"
+  ],
+  "rationale": "User asking how their Kopia backup key is stored and accessed. backup-stack.md is the canonical stable:true reference covering Bitwarden + DPAPI + 2FA."
+}

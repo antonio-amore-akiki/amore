@@ -1,0 +1,14 @@
+{
+  "id": "qdrant-vector-upsert-search",
+  "class": "coding",
+  "query": "qdrant grpc client upsert search cosine vector collection 768 dimensions nomic-embed-text",
+  "raw_context_files": [
+    "crates/core/src/qdrant_store.rs",
+    "crates/core/src/ollama.rs"
+  ],
+  "canonical_docs_paths": [
+    ".",
+    "docs"
+  ],
+  "rationale": "Developer asking about Qdrant collection setup with nomic-embed-text 768-dim embeddings. qdrant_store.rs has the exact API + constants."
+}

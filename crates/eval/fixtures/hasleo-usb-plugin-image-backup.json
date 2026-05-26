@@ -1,0 +1,12 @@
+{
+  "id": "hasleo-usb-plugin-image-backup",
+  "class": "docs",
+  "query": "Hasleo system image backup USB plug-in trigger exFAT T9 run once a day DBI",
+  "raw_context_files": [
+    "~/.claude/docs/backup-stack.md"
+  ],
+  "canonical_docs_paths": [
+    "~/.claude/docs"
+  ],
+  "rationale": "User asking how the Hasleo image backup triggers on USB plug-in. backup-stack.md has the exact USB event trigger + exFAT lesson + DBI format note."
+}

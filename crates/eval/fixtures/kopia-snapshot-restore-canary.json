@@ -1,0 +1,13 @@
+{
+  "id": "kopia-snapshot-restore-canary",
+  "class": "docs",
+  "query": "kopia snapshot restore mount canary daily USB trigger Anto-Kopia-Daily task scheduler",
+  "raw_context_files": [
+    "~/.claude/docs/backup-stack.md",
+    "~/.claude/docs/setup-audit-20260523-103506.md"
+  ],
+  "canonical_docs_paths": [
+    "~/.claude/docs"
+  ],
+  "rationale": "User asking about Kopia snapshot restore workflow and daily trigger setup. backup-stack.md has the Anto-Kopia-Daily task and USB event 410 guard."
+}

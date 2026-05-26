@@ -1,0 +1,12 @@
+{
+  "id": "veeam-exfat-rejected-alternative",
+  "class": "docs",
+  "query": "veeam agent free dropped exFAT support uninstall rejected alternative backup tool comparison",
+  "raw_context_files": [
+    "~/.claude/docs/backup-stack.md"
+  ],
+  "canonical_docs_paths": [
+    "~/.claude/docs"
+  ],
+  "rationale": "User asking why Veeam Agent was rejected. backup-stack.md has the rejected-alternatives table with Veeam exFAT reason logged."
+}

@@ -1,0 +1,14 @@
+{
+  "id": "recall-rrf-bm25-fusion",
+  "class": "coding",
+  "query": "reciprocal rank fusion BM25 vector hybrid retrieval RRF k=60 fuse results",
+  "raw_context_files": [
+    "crates/core/src/recall.rs",
+    "crates/core/src/sqlite_store.rs"
+  ],
+  "canonical_docs_paths": [
+    ".",
+    "docs"
+  ],
+  "rationale": "Developer asking how the hybrid RRF fusion works. recall.rs has the RRF_K constant and fusion math; README and concurrency.md have BM25/RRF vocabulary in body."
+}
