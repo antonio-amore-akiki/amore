@@ -153,7 +153,7 @@ jobs:
       #       --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
       #       --password "$APPLE_NOTARY_PW" --wait
 
-      - name: Upload to release
+      - name: Upload archive to release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
@@ -161,6 +161,16 @@ jobs:
           draft: false
           prerelease: ${{ startsWith(steps.tag.outputs.tag, 'v0.') }}
           fail_on_unmatched_files: true
-          files: |
-            ${{ steps.archive.outputs.path }}
-            ${{ steps.archive.outputs.path }}.bundle
+          files: ${{ steps.archive.outputs.path }}
+
+      # Sigstore bundle only produced for Linux (S10b/c skeletons pending user
+      # certs). Splitting the upload keeps fail_on_unmatched_files=true for
+      # safety on the archive without forcing a bundle that doesn't exist on
+      # macOS/Windows runners.
+      - name: Upload Sigstore bundle (Linux only)
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          fail_on_unmatched_files: true
+          files: ${{ steps.archive.outputs.path }}.bundle
