@@ -29,7 +29,7 @@ rust-version = "1.95"
 rmcp = { version = "1.7", features = ["server", "macros", "transport-io"] }
 
 # Vector store — Qdrant (production scale)
-qdrant-client = "1.15"
+qdrant-client = "1.18"
 
 # LLM + embeddings — Ollama (free unlimited local)
 ollama-rs = "0.3"
