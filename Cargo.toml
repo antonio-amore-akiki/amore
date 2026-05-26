@@ -80,7 +80,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 flate2 = "1"
 
 # Connection pooling (H.4 Qdrant gRPC pool)
-bb8 = "0.8"
+bb8 = "0.9"
 
 # Async trait support for bb8::ManageConnection impl (H.4)
 async-trait = "0.1"
