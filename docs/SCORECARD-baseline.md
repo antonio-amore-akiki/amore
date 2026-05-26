@@ -117,6 +117,29 @@ When the user flips the repo public:
    transiently until branch-protection rules are applied, then rise above
    the `>=8.0` target by v0.9.0.
 
+## Remediation landed (2026-05-26)
+
+Three cheap fixes shipped in a single commit (post-baseline hardening, targets v0.5.0):
+
+| Metric | Before | After (expected) | Change |
+|---|---:|---:|---|
+| Token-Permissions | 0/10 | 10/10 | Added `permissions: read-all` top-level to `ci.yml` + `release.yml`; job-level `permissions: {}` on release notice job |
+| Pinned-Dependencies | 0/10 | 10/10 | Pinned all `uses:` in `ci.yml` to full SHAs with version comments; `scorecard.yml` was already pinned |
+| Dependency-Update-Tool | 0/10 | 10/10 | Created `.github/dependabot.yml` covering cargo + github-actions + docker + npm |
+
+Commit: PENDING — fill with sha post-push.
+
+**Expected score after remediation: ~7.1 / 10**
+(was 4.1; three 0-score checks → 10 each: +30 pts / ~10 non-N/A checks = +3.0)
+
+Re-measure at v0.9.0 gate via the full Docker run command below.
+
+Skipped in this pass (separate tasks):
+- SAST (0 → 10): CodeQL wiring, target v0.6.0
+- Vulnerabilities (4 → 10): `cargo update` + RUSTSEC triage, target v0.5.0
+- Fuzzing (0 → ≤5): `cargo-fuzz` targets, target v0.7.0
+- Binary-Artifacts (7 → 10): remove `installer/windows/staging/*.exe`, target v0.5.1
+
 ## Re-run instructions
 
 For the local audit at any future tag:

@@ -19,10 +19,15 @@ name: release
 on:
   push:
     tags: ['v*']
+
+# Scorecard Token-Permissions hardening (2026-05-26) — deny all by default.
+permissions: read-all
+
 jobs:
   notice:
     runs-on: ubuntu-latest
     timeout-minutes: 1
+    permissions: {}   # notice job needs no permissions at all
     steps:
       - run: |
           echo "::notice::Release artifacts for $GITHUB_REF_NAME are produced via scripts/release-local.ps1 on the maintainer host. See docs/RELEASING.md for the local procedure."
