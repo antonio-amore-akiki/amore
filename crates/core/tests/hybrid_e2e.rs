@@ -81,11 +81,17 @@ async fn end_to_end_index_and_recall() {
     }
 
     // Query semantically aligned with the two Rust docs.
-    let hits = recall
+    let envelope = recall
         .search("async networking and memory safety in systems languages", 3)
         .await
         .expect("recall");
 
+    assert!(
+        envelope.degraded.is_clean(),
+        "happy-path recall must not flag any lane degraded, got {:?}",
+        envelope.degraded
+    );
+    let hits = &envelope.hits;
     assert_eq!(hits.len(), 3, "expected 3 hits");
     let top = &hits[0];
     assert!(

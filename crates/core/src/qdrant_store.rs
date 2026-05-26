@@ -51,6 +51,31 @@ impl QdrantStore {
         Self::new(url, collection, DEFAULT_VECTOR_SIZE).await
     }
 
+    /// Lazy constructor — builds the client without performing any RPC. The
+    /// gRPC channel is created (lazy) but `ensure_collection()` is NOT called;
+    /// the first actual RPC (`search`/`upsert`/`collection_exists`) is what
+    /// surfaces a server-unreachable error.
+    ///
+    /// Production code paths use [`open`] / [`new`] (eager check). This
+    /// constructor exists so degraded-path tests + the `obelion doctor`
+    /// health-check can attempt a search and observe the failure mode
+    /// without crashing on connect.
+    pub fn open_lazy(url: &str, collection: &str) -> Result<Self> {
+        Self::new_lazy(url, collection, DEFAULT_VECTOR_SIZE)
+    }
+
+    /// Lazy variant of [`new`] — same contract but skips `ensure_collection`.
+    pub fn new_lazy(url: &str, collection: &str, vector_size: u64) -> Result<Self> {
+        let client = Qdrant::from_url(url)
+            .build()
+            .with_context(|| format!("constructing Qdrant client for {url}"))?;
+        Ok(Self {
+            client,
+            collection: collection.to_string(),
+            vector_size,
+        })
+    }
+
     async fn ensure_collection(&self) -> Result<()> {
         let exists = self
             .client

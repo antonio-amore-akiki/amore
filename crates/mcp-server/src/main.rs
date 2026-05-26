@@ -21,6 +21,7 @@ use obelion_core::docs::CanonicalDocsRouter;
 use obelion_core::ollama::OllamaClient;
 use obelion_core::qdrant_store::QdrantStore;
 use obelion_core::recall::HybridRecall;
+use obelion_core::sqlite_store::SqliteStore;
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
@@ -83,19 +84,20 @@ impl ObelionServer {
     }
 
     #[tool(
-        description = "Hybrid recall over the obelion observation store. Embeds the query via Ollama (nomic-embed-text, 768-dim) and searches Qdrant by cosine; if a SQLite BM25 lane is attached, fuses both via Reciprocal Rank Fusion (k=60). Returns a JSON array of hits (id, score, text, source, payload) ranked by relevance."
+        description = "Hybrid recall over the obelion observation store. Embeds the query via Ollama (nomic-embed-text, 768-dim) and searches Qdrant by cosine; if a SQLite BM25 lane is attached, fuses both via Reciprocal Rank Fusion (k=60). Returns a JSON object {hits: [{id, score, text, source, payload}], degraded: {ollama_unavailable, qdrant_unavailable, bm25_unavailable}} — caller MUST inspect `degraded` to detect a lane outage (no silent fail-open). When BOTH retrieval lanes are unavailable the call errors out with the actionable cause."
     )]
     async fn recall(
         &self,
         Parameters(params): Parameters<RecallParams>,
     ) -> Result<CallToolResult, McpError> {
-        let hits = self
+        let envelope = self
             .recall
             .search(&params.query, params.top_k)
             .await
             .map_err(|e| McpError::internal_error(format!("recall failed: {e}"), None))?;
-        let body = serde_json::to_string(&hits)
-            .map_err(|e| McpError::internal_error(format!("serialize hits failed: {e}"), None))?;
+        let body = serde_json::to_string(&envelope).map_err(|e| {
+            McpError::internal_error(format!("serialize recall envelope failed: {e}"), None)
+        })?;
         Ok(CallToolResult::success(vec![Content::text(body)]))
     }
 
@@ -155,7 +157,25 @@ async fn main() -> Result<()> {
     let qdrant = QdrantStore::open(&qdrant_url, &collection)
         .await
         .with_context(|| format!("opening Qdrant at {qdrant_url} collection={collection}"))?;
-    let recall = HybridRecall::new(ollama, qdrant);
+
+    // BM25 lane via SQLite — required for graceful degradation when Qdrant or
+    // Ollama is down (B1/B2 QA gates). Path resolves from OBELION_DATA_DIR or
+    // defaults to <data_dir>/obelion.db. Schema is created idempotently.
+    let sqlite_path = resolve_sqlite_path()?;
+    if let Some(parent) = sqlite_path.parent() {
+        std::fs::create_dir_all(parent).ok();
+    }
+    let sqlite = std::sync::Arc::new(
+        SqliteStore::open(&sqlite_path)
+            .with_context(|| format!("opening SQLite store at {}", sqlite_path.display()))?,
+    );
+    tracing::info!(
+        "SQLite BM25 lane attached at {} ({} prior observations)",
+        sqlite_path.display(),
+        sqlite.count_observations().unwrap_or(0)
+    );
+
+    let recall = HybridRecall::new(ollama, qdrant).with_sqlite(sqlite);
     let docs_paths = resolve_docs_paths();
     let server = ObelionServer::new(recall, docs_paths);
 
@@ -165,6 +185,21 @@ async fn main() -> Result<()> {
         .inspect_err(|e| tracing::error!("MCP serve error: {e:?}"))?;
     service.waiting().await?;
     Ok(())
+}
+
+/// Resolve the SQLite BM25 store path. `OBELION_DATA_DIR` env var (single
+/// directory) overrides; default = `<config_dir>/obelion/obelion.db` per
+/// XDG / Windows AppData conventions. Returns Err only if the system has no
+/// home directory at all (extreme corner case).
+fn resolve_sqlite_path() -> Result<PathBuf> {
+    if let Ok(dir) = std::env::var("OBELION_DATA_DIR") {
+        return Ok(PathBuf::from(dir).join("obelion.db"));
+    }
+    let base = dirs::config_dir()
+        .or_else(dirs::data_dir)
+        .or_else(dirs::home_dir)
+        .with_context(|| "no config/data/home dir resolvable for SQLite store path")?;
+    Ok(base.join("obelion").join("obelion.db"))
 }
 
 /// Resolve canonical-docs search paths. OBELION_DOCS_PATHS env var (colon- or

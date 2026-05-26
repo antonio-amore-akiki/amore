@@ -25,11 +25,26 @@ use crate::sqlite_store::{Bm25Hit, SqliteStore};
 /// Reciprocal Rank Fusion constant. 60 = mem0 / LlamaIndex / Weaviate default.
 const RRF_K: f32 = 60.0;
 
-pub struct HybridRecall {
-    ollama: OllamaClient,
+/// Embedder abstraction (Rust 2024 native async-fn-in-traits, same pattern
+/// as `LlmClient` in ensemble.rs). Prod wires OllamaClient; degraded-path
+/// tests wire a mock that returns Err on demand.
+pub trait Embedder: Send + Sync {
+    fn embed_query(&self, text: &str)
+    -> impl std::future::Future<Output = Result<Vec<f32>>> + Send;
+}
+
+impl Embedder for OllamaClient {
+    fn embed_query(
+        &self,
+        text: &str,
+    ) -> impl std::future::Future<Output = Result<Vec<f32>>> + Send {
+        self.embed(text)
+    }
+}
+
+pub struct HybridRecall<E: Embedder = OllamaClient> {
+    embedder: E,
     qdrant: QdrantStore,
-    /// Optional BM25 lane via SQLite FTS5. None = pure-vector mode (back-
-    /// compat path for callers that haven't wired SQLite yet).
     sqlite: Option<Arc<SqliteStore>>,
 }
 
@@ -42,10 +57,45 @@ pub struct RecallHit {
     pub payload: serde_json::Value,
 }
 
-impl HybridRecall {
+/// Per-lane availability flags surfaced to the caller. Vector + BM25 are
+/// co-equal primary lanes (NOT primary/fallback); `Degraded` names which lane
+/// is offline so the caller can prompt remediation instead of silently
+/// returning fewer hits.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct Degraded {
+    pub ollama_unavailable: bool,
+    pub qdrant_unavailable: bool,
+    pub bm25_unavailable: bool,
+}
+
+impl Degraded {
+    pub fn is_clean(&self) -> bool {
+        !self.ollama_unavailable && !self.qdrant_unavailable && !self.bm25_unavailable
+    }
+}
+
+/// Envelope returned by [`HybridRecall::search`]. Carries the ranked hits
+/// AND the per-lane availability flags so callers can distinguish "no hits
+/// because the corpus has nothing" from "no hits because Qdrant is down".
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RecallEnvelope {
+    pub hits: Vec<RecallHit>,
+    pub degraded: Degraded,
+}
+
+impl HybridRecall<OllamaClient> {
+    /// Production constructor wiring the concrete OllamaClient embedder.
     pub fn new(ollama: OllamaClient, qdrant: QdrantStore) -> Self {
+        Self::with_embedder(ollama, qdrant)
+    }
+}
+
+impl<E: Embedder> HybridRecall<E> {
+    /// Generic constructor — `with_embedder` lets degraded-path tests wire
+    /// a mock that returns Err to exercise the ollama_unavailable code path.
+    pub fn with_embedder(embedder: E, qdrant: QdrantStore) -> Self {
         Self {
-            ollama,
+            embedder,
             qdrant,
             sqlite: None,
         }
@@ -58,20 +108,97 @@ impl HybridRecall {
         self
     }
 
-    /// End-to-end recall. If only Qdrant is wired -> pure cosine. If SQLite
-    /// is also wired (`with_sqlite`) -> RRF fusion of vector + BM25 ranks.
-    /// Over-fetches each lane to `top_k * 4` for richer fusion overlap, then
-    /// returns the top `top_k` fused hits.
-    pub async fn search(&self, query: &str, top_k: usize) -> Result<Vec<RecallHit>> {
+    /// End-to-end recall. Returns a [`RecallEnvelope`] carrying the ranked
+    /// hits and per-lane availability flags. Vector and BM25 are co-equal
+    /// primary lanes; if one is down the envelope's `degraded` field names
+    /// which. If BOTH lanes are dead, returns Err (no silent fail-open per
+    /// CLAUDE.md hard gate). Over-fetches each lane to top_k*4 for fusion.
+    pub async fn search(&self, query: &str, top_k: usize) -> Result<RecallEnvelope> {
         let fetch = (top_k * 4).max(top_k) as u64;
-        let query_vec = self.ollama.embed(query).await?;
-        let vec_hits = self.qdrant.search(query_vec, fetch).await?;
-        let Some(sqlite) = self.sqlite.as_ref() else {
-            // Pure-vector path — return Qdrant's top_k directly.
-            return Ok(vec_hits.into_iter().take(top_k).map(map_hit).collect());
+        let mut degraded = Degraded::default();
+        // Vector lane = embed + qdrant.search. Either failure WARNs +
+        // flags the offline dep.
+        let vec_hits = match self.embedder.embed_query(query).await {
+            Ok(qv) => match self.qdrant.search(qv, fetch).await {
+                Ok(hits) => hits,
+                Err(e) => {
+                    tracing::warn!(
+                        target: "obelion.recall",
+                        error = %e,
+                        "qdrant.unreachable — vector lane skipped"
+                    );
+                    degraded.qdrant_unavailable = true;
+                    Vec::new()
+                }
+            },
+            Err(e) => {
+                tracing::warn!(
+                    target: "obelion.recall",
+                    error = %e,
+                    "ollama.embed.unreachable — vector lane skipped"
+                );
+                degraded.ollama_unavailable = true;
+                Vec::new()
+            }
         };
-        let bm_hits = sqlite.bm25_search(query, fetch)?;
-        Ok(rrf_fuse(vec_hits, bm_hits, top_k))
+
+        // ---- bm25 lane -----------------------------------------------------
+        let bm_hits = match self.sqlite.as_ref() {
+            Some(sqlite) => match sqlite.bm25_search(query, fetch) {
+                Ok(h) => h,
+                Err(e) => {
+                    tracing::warn!(
+                        target: "obelion.recall",
+                        error = %e,
+                        "bm25_search.error — bm25 lane skipped"
+                    );
+                    degraded.bm25_unavailable = true;
+                    Vec::new()
+                }
+            },
+            None => {
+                // Pure-vector mode: SQLite intentionally not attached. Not a
+                // failure; just no BM25 lane to consult. Only flag it as
+                // degraded if the vector lane ALSO failed (then we have zero
+                // usable lanes and the caller deserves to know both reasons).
+                if degraded.ollama_unavailable || degraded.qdrant_unavailable {
+                    degraded.bm25_unavailable = true;
+                }
+                Vec::new()
+            }
+        };
+
+        // ---- hard-gate: both lanes dead -> Err, never silent empty ---------
+        let vector_lane_alive = !degraded.ollama_unavailable && !degraded.qdrant_unavailable;
+        let bm25_lane_alive = self.sqlite.is_some() && !degraded.bm25_unavailable;
+        if !vector_lane_alive && !bm25_lane_alive {
+            tracing::error!(
+                target: "obelion.recall",
+                ollama_unavailable = degraded.ollama_unavailable,
+                qdrant_unavailable = degraded.qdrant_unavailable,
+                bm25_unavailable = degraded.bm25_unavailable,
+                "recall.both_lanes_unavailable — refusing to return empty silently"
+            );
+            anyhow::bail!(
+                "recall: all retrieval lanes unavailable (ollama={}, qdrant={}, bm25={}). \
+                 Start Ollama (`ollama serve`) and Qdrant (`docker run qdrant/qdrant`), \
+                 OR attach a SQLite BM25 store via HybridRecall::with_sqlite().",
+                degraded.ollama_unavailable,
+                degraded.qdrant_unavailable,
+                degraded.bm25_unavailable,
+            );
+        }
+
+        // ---- fuse + truncate -----------------------------------------------
+        // When only one lane is alive, rrf_fuse degenerates cleanly: it ranks
+        // the surviving lane's hits without any cross-lane lift. When both
+        // lanes are alive, full RRF kicks in.
+        let hits = if self.sqlite.is_some() {
+            rrf_fuse(vec_hits, bm_hits, top_k)
+        } else {
+            vec_hits.into_iter().take(top_k).map(map_hit).collect()
+        };
+        Ok(RecallEnvelope { hits, degraded })
     }
 
     /// Convenience: embed a document and upsert into the underlying Qdrant
@@ -84,7 +211,7 @@ impl HybridRecall {
         text: &str,
         extra_payload: Option<serde_json::Value>,
     ) -> Result<()> {
-        let vec = self.ollama.embed(text).await?;
+        let vec = self.embedder.embed_query(text).await?;
         let mut payload = serde_json::json!({
             "source": source,
             "text": text,
