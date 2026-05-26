@@ -38,7 +38,14 @@ impl SqliteStore {
     }
 
     fn init_schema(&self) -> Result<()> {
-        self.conn.lock().unwrap().execute_batch(
+        let conn = self.conn.lock().unwrap();
+        // WAL + NORMAL sync + 5s busy_timeout = production-grade
+        // multi-process write contention behaviour (B6). In-memory DBs
+        // reject journal_mode; that error is benign and ignored.
+        let _ = conn.pragma_update(None, "journal_mode", "WAL");
+        let _ = conn.pragma_update(None, "synchronous", "NORMAL");
+        conn.busy_timeout(std::time::Duration::from_secs(5))?;
+        conn.execute_batch(
             r#"
             CREATE TABLE IF NOT EXISTS observations (
                 id TEXT PRIMARY KEY,
@@ -78,29 +85,33 @@ impl SqliteStore {
         Ok(())
     }
 
-    /// Insert a new observation. Seals the payload into the chain after the
-    /// current head, persists it, AND populates observations_fts for BM25
-    /// retrieval. Returns the new envelope so the caller can keep tracking
-    /// the chain without re-querying.
-    ///
-    /// Indexable text is derived from the payload via `extract_indexable_text`:
-    /// if the payload is a JSON object with a string `text` field that wins,
-    /// otherwise the canonical_json itself is indexed (lossy but ensures every
-    /// observation is searchable by SOME token even when callers don't set a
-    /// dedicated text field).
+    /// Insert a new observation: seals the payload into the chain after the
+    /// current head, persists it, populates observations_fts for BM25.
+    /// Indexable text comes from payload.text (if a string) else the canonical
+    /// JSON itself.
     pub fn insert_observation(
         &self,
         source: &str,
         payload: &serde_json::Value,
     ) -> Result<Envelope> {
-        let prev_hash = self
-            .last_observation_hash()?
+        // Read-head + write must be atomic across concurrent writers (B6) or
+        // the chain forks. Hold the SQLite write lock from the start
+        // (BEGIN IMMEDIATE), read the current head inside the same tx, then
+        // seal + insert + commit. WAL + busy_timeout (set in init_schema)
+        // ride on top for cross-process contention.
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+        let prev_hash: String = tx
+            .query_row(
+                "SELECT hash FROM observations ORDER BY ts DESC, id DESC LIMIT 1",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
             .unwrap_or_else(|| GENESIS_PREV_HASH.to_string());
         let env = Envelope::seal(&prev_hash, payload)?;
         let ts = now_unix_ms();
         let indexable = extract_indexable_text(payload, &env.canonical_json);
-        let conn = self.conn.lock().unwrap();
-        let tx = conn.unchecked_transaction()?;
         tx.execute(
             "INSERT INTO observations (id, ts, source, payload, prev_hash, hash) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -121,20 +132,12 @@ impl SqliteStore {
         Ok(env)
     }
 
-    /// BM25 search across observations_fts. Returns at most `top_k` hits ranked
-    /// by relevance (higher score = better). The `query` string follows FTS5
-    /// MATCH grammar; callers passing raw user input should let FTS5 do bare-
-    /// token AND-by-default semantics — quoted-string special chars are
-    /// neutralised by enclosing the query in double quotes (FTS5 phrase form).
-    ///
-    /// FTS5's bm25() function returns NEGATIVE scores (lower = better match).
-    /// We flip the sign so the API mirrors Qdrant cosine (higher = better),
-    /// keeping the fusion math in HybridRecall uniform across both stores.
+    /// BM25 search over observations_fts. Returns up to `top_k` hits ranked
+    /// by relevance (sign-flipped so higher = better, mirroring Qdrant cosine
+    /// — keeps RRF math uniform across lanes). Empty/unsanitizable query -> no hits.
     pub fn bm25_search(&self, query: &str, top_k: u64) -> Result<Vec<Bm25Hit>> {
-        // Sanitize: keep alphanumeric tokens only, AND-by-default. Drops every
-        // FTS5 special (`-`, `:`, `*`, `^`, `()`, `"`) without quoting so the
-        // result is a plain space-separated list of bare tokens — FTS5 treats
-        // those as conjunctive (each must appear). Empty query -> no hits.
+        // Sanitize: keep alphanumeric tokens only, AND-by-default (FTS5 treats
+        // bare tokens conjunctively). Drops every FTS5 special char.
         let sanitized: String = query
             .split_whitespace()
             .map(|t| {
@@ -170,6 +173,14 @@ impl SqliteStore {
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(hits)
+    }
+
+    /// Return the active SQLite journal_mode (e.g. "wal", "memory"). Used by
+    /// B6 + `obelion doctor` to confirm WAL was negotiated.
+    pub fn journal_mode(&self) -> Result<String> {
+        let conn = self.conn.lock().unwrap();
+        let mode: String = conn.query_row("PRAGMA journal_mode", [], |row| row.get(0))?;
+        Ok(mode)
     }
 
     /// Number of observations currently persisted. Cheap; useful for tests
