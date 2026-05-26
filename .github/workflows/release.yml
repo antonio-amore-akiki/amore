@@ -96,10 +96,17 @@ jobs:
           name="obelion-${tag}-${{ matrix.target }}"
           mkdir -p dist
           src="target/${{ matrix.target }}/release"
+          dist_abs="$(pwd)/dist"
           if [ "${{ matrix.archive }}" = "zip" ]; then
-            7z a -tzip "dist/${name}.zip" \
-              "${src}/obelion${{ matrix.bin_ext }}" \
-              "${src}/obelion-mcp${{ matrix.bin_ext }}"
+            # pushd into src/ so 7z stores entries WITHOUT the target/.../release/
+            # prefix — the v0.2.1 zip leaked that path and broke npm postinstall
+            # extraction. v0.2.2+ ships flat: only obelion.exe + obelion-mcp.exe.
+            (
+              cd "${src}"
+              7z a -tzip "${dist_abs}/${name}.zip" \
+                "obelion${{ matrix.bin_ext }}" \
+                "obelion-mcp${{ matrix.bin_ext }}"
+            )
             echo "path=dist/${name}.zip" >> "$GITHUB_OUTPUT"
           else
             tar -C "${src}" -czf "dist/${name}.tar.gz" \
