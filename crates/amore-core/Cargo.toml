@@ -26,7 +26,10 @@ tar.workspace = true
 flate2 = "1.0"
 tantivy.workspace = true
 sled.workspace = true
+moka.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
 tempfile = "3"
+tokio.workspace = true
+serde_json.workspace = true
