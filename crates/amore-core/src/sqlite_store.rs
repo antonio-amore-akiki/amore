@@ -11,7 +11,7 @@ use std::sync::Mutex;
 use crate::provenance::{Envelope, GENESIS_PREV_HASH, verify_chain};
 
 pub struct SqliteStore {
-    conn: Mutex<Connection>,
+    pub(crate) conn: Mutex<Connection>,
 }
 
 #[derive(Debug, Clone)]

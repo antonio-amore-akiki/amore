@@ -3,8 +3,9 @@ use bb8::Pool;
 use qdrant_client::Payload;
 use qdrant_client::Qdrant;
 use qdrant_client::qdrant::{
-    CreateCollectionBuilder, Distance, PointStruct, SearchPointsBuilder, UpsertPointsBuilder,
-    VectorParamsBuilder,
+    CreateCollectionBuilder, DeletePointsBuilder, Distance, PointId, PointStruct,
+    SearchPointsBuilder, UpsertPointsBuilder, VectorParamsBuilder,
+    point_id::PointIdOptions,
 };
 use std::sync::Arc;
 use crate::circuit_breaker::{BreakerError, CircuitBreaker};
@@ -139,4 +140,40 @@ impl QdrantStore {
     }
     pub fn collection_name(&self) -> &str { &self.collection }
     pub fn vector_size(&self) -> u64 { self.vector_size }
+
+    // ─── Compaction helper (H.9) ──────────────────────────────────────────────
+
+    /// Delete points by string ids (UUID or numeric string) — compaction use only.
+    /// Ids that do not exist in the collection are silently ignored by Qdrant.
+    pub async fn delete_by_ids(&self, ids: &[String]) -> Result<()> {
+        if ids.is_empty() {
+            return Ok(());
+        }
+        let point_ids: Vec<PointId> = ids
+            .iter()
+            .map(|s| {
+                // Try numeric first, fall back to UUID string.
+                let opts = if let Ok(n) = s.parse::<u64>() {
+                    PointIdOptions::Num(n)
+                } else {
+                    PointIdOptions::Uuid(s.clone())
+                };
+                PointId { point_id_options: Some(opts) }
+            })
+            .collect();
+        let req = DeletePointsBuilder::new(&self.collection)
+            .points(point_ids)
+            .wait(true);
+        match &self.conn {
+            Conn::Direct(c) => c.delete_points(req).await
+                .with_context(|| format!("delete_by_ids from {}", self.collection))
+                .map(|_| ()),
+            Conn::Pooled(pool) => {
+                let conn = pool.get().await.map_err(|e| anyhow::anyhow!("pool.get: {:?}", e))?;
+                conn.delete_points(req).await
+                    .with_context(|| format!("delete_by_ids from {}", self.collection))
+                    .map(|_| ())
+            }
+        }
+    }
 }

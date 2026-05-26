@@ -13,7 +13,9 @@
 
 pub mod cache;
 pub mod circuit_breaker;
+pub mod compaction;
 pub(crate) mod porter1;
+pub(crate) mod sqlite_compaction;
 pub mod docs;
 pub mod ensemble;
 pub mod ide_adapter;
