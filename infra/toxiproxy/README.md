@@ -5,19 +5,13 @@ topic: toxiproxy chaos network-fault latency packet-loss circuit-breaker h12
 
 ## What this is
 
-A [Toxiproxy](https://github.com/Shopify/toxiproxy) (Shopify, Apache-2.0) deployment
-that sits between amore-mcp and its downstream services (Qdrant + Ollama) to inject
-realistic fault conditions: 200 ms latency, jitter, and 30% packet loss.
+[Toxiproxy](https://github.com/Shopify/toxiproxy) (Shopify, Apache-2.0) sits between
+amore-mcp and Qdrant + Ollama injecting 200 ms latency + 30% degraded throughput.
+Used by `tests/qa/h12_toxiproxy_chaos.ps1` to prove H.5 circuit breaker trips,
+amore returns degraded-but-non-empty recall, and the breaker recovers within 30 s.
 
-Used by `tests/qa/h12_toxiproxy_chaos.ps1` to prove the elite-engineering
-"no silent fail-open" principle under fault: the H.5 circuit breaker must
-trip, amore must return a degraded-but-non-empty recall, and the breaker must
-recover within 30 s once faults are removed.
-
-## What this is NOT
-
-- Not a production component. Bring it up for chaos tests only, then `docker compose down`.
-- Not internet-exposed. All ports bind to `127.0.0.1` only.
+Not a production component — bring up for chaos tests only, then `docker compose down`.
+All ports bind to `127.0.0.1` only.
 
 ## Proxy port map
 
