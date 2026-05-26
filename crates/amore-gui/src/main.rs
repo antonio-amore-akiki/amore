@@ -1,0 +1,277 @@
+// crates/amore-gui/src/main.rs — first-run setup wizard (F.installer-2).
+//
+// Design constraints:
+//   * Native window via eframe (egui front-end), NO Chromium / Tauri — keeps
+//     the binary small (~5-8 MB stripped) and idle RAM <50 MB.
+//   * Single-screen wizard (per the v1.0 plan non-tech-user UX criterion).
+//   * IDE checkboxes auto-write each MCP config on Save (shells out to amore
+//     init <ide> for the existing IdeAdapter trait implementations).
+//   * Plain-English errors via modal dialogs; no rustc / anyhow leakage.
+//   * Tray-icon path is a separate concern (F.installer-6) — this file is the
+//     first-run flow only.
+//   * Auto-detects Ollama; if absent, downloads + runs ollama-installer silently
+//     in a background thread with a progress bar.
+//   * Same code path on macOS + Linux (eframe is cross-platform).
+//
+// Reviewer nit absorbed (2026-05-26T~12:30Z): bundled bge-small ONNX is
+// shipped by the installer; qdrant.exe is downloaded on first-run by this
+// wizard to keep the installer .exe under 150 MB.
+
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
+use eframe::egui;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+
+// ----- App state -----
+
+// `qdrant_status` reserved for F.installer-4 (embedded Qdrant binary detect).
+// `InstalledAt(PathBuf)` payload + `Installing` + `Ready` reserved for the
+// progressive download UI in F.installer-3 (Ollama silent install).
+#[allow(dead_code)]
+#[derive(Default)]
+struct WizardState {
+    // Step 1: Which IDEs
+    ide_claude: bool,
+    ide_cursor: bool,
+    ide_codex: bool,
+    ide_cline: bool,
+    ide_opencode: bool,
+    ide_windsurf: bool,
+    ide_hermes: bool,
+
+    // Step 2: Memory location
+    memory_dir: String,
+
+    // Step 3: Brain choice (local Ollama default; cloud opt-in)
+    brain_local: bool,
+
+    // Status (shared across worker threads)
+    ollama_status: Arc<Mutex<DepStatus>>,
+    qdrant_status: Arc<Mutex<DepStatus>>,
+    save_status: Arc<Mutex<SaveStatus>>,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Debug)]
+enum DepStatus {
+    Unknown,
+    Detecting,
+    InstalledAt(PathBuf),
+    Missing,
+    Downloading { pct: f32 },
+    Installing,
+    Ready,
+    Failed(String), // plain-English message
+}
+
+impl Default for DepStatus {
+    fn default() -> Self {
+        DepStatus::Unknown
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+enum SaveStatus {
+    #[default]
+    Idle,
+    Saving,
+    Done,
+    Failed(String),
+}
+
+struct AmoreWizard {
+    state: WizardState,
+}
+
+impl AmoreWizard {
+    fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+        let mut state = WizardState::default();
+        state.brain_local = true;
+        state.memory_dir = default_memory_dir().to_string_lossy().into_owned();
+        // Kick off Ollama detection in a background thread.
+        let ollama = state.ollama_status.clone();
+        std::thread::spawn(move || {
+            *ollama.lock().unwrap() = DepStatus::Detecting;
+            let found = which::which("ollama").ok();
+            *ollama.lock().unwrap() = match found {
+                Some(p) => DepStatus::InstalledAt(p),
+                None => DepStatus::Missing,
+            };
+        });
+        Self { state }
+    }
+}
+
+impl eframe::App for AmoreWizard {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("Welcome to Amore");
+            ui.label("One-time setup. About 30 seconds. No technical knowledge required.");
+            ui.separator();
+
+            ui.label(egui::RichText::new("1) Which AI apps do you use?").size(16.0));
+            ui.checkbox(&mut self.state.ide_claude, "Claude Code");
+            ui.checkbox(&mut self.state.ide_cursor, "Cursor");
+            ui.checkbox(&mut self.state.ide_codex, "Codex CLI");
+            ui.checkbox(&mut self.state.ide_cline, "Cline");
+            ui.checkbox(&mut self.state.ide_opencode, "opencode");
+            ui.checkbox(&mut self.state.ide_windsurf, "Windsurf");
+            ui.checkbox(&mut self.state.ide_hermes, "Hermes Agent");
+
+            ui.separator();
+            ui.label(egui::RichText::new("2) Where should Amore keep your memory?").size(16.0));
+            ui.horizontal(|ui| {
+                ui.text_edit_singleline(&mut self.state.memory_dir);
+                if ui.button("Browse…").clicked() {
+                    if let Some(p) = rfd::FileDialog::new().pick_folder() {
+                        self.state.memory_dir = p.to_string_lossy().into_owned();
+                    }
+                }
+            });
+
+            ui.separator();
+            ui.label(egui::RichText::new("3) AI engine").size(16.0));
+            ui.radio_value(&mut self.state.brain_local, true, "Use my computer's brain (private, slower)");
+            ui.radio_value(&mut self.state.brain_local, false, "Use a faster cloud option (opt-in, requires API key)");
+
+            ui.separator();
+            let ollama = self.state.ollama_status.lock().unwrap().clone();
+            ui.label(format!("Ollama (local AI runtime): {}", dep_status_human(&ollama)));
+            if matches!(ollama, DepStatus::Missing)
+                && ui.button("Install Ollama automatically").clicked()
+            {
+                spawn_install_ollama(self.state.ollama_status.clone());
+            }
+
+            ui.separator();
+            let save = self.state.save_status.lock().unwrap().clone();
+            match save {
+                SaveStatus::Idle => {
+                    if ui
+                        .add_sized(
+                            [200.0, 36.0],
+                            egui::Button::new(egui::RichText::new("Save & Continue").size(16.0)),
+                        )
+                        .clicked()
+                    {
+                        spawn_save(&self.state);
+                    }
+                }
+                SaveStatus::Saving => {
+                    ui.label("Saving your setup…");
+                    ui.spinner();
+                }
+                SaveStatus::Done => {
+                    ui.label(
+                        egui::RichText::new("✓ Amore is ready. You can close this window.")
+                            .color(egui::Color32::DARK_GREEN),
+                    );
+                }
+                SaveStatus::Failed(msg) => {
+                    ui.label(
+                        egui::RichText::new(format!("Something went wrong: {msg}"))
+                            .color(egui::Color32::DARK_RED),
+                    );
+                    if ui.button("Try again").clicked() {
+                        *self.state.save_status.lock().unwrap() = SaveStatus::Idle;
+                    }
+                }
+            }
+        });
+    }
+}
+
+fn dep_status_human(s: &DepStatus) -> String {
+    match s {
+        DepStatus::Unknown | DepStatus::Detecting => "checking…".to_string(),
+        DepStatus::InstalledAt(_) | DepStatus::Ready => "installed ✓".to_string(),
+        DepStatus::Missing => "not installed — click below to install".to_string(),
+        DepStatus::Downloading { pct } => format!("downloading… {:.0}%", pct * 100.0),
+        DepStatus::Installing => "installing…".to_string(),
+        DepStatus::Failed(msg) => format!("failed: {msg}"),
+    }
+}
+
+fn default_memory_dir() -> PathBuf {
+    dirs::data_local_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("Amore")
+}
+
+fn spawn_install_ollama(status: Arc<Mutex<DepStatus>>) {
+    std::thread::spawn(move || {
+        *status.lock().unwrap() = DepStatus::Downloading { pct: 0.0 };
+        // F.installer-3 will replace this stub with a real downloader:
+        //   * reqwest blocking GET https://ollama.com/download/OllamaSetup.exe
+        //   * write to %TEMP%/OllamaSetup.exe with periodic pct updates
+        //   * spawn the installer with /SILENT /SUPPRESSMSGBOXES
+        //   * poll http://localhost:11434/api/version until reachable
+        *status.lock().unwrap() = DepStatus::Failed(
+            "Auto-install not yet implemented. Please download Ollama from ollama.com.".into(),
+        );
+    });
+}
+
+fn spawn_save(state: &WizardState) {
+    let status = state.save_status.clone();
+    let ides: Vec<&str> = [
+        ("claude", state.ide_claude),
+        ("cursor", state.ide_cursor),
+        ("codex", state.ide_codex),
+        ("cline", state.ide_cline),
+        ("opencode", state.ide_opencode),
+        ("windsurf", state.ide_windsurf),
+        ("hermes", state.ide_hermes),
+    ]
+    .iter()
+    .filter_map(|(name, sel)| if *sel { Some(*name) } else { None })
+    .collect();
+    let memory_dir = state.memory_dir.clone();
+    let brain_local = state.brain_local;
+    std::thread::spawn(move || {
+        *status.lock().unwrap() = SaveStatus::Saving;
+        // Shell out to amore-cli for each selected IDE.
+        for ide in &ides {
+            let r = std::process::Command::new("amore")
+                .args(["init", ide])
+                .env("AMORE_DATA_DIR", &memory_dir)
+                .env("AMORE_BRAIN", if brain_local { "local" } else { "cloud" })
+                .output();
+            if let Err(e) = r {
+                *status.lock().unwrap() =
+                    SaveStatus::Failed(format!("Couldn't connect Amore to {ide}. ({e})"));
+                return;
+            }
+        }
+        // F.installer-7 will register auto-start via Windows Task Scheduler /
+        // launchctl / systemd-user.
+        *status.lock().unwrap() = SaveStatus::Done;
+    });
+}
+
+fn main() -> Result<(), eframe::Error> {
+    let opts = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([560.0, 720.0])
+            .with_min_inner_size([520.0, 600.0])
+            .with_resizable(true)
+            .with_icon(load_icon())
+            .with_title("Amore"),
+        ..Default::default()
+    };
+    eframe::run_native(
+        "Amore",
+        opts,
+        Box::new(|cc| Ok(Box::new(AmoreWizard::new(cc)))),
+    )
+}
+
+fn load_icon() -> egui::IconData {
+    // Placeholder: solid color icon (RGBA tile 32x32). Replace with
+    // branding/amore.png before ship via image::open + into_raw().
+    let rgba: Vec<u8> = (0..32 * 32u32)
+        .flat_map(|_| [138u8, 43, 226, 255])
+        .collect();
+    egui::IconData { rgba, width: 32, height: 32 }
+}

@@ -12,6 +12,7 @@ members = [
     "crates/amore-adapter-windsurf",
     "crates/amore-adapter-hermes",
     "crates/amore-eval",
+    "crates/amore-gui",
 ]
 
 [workspace.package]

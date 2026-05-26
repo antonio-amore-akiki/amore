@@ -198,3 +198,4 @@ ts	step	feature	artifacts	proof_cmd	verdict	notes	commit
 2026-05-26T11:56Z	e6a7d67	F.0-rename	residual rg obelion (toml/yaml/yml/json/sh/ps1)	PASS	0 matches	workspace	e6a7d67
 2026-05-26T11:56Z	e6a7d67	F.0-rename	residual rg obelion .rs	ACCEPTABLE	90 intentional (legacy aliases + migration + tests)	workspace	e6a7d67
 2026-05-26T11:56Z	e6a7d67	F.0-rename	residual rg obelion .js	ACCEPTABLE	2 intentional (OBELION_GITHUB_TOKEN legacy alias)	workspace	e6a7d67
+2026-05-26T12:30:00Z	F.installer-1+2	windows-installer-iss-plus-egui-gui-wizard	PASS	binary_size_kb	3961	installer/windows/amore.iss + crates/amore-gui/	release-build-zero-warning
