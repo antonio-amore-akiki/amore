@@ -1,18 +1,13 @@
 # Amore — Packaging
 
-Distribution descriptors for `brew install amore` (macOS/Linux) and `winget install amore`
-(Windows). SHAs are placeholder until the first GitHub Release tag is created; see
-**Releasing** below.
+Distribution descriptors for `brew install amore` (macOS/Linux) and
+`winget install amore` (Windows). SHAs are placeholder until the first GitHub
+Release tag; replace at release time (see **Releasing checklist** below).
 
----
-
-## Distribution targets
-
-| Surface   | Platform        | Schema                        | Status      |
-|-----------|-----------------|-------------------------------|-------------|
-| Homebrew  | macOS + Linux   | Formula DSL (Ruby)            | descriptor ready; Phase J: submit tap PR |
-| winget    | Windows         | singleton YAML 1.6.0          | descriptor ready; Phase J: submit winget-pkgs PR |
-| Scoop     | Windows (alt)   | JSON manifest                 | Phase K if winget audience insufficient |
+| Surface  | Platform      | Schema               | Status                              |
+|----------|---------------|----------------------|-------------------------------------|
+| Homebrew | macOS + Linux | Formula DSL (Ruby)   | descriptor ready; Phase J: submit tap PR |
+| winget   | Windows       | singleton YAML 1.6.0 | descriptor ready; Phase J: submit winget-pkgs PR |
 
 ---
 
