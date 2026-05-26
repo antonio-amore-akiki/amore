@@ -14,7 +14,7 @@
 ;   * SmartScreen "More info" -> "Run anyway" path documented; self-signed pending EV cert
 
 #define MyAppName "Amore"
-#define MyAppVersion "0.4.0"
+#define MyAppVersion "0.5.0"
 #define MyAppPublisher "Antonio Amore Akiki"
 #define MyAppURL "https://github.com/antonio-amore-akiki/amore"
 #define MyAppExeName "amore-gui.exe"

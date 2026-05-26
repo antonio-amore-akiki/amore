@@ -2,16 +2,45 @@
 
 All notable changes per release. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) + [SemVer](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — Phase G hygiene + supply-chain (v0.4.0 target)
+## [0.5.0] — 2026-05-26
 
-### Planned
-- No-unwrap policy: `clippy::unwrap_used = "deny"` across production paths.
-- `cargo geiger` + Scorecard nightly added to local Task Scheduler (`cargo audit` + `cargo deny` shipped in v0.3.1).
-- proptest property tests on parsers (provenance, MCP message, canonical-doc header).
-- cargo-fuzz harnesses on each parser (nightly Task Scheduler runs).
-- Documentation set: ARCHITECTURE.md, RUNBOOK.md, SLO.md, SCALE-100M.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md, 12 ADRs in docs/adr/, 7 per-IDE quickstarts.
-- Reproducible-builds proof via local `cargo build --release --locked` SHA-256 diff.
-- SBOM via cargo-cyclonedx attached to release.
+### Phase H — Scale-out architecture
+
+- **H.0** BM25 FTS5 + RRF fusion characterization baselines (8+8 frozen-fixture tests) ([fa47091])
+- **H.1** Tantivy BM25 lane — rank-identical parity vs FTS5, score delta ≤1e-3 ([e8cd003])
+- **H.2** 3-node Qdrant docker-compose + smoke harness (Raft + RF=2 + 1-node-fail) ([ef438cf])
+- **H.3** Cross-encoder reranker (BAAI/bge-reranker-base via ort 2.0 + tokenizers 0.20) ([bf36103])
+- **H.4+H.5** bb8 gRPC pool + per-dep circuit breakers (Closed→Open→HalfOpen) ADR 0008 ([ef438cf])
+- **H.6** tonic gRPC server skeleton + protobuf schema per ADR 0009 ([14de274])
+- **H.7** Snapshot + restore CLI (tar.gz Qdrant + SQLite + sha256 sidecar) ([500149c])
+- **H.8** sled-backed WAL + streaming ingest with backpressure (kill-mid-ingest = zero loss) ([f28cd05])
+- **H.9** Compaction worker (sha256 dedup + age eviction + incremental_vacuum) ([b0b5a22])
+- **H.10** Load-test harness skeleton + Rust corpus seeder (10M-corpus / 100 QPS gate) ([1fc56e7])
+- **H.12** Toxiproxy chaos harness (30% loss + 200ms latency → CB trips/recovers) ([7b1c1a6])
+- **H.13** Multi-level cache (moka L1 + sled L2) with Zipfian hit-ratio test ([db2fdf3])
+
+### Phase I — Real-user readiness (Wave 3)
+
+- **I.3+I.4** Homebrew formula + winget manifest descriptors ([21162bc])
+- **I.5+I.6** AUR PKGBUILD + multi-stage multi-arch Dockerfile (amd64 + arm64) ([af25a08])
+- **I.7** Helm chart (3-node Qdrant subchart + Amore deployment + ingress) ([435706a])
+- **I.8** mdBook docs site (book.toml + SUMMARY; gh-pages ready) ([7abf25b])
+- **I.9** OSSF Scorecard local baseline 4.1/10 + 3 hardening fixes (~7.1 lift) ([539912c], [5502241])
+
+### Phase G — Production hygiene
+
+- **G.4** proptest 10 properties × 256 cases (provenance/recall/canonical-doc) ([ef438cf])
+- v0.4.0 no-unwrap policy: `clippy::unwrap_used = "deny"` workspace-wide ([34dcbf6])
+
+### Release pipeline
+
+- Local-only pipeline `scripts/release-local.ps1` (Sigstore + SBOM; no GHA minutes) ([b398ff7])
+
+### Notes
+
+- Workspace rename `25 - Obelion/` → `25 - Amore/` deferred (NTFS lock; next session)
+- `OBELION_*` env-var aliases kept one more release; removal v0.6.0
+- 7 IDE adapters: Claude Code, Cursor, Codex, Cline, opencode, Windsurf, Hermes
 
 ## [0.3.1-live-fire] — 2026-05-26
 
