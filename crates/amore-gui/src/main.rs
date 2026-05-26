@@ -17,6 +17,10 @@
 // shipped by the installer; qdrant.exe is downloaded on first-run by this
 // wizard to keep the installer .exe under 150 MB.
 
+// ADR 0010: no-unwrap policy. expect() with documented invariant is the approved
+// fix pattern; only bare unwrap() is banned. Test modules exempted via cfg_attr.
+#![deny(clippy::unwrap_used)]
+#![cfg_attr(test, allow(clippy::unwrap_used))]
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 mod install;
@@ -94,9 +98,9 @@ impl AmoreWizard {
         // Kick off Ollama detection in a background thread.
         let ollama = state.ollama_status.clone();
         std::thread::spawn(move || {
-            *ollama.lock().unwrap() = DepStatus::Detecting;
+            *ollama.lock().expect("mutex poisoned: unrecoverable state corruption") = DepStatus::Detecting;
             let found = which::which("ollama").ok();
-            *ollama.lock().unwrap() = match found {
+            *ollama.lock().expect("mutex poisoned: unrecoverable state corruption") = match found {
                 Some(p) => DepStatus::InstalledAt(p),
                 None => DepStatus::Missing,
             };
@@ -137,7 +141,7 @@ impl eframe::App for AmoreWizard {
             ui.radio_value(&mut self.state.brain_local, false, "Use a faster cloud option (opt-in, requires API key)");
 
             ui.separator();
-            let ollama = self.state.ollama_status.lock().unwrap().clone();
+            let ollama = self.state.ollama_status.lock().expect("mutex poisoned: unrecoverable state corruption").clone();
             ui.label(format!("Ollama (local AI runtime): {}", dep_status_human(&ollama)));
             if matches!(ollama, DepStatus::Missing)
                 && ui.button("Install Ollama automatically").clicked()
@@ -154,7 +158,7 @@ impl eframe::App for AmoreWizard {
             }
 
             ui.separator();
-            let save = self.state.save_status.lock().unwrap().clone();
+            let save = self.state.save_status.lock().expect("mutex poisoned: unrecoverable state corruption").clone();
             match save {
                 SaveStatus::Idle => {
                     if ui
@@ -183,7 +187,7 @@ impl eframe::App for AmoreWizard {
                             .color(egui::Color32::DARK_RED),
                     );
                     if ui.button("Try again").clicked() {
-                        *self.state.save_status.lock().unwrap() = SaveStatus::Idle;
+                        *self.state.save_status.lock().expect("mutex poisoned: unrecoverable state corruption") = SaveStatus::Idle;
                     }
                 }
             }
@@ -238,17 +242,17 @@ fn spawn_save(state: &WizardState) {
             d.join(if cfg!(windows) { "amore.exe" } else { "amore" })
         }));
     let Some(cli_path) = cli_path else {
-        *status.lock().unwrap() = SaveStatus::Failed(
+        *status.lock().expect("mutex poisoned: unrecoverable state corruption") = SaveStatus::Failed(
             "Couldn't locate the Amore CLI binary. Please reinstall Amore.".into(),
         );
         return;
     };
     std::thread::spawn(move || {
-        *status.lock().unwrap() = SaveStatus::Saving;
+        *status.lock().expect("mutex poisoned: unrecoverable state corruption") = SaveStatus::Saving;
         // C-2: verify the CLI binary exists before invoking it to surface a clear
         // error instead of a cryptic OS process-spawn failure.
         if !cli_path.exists() {
-            *status.lock().unwrap() = SaveStatus::Failed(
+            *status.lock().expect("mutex poisoned: unrecoverable state corruption") = SaveStatus::Failed(
                 "Couldn't locate the Amore CLI binary. Please reinstall Amore.".into(),
             );
             return;
@@ -261,14 +265,14 @@ fn spawn_save(state: &WizardState) {
                 .env("AMORE_BRAIN", if brain_local { "local" } else { "cloud" })
                 .output();
             if let Err(e) = r {
-                *status.lock().unwrap() =
+                *status.lock().expect("mutex poisoned: unrecoverable state corruption") =
                     SaveStatus::Failed(format!("Couldn't connect Amore to {ide}. ({e})"));
                 return;
             }
         }
         // F.installer-7 will register auto-start via Windows Task Scheduler /
         // launchctl / systemd-user.
-        *status.lock().unwrap() = SaveStatus::Done;
+        *status.lock().expect("mutex poisoned: unrecoverable state corruption") = SaveStatus::Done;
     });
 }
 

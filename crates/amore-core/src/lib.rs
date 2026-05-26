@@ -6,6 +6,11 @@
 //
 // Status: skeleton, v0.1.0-pre-alpha.
 
+// ADR 0010: no-unwrap policy enforced via clippy lints in production paths.
+// Test modules are exempted via cfg_attr so the harness can use .unwrap() freely.
+#![deny(clippy::unwrap_used)]
+#![cfg_attr(test, allow(clippy::unwrap_used))]
+
 pub mod docs;
 pub mod ensemble;
 pub mod ide_adapter;

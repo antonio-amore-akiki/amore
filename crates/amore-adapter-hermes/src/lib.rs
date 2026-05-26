@@ -13,6 +13,9 @@
 //!
 //! Path: `~/.hermes/config.yaml` (flat per-user dir, every OS — Hermes uses a
 //! literal `~/.hermes/` convention regardless of XDG/AppData norms).
+// ADR 0010: no-unwrap policy. Test modules exempted via cfg_attr.
+#![deny(clippy::unwrap_used)]
+#![cfg_attr(test, allow(clippy::unwrap_used))]
 
 use amore_core::ide_adapter::IdeAdapter;
 use anyhow::{Context, Result};

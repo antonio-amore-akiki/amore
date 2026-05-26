@@ -6,6 +6,9 @@
 //!
 //! Cursor's schema is identical to Claude Code's `mcpServers` map; we reuse
 //! `amore_core::ide_adapter::merge_mcp_servers`.
+// ADR 0010: no-unwrap policy. Test modules exempted via cfg_attr.
+#![deny(clippy::unwrap_used)]
+#![cfg_attr(test, allow(clippy::unwrap_used))]
 
 use amore_core::ide_adapter::{IdeAdapter, merge_mcp_servers};
 use anyhow::{Context, Result};

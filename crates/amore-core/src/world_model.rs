@@ -67,7 +67,7 @@ impl WorldModel {
     }
 
     fn init_schema(&self) -> Result<()> {
-        self.conn.lock().unwrap().execute_batch(
+        self.conn.lock().expect("mutex poisoned: unrecoverable state corruption").execute_batch(
             r#"
             CREATE TABLE IF NOT EXISTS wm_projects (
                 name TEXT PRIMARY KEY,
@@ -105,7 +105,7 @@ impl WorldModel {
 
     pub fn upsert_project(&self, name: &str, payload: serde_json::Value) -> Result<()> {
         let ts = now_unix_ms();
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().expect("mutex poisoned: unrecoverable state corruption");
         conn.execute(
             "INSERT INTO wm_projects (name, payload, updated_ts) VALUES (?1, ?2, ?3) \
              ON CONFLICT(name) DO UPDATE SET payload=excluded.payload, updated_ts=excluded.updated_ts",
@@ -115,7 +115,7 @@ impl WorldModel {
     }
 
     pub fn get_project(&self, name: &str) -> Result<Option<ProjectNode>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().expect("mutex poisoned: unrecoverable state corruption");
         let row: Option<(String, i64)> = conn
             .query_row(
                 "SELECT payload, updated_ts FROM wm_projects WHERE name = ?1",
@@ -137,7 +137,7 @@ impl WorldModel {
         edge_type: &str,
         weight: f64,
     ) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().expect("mutex poisoned: unrecoverable state corruption");
         conn.execute(
             "INSERT INTO wm_project_edges (from_name, to_name, edge_type, weight) \
              VALUES (?1, ?2, ?3, ?4) \
@@ -148,7 +148,7 @@ impl WorldModel {
     }
 
     pub fn project_neighbors(&self, name: &str) -> Result<Vec<ProjectEdge>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().expect("mutex poisoned: unrecoverable state corruption");
         let mut stmt = conn.prepare(
             "SELECT from_name, to_name, edge_type, weight FROM wm_project_edges \
              WHERE from_name = ?1 ORDER BY weight DESC, to_name ASC",
@@ -169,7 +169,7 @@ impl WorldModel {
     pub fn record_tool_outcome(&self, tool: &str, class: &str, success: bool) -> Result<()> {
         let ts = now_unix_ms();
         let (s_inc, f_inc) = if success { (1i64, 0i64) } else { (0i64, 1i64) };
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().expect("mutex poisoned: unrecoverable state corruption");
         conn.execute(
             "INSERT INTO wm_tool_reliability (tool_name, class, success_count, failure_count, updated_ts) \
              VALUES (?1, ?2, ?3, ?4, ?5) \
@@ -183,7 +183,7 @@ impl WorldModel {
     }
 
     pub fn tool_reliability(&self, tool: &str, class: &str) -> Result<Option<ToolReliability>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().expect("mutex poisoned: unrecoverable state corruption");
         conn.query_row(
             "SELECT success_count, failure_count FROM wm_tool_reliability \
              WHERE tool_name = ?1 AND class = ?2",
@@ -206,7 +206,7 @@ impl WorldModel {
     /// Bayesian update in log-odds space. `lift` > 0 -> toward 1, < 0 -> toward 0.
     /// Step magnitude clamped to [-3, 3] for early-evidence stability.
     pub fn update_preference(&self, key: &str, evidence: &str, lift: f64) -> Result<f64> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().expect("mutex poisoned: unrecoverable state corruption");
         let current: Option<(i64, f64)> = conn
             .query_row(
                 "SELECT evidence_count, probability FROM wm_revealed_preferences WHERE pref_key = ?1",
@@ -236,7 +236,7 @@ impl WorldModel {
     }
 
     pub fn get_preference(&self, key: &str) -> Result<Option<PreferenceNode>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().expect("mutex poisoned: unrecoverable state corruption");
         conn.query_row(
             "SELECT evidence_count, probability, last_evidence, updated_ts \
              FROM wm_revealed_preferences WHERE pref_key = ?1",
@@ -257,7 +257,7 @@ impl WorldModel {
     }
 
     pub fn top_preferences(&self, top_n: u64) -> Result<Vec<PreferenceNode>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().expect("mutex poisoned: unrecoverable state corruption");
         let mut stmt = conn.prepare(
             "SELECT pref_key, evidence_count, probability, last_evidence, updated_ts \
              FROM wm_revealed_preferences \

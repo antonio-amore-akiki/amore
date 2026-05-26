@@ -7,6 +7,9 @@
 //! Codeium uses a flat per-user `~/.codeium/` directory on every OS (no XDG
 //! variation): `dirs::home_dir()` + `.codeium/windsurf/mcp_config.json` is the
 //! canonical location.
+// ADR 0010: no-unwrap policy. Test modules exempted via cfg_attr.
+#![deny(clippy::unwrap_used)]
+#![cfg_attr(test, allow(clippy::unwrap_used))]
 
 use amore_core::ide_adapter::{IdeAdapter, merge_mcp_servers};
 use anyhow::{Context, Result};

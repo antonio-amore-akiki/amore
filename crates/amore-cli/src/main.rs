@@ -8,6 +8,10 @@
 //   doctor              Self-diagnose all dep states (Ollama, Qdrant, SQLite,
 //                       data dir writable). Outputs machine-readable JSON.
 
+// ADR 0010: no-unwrap policy. Test modules exempted via cfg_attr.
+#![deny(clippy::unwrap_used)]
+#![cfg_attr(test, allow(clippy::unwrap_used))]
+
 use amore_adapter_claude::ClaudeAdapter;
 use amore_adapter_cline::ClineAdapter;
 use amore_adapter_codex::CodexAdapter;
@@ -303,7 +307,7 @@ async fn cmd_doctor() -> Result<()> {
             DoctorCheck {
                 name: "data_dir_writable",
                 verdict: "PASS",
-                detail: format!("{} writable", probe_file.parent().unwrap().display()),
+                detail: format!("{} writable", probe_file.parent().expect("invariant: probe_file path always has a parent directory").display()),
             }
         }
         Err(e) => DoctorCheck {

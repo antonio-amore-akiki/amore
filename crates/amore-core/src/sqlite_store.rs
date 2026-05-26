@@ -38,7 +38,7 @@ impl SqliteStore {
     }
 
     fn init_schema(&self) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().expect("mutex poisoned: unrecoverable state corruption");
         // WAL + NORMAL sync + 5s busy_timeout = production-grade
         // multi-process write contention behaviour (B6). In-memory DBs
         // reject journal_mode; that error is benign and ignored.
@@ -99,7 +99,7 @@ impl SqliteStore {
         // (BEGIN IMMEDIATE), read the current head inside the same tx, then
         // seal + insert + commit. WAL + busy_timeout (set in init_schema)
         // ride on top for cross-process contention.
-        let mut conn = self.conn.lock().unwrap();
+        let mut conn = self.conn.lock().expect("mutex poisoned: unrecoverable state corruption");
         let tx = conn.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
         let prev_hash: String = tx
             .query_row(
@@ -151,7 +151,7 @@ impl SqliteStore {
         if sanitized.is_empty() {
             return Ok(vec![]);
         }
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().expect("mutex poisoned: unrecoverable state corruption");
         let mut stmt = conn.prepare(
             "SELECT o.id, o.source, f.content, bm25(observations_fts) AS rank \
              FROM observations_fts f \
@@ -178,7 +178,7 @@ impl SqliteStore {
     /// Return the active SQLite journal_mode (e.g. "wal", "memory"). Used by
     /// B6 + `amore doctor` to confirm WAL was negotiated.
     pub fn journal_mode(&self) -> Result<String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().expect("mutex poisoned: unrecoverable state corruption");
         let mode: String = conn.query_row("PRAGMA journal_mode", [], |row| row.get(0))?;
         Ok(mode)
     }
@@ -186,7 +186,7 @@ impl SqliteStore {
     /// Number of observations currently persisted. Cheap; useful for tests
     /// + status reporting.
     pub fn count_observations(&self) -> Result<u64> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().expect("mutex poisoned: unrecoverable state corruption");
         let n: i64 = conn.query_row("SELECT COUNT(*) FROM observations", [], |row| row.get(0))?;
         Ok(n as u64)
     }
@@ -194,7 +194,7 @@ impl SqliteStore {
     /// Return the hash of the most recent observation (by ts DESC), or None
     /// if the chain is empty.
     pub fn last_observation_hash(&self) -> Result<Option<String>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().expect("mutex poisoned: unrecoverable state corruption");
         let mut stmt =
             conn.prepare("SELECT hash FROM observations ORDER BY ts DESC, id DESC LIMIT 1")?;
         let hash: Option<String> = stmt.query_row([], |row| row.get(0)).optional()?;
@@ -204,7 +204,7 @@ impl SqliteStore {
     /// Walk the full chain in insertion order (ts ASC) and verify integrity +
     /// linkage end-to-end. Returns Err on the first broken link.
     pub fn verify_full_chain(&self) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().expect("mutex poisoned: unrecoverable state corruption");
         let mut stmt = conn.prepare(
             "SELECT id, prev_hash, payload, hash FROM observations ORDER BY ts ASC, id ASC",
         )?;

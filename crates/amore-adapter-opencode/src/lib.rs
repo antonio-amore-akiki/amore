@@ -17,6 +17,9 @@
 //!   - Linux:   `~/.config/opencode/opencode.json`
 //!   - macOS:   `~/Library/Application Support/opencode/opencode.json`
 //!   - Windows: `%APPDATA%\opencode\opencode.json`
+// ADR 0010: no-unwrap policy. Test modules exempted via cfg_attr.
+#![deny(clippy::unwrap_used)]
+#![cfg_attr(test, allow(clippy::unwrap_used))]
 
 use amore_core::ide_adapter::IdeAdapter;
 use anyhow::{Context, Result};

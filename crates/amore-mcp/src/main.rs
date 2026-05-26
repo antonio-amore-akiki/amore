@@ -16,6 +16,11 @@
 // from amore-core for retrieval. No hand-rolled JSON-RPC; the SDK is the
 // production-grade path.
 
+// ADR 0010: no-unwrap policy. expect() with documented invariant is the approved
+// fix pattern; only bare unwrap() is banned. Test modules exempted via cfg_attr.
+#![deny(clippy::unwrap_used)]
+#![cfg_attr(test, allow(clippy::unwrap_used))]
+
 use amore_core::docs::CanonicalDocsRouter;
 use amore_core::ollama::OllamaClient;
 use amore_core::qdrant_store::QdrantStore;

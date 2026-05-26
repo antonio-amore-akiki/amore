@@ -37,7 +37,7 @@ pub fn spawn_ollama(status: Arc<Mutex<DepStatus>>, ctx: egui::Context) {
 
 fn run(status: Arc<Mutex<DepStatus>>, ctx: egui::Context) {
     let set = |v: DepStatus| {
-        *status.lock().unwrap() = v;
+        *status.lock().expect("mutex poisoned: unrecoverable state corruption") = v;
         ctx.request_repaint();
     };
     set(DepStatus::Downloading { pct: 0.0 });
@@ -79,7 +79,7 @@ fn download(
     ctx: &egui::Context,
 ) -> Option<std::path::PathBuf> {
     let set = |v: DepStatus| {
-        *status.lock().unwrap() = v;
+        *status.lock().expect("mutex poisoned: unrecoverable state corruption") = v;
         ctx.request_repaint();
     };
     let mut resp = match client.get(URL).send() {
@@ -163,7 +163,7 @@ fn download(
 
 fn run_installer(temp_path: &std::path::Path, status: Arc<Mutex<DepStatus>>, ctx: &egui::Context) -> bool {
     let set = |v: DepStatus| {
-        *status.lock().unwrap() = v;
+        *status.lock().expect("mutex poisoned: unrecoverable state corruption") = v;
         ctx.request_repaint();
     };
     match std::process::Command::new(temp_path)

@@ -8,6 +8,10 @@
 // Elite-bar contract (CLAUDE.md): never claim PASS from synthetic proof.
 // Fixtures point at REAL files in the user's workspace — no fabricated
 // "imagined raw context". The baseline is the actual byte stream a naive
+
+// ADR 0010: no-unwrap policy. Test modules exempted via cfg_attr.
+#![deny(clippy::unwrap_used)]
+#![cfg_attr(test, allow(clippy::unwrap_used))]
 // agent would Read; the optimized stream is the canonical-docs router excerpt.
 //
 // Output: appends rows to docs/results.tsv (8-col QA schema):
@@ -225,7 +229,7 @@ fn main() -> Result<()> {
         .fold(f32::INFINITY, f32::min);
     let worst_id = results
         .iter()
-        .min_by(|a, b| a.reduction_pct.partial_cmp(&b.reduction_pct).unwrap())
+        .min_by(|a, b| a.reduction_pct.partial_cmp(&b.reduction_pct).unwrap_or(std::cmp::Ordering::Equal))
         .map(|r| r.id.clone())
         .unwrap_or_default();
     let worst_class = results
