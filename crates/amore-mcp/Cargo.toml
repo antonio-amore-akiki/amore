@@ -1,0 +1,28 @@
+[package]
+name = "amore-mcp"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "amore-mcp"
+path = "src/main.rs"
+
+[dependencies]
+amore-core = { path = "../amore-core" }
+rmcp.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+dirs.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+# Integration test (mcp_handshake.rs) spawns the binary, talks JSON-RPC over
+# stdio. Needs the same tokio runtime as main + serde_json for payloads.
+tokio = { workspace = true, features = ["process", "macros", "rt-multi-thread", "io-util", "time"] }
+serde_json.workspace = true

@@ -1,17 +1,17 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/core",
-    "crates/mcp-server",
-    "crates/cli",
-    "crates/adapter-claude",
-    "crates/adapter-cursor",
-    "crates/adapter-codex",
-    "crates/adapter-cline",
-    "crates/adapter-opencode",
-    "crates/adapter-windsurf",
-    "crates/adapter-hermes",
-    "crates/eval",
+    "crates/amore-core",
+    "crates/amore-mcp",
+    "crates/amore-cli",
+    "crates/amore-adapter-claude",
+    "crates/amore-adapter-cursor",
+    "crates/amore-adapter-codex",
+    "crates/amore-adapter-cline",
+    "crates/amore-adapter-opencode",
+    "crates/amore-adapter-windsurf",
+    "crates/amore-adapter-hermes",
+    "crates/amore-eval",
 ]
 
 [workspace.package]
@@ -19,7 +19,7 @@ version = "0.2.1"
 authors = ["Antonio <antonioakiki15@gmail.com>"]
 edition = "2024"
 license = "Apache-2.0"
-repository = "https://github.com/antonio-amore-akiki/obelion"
+repository = "https://github.com/antonio-amore-akiki/amore"
 rust-version = "1.95"
 
 [workspace.dependencies]

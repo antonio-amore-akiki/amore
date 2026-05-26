@@ -1,4 +1,4 @@
-# Obelion release — build + sign + publish on tag push.
+# Amore release — build + sign + publish on tag push.
 #
 # Trigger: only fires when an `vX.Y.Z` tag is pushed OR a maintainer manually
 # dispatches the workflow. No dev-push burn (per user directive 2026-05-26
@@ -10,7 +10,7 @@
 #
 # Signing posture (per plan EXECUTION ROADMAP S10):
 #   S10a Linux:   Sigstore cosign keyless via GitHub OIDC token. FREE.
-#                 Verifiable with `cosign verify-blob --bundle obelion-*.bundle`.
+#                 Verifiable with `cosign verify-blob --bundle amore-*.bundle`.
 #   S10b Windows: Authenticode skeleton — blocked_on:user EV cert (~$300-500/yr).
 #                 Until cert lands, ship unsigned + SmartScreen warning is
 #                 expected on first run; users right-click → Properties →
@@ -76,7 +76,7 @@ jobs:
           key: release-${{ matrix.target }}
 
       - name: Build release binaries
-        run: cargo build --release --target ${{ matrix.target }} -p obelion-cli -p obelion-mcp
+        run: cargo build --release --target ${{ matrix.target }} -p amore-cli -p amore-mcp
 
       - name: Resolve tag
         id: tag
@@ -93,25 +93,25 @@ jobs:
         shell: bash
         run: |
           tag="${{ steps.tag.outputs.tag }}"
-          name="obelion-${tag}-${{ matrix.target }}"
+          name="amore-${tag}-${{ matrix.target }}"
           mkdir -p dist
           src="target/${{ matrix.target }}/release"
           dist_abs="$(pwd)/dist"
           if [ "${{ matrix.archive }}" = "zip" ]; then
             # pushd into src/ so 7z stores entries WITHOUT the target/.../release/
             # prefix — the v0.2.1 zip leaked that path and broke npm postinstall
-            # extraction. v0.2.2+ ships flat: only obelion.exe + obelion-mcp.exe.
+            # extraction. v0.2.2+ ships flat: only amore.exe + amore-mcp.exe.
             (
               cd "${src}"
               7z a -tzip "${dist_abs}/${name}.zip" \
-                "obelion${{ matrix.bin_ext }}" \
-                "obelion-mcp${{ matrix.bin_ext }}"
+                "amore${{ matrix.bin_ext }}" \
+                "amore-mcp${{ matrix.bin_ext }}"
             )
             echo "path=dist/${name}.zip" >> "$GITHUB_OUTPUT"
           else
             tar -C "${src}" -czf "dist/${name}.tar.gz" \
-              "obelion${{ matrix.bin_ext }}" \
-              "obelion-mcp${{ matrix.bin_ext }}"
+              "amore${{ matrix.bin_ext }}" \
+              "amore-mcp${{ matrix.bin_ext }}"
             echo "path=dist/${name}.tar.gz" >> "$GITHUB_OUTPUT"
           fi
           echo "name=${name}" >> "$GITHUB_OUTPUT"
@@ -141,8 +141,8 @@ jobs:
       #       -kvi $env:AZURE_KV_CLIENT_ID -kvt $env:AZURE_KV_TENANT_ID `
       #       -kvc $env:AZURE_KV_CERT_NAME -kvs $env:AZURE_KV_CLIENT_SECRET `
       #       -tr http://timestamp.digicert.com -td sha256 `
-      #       "target/x86_64-pc-windows-msvc/release/obelion.exe" `
-      #       "target/x86_64-pc-windows-msvc/release/obelion-mcp.exe"
+      #       "target/x86_64-pc-windows-msvc/release/amore.exe" `
+      #       "target/x86_64-pc-windows-msvc/release/amore-mcp.exe"
 
       # ---- S10c notarytool (macOS) — skeleton, blocked_on:user Apple Dev ID ----
       # When cert lands, populate APPLE_ID + APPLE_TEAM_ID + APPLE_NOTARY_PW
@@ -154,8 +154,8 @@ jobs:
       #     security create-keychain -p "$APPLE_CERT_PW" build.keychain
       #     security import cert.p12 -k build.keychain -P "$APPLE_CERT_PW"
       #     codesign --deep --force --options runtime --sign "Developer ID Application" \
-      #       "target/x86_64-apple-darwin/release/obelion" \
-      #       "target/x86_64-apple-darwin/release/obelion-mcp"
+      #       "target/x86_64-apple-darwin/release/amore" \
+      #       "target/x86_64-apple-darwin/release/amore-mcp"
       #     xcrun notarytool submit "${{ steps.archive.outputs.path }}" \
       #       --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
       #       --password "$APPLE_NOTARY_PW" --wait

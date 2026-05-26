@@ -1,0 +1,15 @@
+{
+  "id": "portable-agent-memory-provenance-spec",
+  "class": "research",
+  "query": "portable agent memory spec canonical json provenance chain tamper-evident observation SHA-256 envelope",
+  "raw_context_files": [
+    "crates/amore-core/src/provenance.rs",
+    "crates/amore-core/src/sqlite_store.rs",
+    "CHANGELOG.md"
+  ],
+  "canonical_docs_paths": [
+    ".",
+    "docs"
+  ],
+  "rationale": "Researcher asking about Amore's provenance spec. provenance.rs cites the portable-agent-memory paper and implements the canonical-JSON + SHA-256 chain."
+}

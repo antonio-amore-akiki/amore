@@ -4,10 +4,10 @@
 # QA A5 — Sigstore + cosign verify-blob on a CLEAN debian:12 container.
 #
 # Proves the v0.2.1 Linux artifact's Sigstore bundle is verifiable end-to-end
-# on a host that never built obelion and has nothing pre-installed besides
+# on a host that never built Amore and has nothing pre-installed besides
 # what apt + curl bring in this turn.
 #
-# Auth note: the obelion repo is private during MVP, so the host pre-downloads
+# Auth note: the amore repo is private during MVP, so the host pre-downloads
 # the archive + bundle with the authenticated `gh` CLI and bind-mounts them
 # into /qa/in/ inside the container. Cosign verification of the blob ↔ bundle
 # pair is identity-bound (OIDC SAN regex + issuer) + Rekor-transparency-log
@@ -20,17 +20,17 @@
 #     -v /tmp/a5-in:/qa/in:ro \
 #     debian:12 bash -s < tests/qa/a5_sigstore_verify.sh
 #
-# Exit 0 -> archive is provably signed by the obelion release workflow at
+# Exit 0 -> archive is provably signed by the Amore release workflow at
 # refs/tags/v0.2.1 under GitHub's OIDC issuer. Sigstore claim defended on
 # real footprint.
 # Exit non-zero -> verification failed; caller must surface (no silent skip).
 
 set -euo pipefail
 
-TAG="${OBELION_VERIFY_TAG:-v0.2.1}"
-TARGET="${OBELION_VERIFY_TARGET:-x86_64-unknown-linux-gnu}"
+TAG="${AMORE_VERIFY_TAG:-v0.2.1}"
+TARGET="${AMORE_VERIFY_TARGET:-x86_64-unknown-linux-gnu}"
 COSIGN_VERSION="${COSIGN_VERSION:-v2.4.1}"
-ARCHIVE="obelion-${TAG}-${TARGET}.tar.gz"
+ARCHIVE="amore-${TAG}-${TARGET}.tar.gz"
 BUNDLE="${ARCHIVE}.bundle"
 IN_DIR="/qa/in"
 
@@ -70,7 +70,7 @@ echo "[a5] bundle:  ${BUNDLE_SIZE} bytes"
 # The signing identity is the GitHub Actions workflow that fired release.yml
 # for this exact tag. cosign verify-blob requires the identity to match the
 # certificate's Subject Alternative Name from Fulcio (the Sigstore CA).
-EXPECTED_IDENTITY_REGEX="^https://github\.com/antonio-amore-akiki/obelion/\.github/workflows/release\.yml@refs/tags/${TAG}$"
+EXPECTED_IDENTITY_REGEX="^https://github\.com/antonio-amore-akiki/amore/\.github/workflows/release\.yml@refs/tags/${TAG}$"
 EXPECTED_ISSUER="https://token.actions.githubusercontent.com"
 
 echo "[a5] running: cosign verify-blob --bundle ${BUNDLE} ${ARCHIVE}"

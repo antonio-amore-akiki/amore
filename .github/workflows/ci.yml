@@ -1,9 +1,9 @@
-# Obelion CI — cross-OS Rust matrix.
+# Amore CI — cross-OS Rust matrix.
 #
 # Substrate gate for v0.1.0 → v1.0.0 path. Runs on every push to main and on PRs.
 # Matches the local pre-flight: fmt + clippy + test (no --ignored, since CI
 # runners don't have Qdrant / Ollama daemons; those integration tests gate
-# locally via OBELION_TEST_{OLLAMA,QDRANT,E2E}=1 env vars).
+# locally via AMORE_TEST_{OLLAMA,QDRANT,E2E}=1 env vars).
 #
 # Cache strategy: Swatinem/rust-cache@v2 (target/ + cargo registry per OS+toolchain).
 # Concurrency: cancel-in-progress on superseded refs to save runner minutes.

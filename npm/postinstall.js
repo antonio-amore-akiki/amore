@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// @anto/obelion — npm postinstall.
+// @anto/amore — npm postinstall.
 //
-// Fetches the matching signed binary tarball from the obelion GitHub Release
+// Fetches the matching signed binary tarball from the Amore GitHub Release
 // for the current `package.json:version` and the host OS/arch, verifies the
 // Sigstore bundle when cosign is on PATH (Linux only — Windows/macOS sign-
 // skeletons land in S10b/c), extracts the binaries into ./bin/, and exits.
@@ -24,7 +24,7 @@ const { spawnSync } = require("node:child_process");
 const PKG = require("./package.json");
 const VERSION = PKG.version;
 const REPO_OWNER = "antonio-amore-akiki";
-const REPO_NAME = "obelion";
+const REPO_NAME = "amore";
 
 const PLATFORM_TARGETS = {
   "linux:x64":  { target: "x86_64-unknown-linux-gnu", ext: "tar.gz" },
@@ -41,7 +41,7 @@ function resolveTarget() {
   const mapping = PLATFORM_TARGETS[key];
   if (!mapping) {
     throw new Error(
-      `Unsupported platform ${key}. @anto/obelion currently ships ` +
+      `Unsupported platform ${key}. @anto/amore currently ships ` +
       `${Object.keys(PLATFORM_TARGETS).join(", ")}. ARM lanes (aarch64) ` +
       `land in v0.5.0 — track https://github.com/${REPO_OWNER}/${REPO_NAME}/issues`,
     );
@@ -51,11 +51,13 @@ function resolveTarget() {
 
 function resolveToken() {
   // Allow private-repo installs during the MVP window: any of
-  // OBELION_GITHUB_TOKEN > GITHUB_TOKEN > GH_TOKEN is consumed as a Bearer
-  // credential to the GitHub REST API. Once the obelion repo flips to public
+  // AMORE_GITHUB_TOKEN > GITHUB_TOKEN > GH_TOKEN is consumed as a Bearer
+  // credential to the GitHub REST API. Once the Amore repo flips to public
   // (post-v1.0), no token is needed and the browser-style
   // releases/download/<tag>/<asset> URL serves the asset directly.
+  // Legacy OBELION_GITHUB_TOKEN is also accepted for backward compat.
   return (
+    process.env.AMORE_GITHUB_TOKEN ||
     process.env.OBELION_GITHUB_TOKEN ||
     process.env.GITHUB_TOKEN ||
     process.env.GH_TOKEN ||
@@ -68,7 +70,7 @@ function httpGet(url, { headers = {}, expectJson = false } = {}) {
     const u = new URL(url);
     const opts = {
       method: "GET",
-      headers: { "User-Agent": "anto-obelion-postinstall", ...headers },
+      headers: { "User-Agent": "anto-amore-postinstall", ...headers },
     };
     const req = https.get(u, opts, (res) => {
       const chunks = [];
@@ -122,7 +124,7 @@ function downloadToFile(url, destPath, headers, maxRedirects = 10) {
       // GitHub's API responds with a 302 to a signed CDN URL (objects.githubusercontent.com)
       // that REJECTS the Authorization header. Send creds only to github.com hosts.
       const sendAuth = u.hostname === "api.github.com" || u.hostname === "github.com";
-      const reqHeaders = sendAuth ? headers : { "User-Agent": "anto-obelion-postinstall" };
+      const reqHeaders = sendAuth ? headers : { "User-Agent": "anto-amore-postinstall" };
       const req = https.get(currentUrl, { headers: reqHeaders }, (res) => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           res.resume();
@@ -132,7 +134,7 @@ function downloadToFile(url, destPath, headers, maxRedirects = 10) {
         if (res.statusCode !== 200) {
           const hint =
             res.statusCode === 404 && !headers.Authorization
-              ? " (set GITHUB_TOKEN/GH_TOKEN if the obelion repo is still private)"
+              ? " (set GITHUB_TOKEN/GH_TOKEN if the Amore repo is still private)"
               : "";
           reject(new Error(`HTTP ${res.statusCode} fetching ${currentUrl}${hint}`));
           res.resume();
@@ -164,13 +166,13 @@ async function fetchReleaseAsset(owner, repo, tag, assetName, destPath) {
     const headers = {
       Authorization: `Bearer ${token}`,
       Accept: "application/octet-stream",
-      "User-Agent": "anto-obelion-postinstall",
+      "User-Agent": "anto-amore-postinstall",
     };
     await downloadToFile(apiUrl, destPath, headers);
   } else {
     // Unauthenticated browser-style URL — works for public repos only.
     const url = `https://github.com/${owner}/${repo}/releases/download/${tag}/${assetName}`;
-    await downloadToFile(url, destPath, { "User-Agent": "anto-obelion-postinstall" });
+    await downloadToFile(url, destPath, { "User-Agent": "anto-amore-postinstall" });
   }
 }
 
@@ -201,7 +203,7 @@ function extract(archivePath, ext, outDir) {
 
 function flattenNestedTargetDir(outDir) {
   // Defense against zip archives that preserve the build-output relative path
-  // (target/<triple>/release/obelion[.exe]) instead of putting binaries at the
+  // (target/<triple>/release/amore[.exe]) instead of putting binaries at the
   // root. v0.2.1 windows-msvc.zip had this shape; release.yml is patched for
   // v0.2.2+ but this keeps existing tagged artifacts installable.
   const targetDir = path.join(outDir, "target");
@@ -258,13 +260,13 @@ function verifySigstoreIfAvailable(archivePath, bundlePath) {
 
 async function main() {
   const { target, ext } = resolveTarget();
-  const archiveName = `obelion-v${VERSION}-${target}.${ext}`;
+  const archiveName = `amore-v${VERSION}-${target}.${ext}`;
   const binDir = path.join(__dirname, "bin");
   const archivePath = path.join(__dirname, archiveName);
   const bundlePath = `${archivePath}.bundle`;
 
   const tag = `v${VERSION}`;
-  console.log(`[@anto/obelion] downloading ${archiveName} from GitHub Release ${tag}…`);
+  console.log(`[@anto/amore] downloading ${archiveName} from GitHub Release ${tag}…`);
   await fetchReleaseAsset(REPO_OWNER, REPO_NAME, tag, archiveName, archivePath);
 
   // Best-effort fetch of the Sigstore bundle (Linux artifacts only — verify
@@ -276,19 +278,19 @@ async function main() {
   }
 
   verifySigstoreIfAvailable(archivePath, bundlePath);
-  console.log(`[@anto/obelion] extracting → ${binDir}`);
+  console.log(`[@anto/amore] extracting → ${binDir}`);
   extract(archivePath, ext, binDir);
   chmodExecBinaries(binDir);
 
-  // Cleanup downloaded archives — bin/ now contains obelion + obelion-mcp.
+  // Cleanup downloaded archives — bin/ now contains amore + amore-mcp.
   try { fs.unlinkSync(archivePath); } catch (_) {}
   try { fs.unlinkSync(bundlePath); } catch (_) {}
 
-  console.log(`[@anto/obelion] installed v${VERSION} (${target}). Try: npx obelion status`);
+  console.log(`[@anto/amore] installed v${VERSION} (${target}). Try: npx amore status`);
 }
 
 main().catch((err) => {
-  console.error(`[@anto/obelion] postinstall FAILED: ${err.message}`);
+  console.error(`[@anto/amore] postinstall FAILED: ${err.message}`);
   console.error(`  Open issue: https://github.com/${REPO_OWNER}/${REPO_NAME}/issues`);
   process.exit(1);
 });

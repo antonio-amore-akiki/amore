@@ -1,0 +1,34 @@
+[package]
+name = "amore-eval"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "token-reduction"
+path = "src/main.rs"
+
+[dependencies]
+amore-core = { path = "../amore-core" }
+
+# Real tokenizer — cl100k_base BPE (GPT-4 + Anthropic-aligned token counter).
+# Anthropic does not publish their tokenizer publicly; cl100k_base is the de
+# facto industry-standard reference for measuring agent context tokens.
+# Default features include the encoding data baked into the crate via
+# include_str!, so no network access is required at runtime.
+tiktoken-rs = "0.7"
+
+# Filesystem walker for fixture discovery
+walkdir = "2"
+
+# Wall-clock timestamp formatting for results.tsv rows
+time = { version = "0.3", features = ["formatting", "macros"] }
+
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

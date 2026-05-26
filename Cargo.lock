@@ -18,6 +18,158 @@ dependencies = [
 ]
 
 [[package]]
+name = "amore-adapter-claude"
+version = "0.2.1"
+dependencies = [
+ "amore-core",
+ "anyhow",
+ "dirs",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "amore-adapter-cline"
+version = "0.2.1"
+dependencies = [
+ "amore-core",
+ "anyhow",
+ "dirs",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "amore-adapter-codex"
+version = "0.2.1"
+dependencies = [
+ "amore-core",
+ "anyhow",
+ "dirs",
+ "serde",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
+name = "amore-adapter-cursor"
+version = "0.2.1"
+dependencies = [
+ "amore-core",
+ "anyhow",
+ "dirs",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "amore-adapter-hermes"
+version = "0.2.1"
+dependencies = [
+ "amore-core",
+ "anyhow",
+ "dirs",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+]
+
+[[package]]
+name = "amore-adapter-opencode"
+version = "0.2.1"
+dependencies = [
+ "amore-core",
+ "anyhow",
+ "dirs",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "amore-adapter-windsurf"
+version = "0.2.1"
+dependencies = [
+ "amore-core",
+ "anyhow",
+ "dirs",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "amore-cli"
+version = "0.2.1"
+dependencies = [
+ "amore-adapter-claude",
+ "amore-adapter-cline",
+ "amore-adapter-codex",
+ "amore-adapter-cursor",
+ "amore-adapter-hermes",
+ "amore-adapter-opencode",
+ "amore-adapter-windsurf",
+ "amore-core",
+ "anyhow",
+ "clap",
+ "dirs",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "amore-core"
+version = "0.2.1"
+dependencies = [
+ "anyhow",
+ "canonical_json",
+ "hex",
+ "ollama-rs",
+ "qdrant-client",
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "amore-eval"
+version = "0.2.1"
+dependencies = [
+ "amore-core",
+ "anyhow",
+ "clap",
+ "serde",
+ "serde_json",
+ "tiktoken-rs",
+ "time",
+ "tracing",
+ "tracing-subscriber",
+ "walkdir",
+]
+
+[[package]]
+name = "amore-mcp"
+version = "0.2.1"
+dependencies = [
+ "amore-core",
+ "anyhow",
+ "dirs",
+ "rmcp",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1337,158 +1489,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
-]
-
-[[package]]
-name = "obelion-adapter-claude"
-version = "0.2.1"
-dependencies = [
- "anyhow",
- "dirs",
- "obelion-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "obelion-adapter-cline"
-version = "0.2.1"
-dependencies = [
- "anyhow",
- "dirs",
- "obelion-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "obelion-adapter-codex"
-version = "0.2.1"
-dependencies = [
- "anyhow",
- "dirs",
- "obelion-core",
- "serde",
- "serde_json",
- "toml",
-]
-
-[[package]]
-name = "obelion-adapter-cursor"
-version = "0.2.1"
-dependencies = [
- "anyhow",
- "dirs",
- "obelion-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "obelion-adapter-hermes"
-version = "0.2.1"
-dependencies = [
- "anyhow",
- "dirs",
- "obelion-core",
- "serde",
- "serde_json",
- "serde_yaml",
-]
-
-[[package]]
-name = "obelion-adapter-opencode"
-version = "0.2.1"
-dependencies = [
- "anyhow",
- "dirs",
- "obelion-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "obelion-adapter-windsurf"
-version = "0.2.1"
-dependencies = [
- "anyhow",
- "dirs",
- "obelion-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "obelion-cli"
-version = "0.2.1"
-dependencies = [
- "anyhow",
- "clap",
- "dirs",
- "obelion-adapter-claude",
- "obelion-adapter-cline",
- "obelion-adapter-codex",
- "obelion-adapter-cursor",
- "obelion-adapter-hermes",
- "obelion-adapter-opencode",
- "obelion-adapter-windsurf",
- "obelion-core",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "obelion-core"
-version = "0.2.1"
-dependencies = [
- "anyhow",
- "canonical_json",
- "hex",
- "ollama-rs",
- "qdrant-client",
- "reqwest",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "obelion-eval"
-version = "0.2.1"
-dependencies = [
- "anyhow",
- "clap",
- "obelion-core",
- "serde",
- "serde_json",
- "tiktoken-rs",
- "time",
- "tracing",
- "tracing-subscriber",
- "walkdir",
-]
-
-[[package]]
-name = "obelion-mcp"
-version = "0.2.1"
-dependencies = [
- "anyhow",
- "dirs",
- "obelion-core",
- "rmcp",
- "serde",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]

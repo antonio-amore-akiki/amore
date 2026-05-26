@@ -1,0 +1,12 @@
+{
+  "id": "concurrency-fts5",
+  "class": "debugging",
+  "query": "fts5 sqlite database locked concurrent porter unicode61",
+  "raw_context_files": [
+    "crates/amore-core/src/sqlite_store.rs"
+  ],
+  "canonical_docs_paths": [
+    "docs"
+  ],
+  "rationale": "FTS5 + WAL locking concern. Naive agent dumps full sqlite_store.rs."
+}

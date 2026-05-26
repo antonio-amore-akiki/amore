@@ -1,16 +1,16 @@
 {
-  "name": "@anto/obelion",
+  "name": "@anto/amore",
   "version": "0.2.1",
   "description": "Universal MCP agent memory backbone — hybrid retrieval (BM25 + vector + canonical-docs router) + cryptographic provenance + 7 IDE adapters. Rust core, distributed as signed cross-OS binaries via GitHub Releases.",
   "license": "Apache-2.0",
   "author": "Antonio <antonioakiki15@gmail.com>",
-  "homepage": "https://github.com/antonio-amore-akiki/obelion",
+  "homepage": "https://github.com/antonio-amore-akiki/amore",
   "repository": {
     "type": "git",
-    "url": "https://github.com/antonio-amore-akiki/obelion.git"
+    "url": "https://github.com/antonio-amore-akiki/amore.git"
   },
   "bugs": {
-    "url": "https://github.com/antonio-amore-akiki/obelion/issues"
+    "url": "https://github.com/antonio-amore-akiki/amore/issues"
   },
   "keywords": [
     "mcp",
@@ -30,8 +30,8 @@
     "node": ">=18"
   },
   "bin": {
-    "obelion": "bin/obelion.js",
-    "obelion-mcp": "bin/obelion-mcp.js"
+    "amore": "bin/amore.js",
+    "amore-mcp": "bin/amore-mcp.js"
   },
   "scripts": {
     "postinstall": "node postinstall.js"

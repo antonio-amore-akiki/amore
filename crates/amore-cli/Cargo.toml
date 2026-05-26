@@ -1,0 +1,31 @@
+[package]
+name = "amore-cli"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "amore"
+path = "src/main.rs"
+
+[dependencies]
+amore-core = { path = "../amore-core" }
+amore-adapter-claude = { path = "../amore-adapter-claude" }
+amore-adapter-cursor = { path = "../amore-adapter-cursor" }
+amore-adapter-codex = { path = "../amore-adapter-codex" }
+amore-adapter-cline = { path = "../amore-adapter-cline" }
+amore-adapter-opencode = { path = "../amore-adapter-opencode" }
+amore-adapter-windsurf = { path = "../amore-adapter-windsurf" }
+amore-adapter-hermes = { path = "../amore-adapter-hermes" }
+clap.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+serde = { workspace = true }
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+reqwest.workspace = true
+dirs.workspace = true
+

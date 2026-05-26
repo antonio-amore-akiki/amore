@@ -1,0 +1,15 @@
+{
+  "id": "qdrant-unreachable-connection-refused",
+  "class": "debugging",
+  "query": "qdrant unreachable connection refused 6334 grpc degraded qdrant_unavailable vector lane fallback BM25",
+  "raw_context_files": [
+    "crates/amore-core/src/qdrant_store.rs",
+    "crates/amore-core/src/recall.rs",
+    "crates/amore-core/tests/recall_degraded.rs"
+  ],
+  "canonical_docs_paths": [
+    ".",
+    "docs"
+  ],
+  "rationale": "Developer debugging qdrant connection refused on port 6334. recall_degraded.rs has OkEmbedder + qdrant-down test; qdrant_store.rs has the lazy_new constructor for graceful detection."
+}

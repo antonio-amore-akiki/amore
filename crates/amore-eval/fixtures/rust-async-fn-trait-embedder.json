@@ -1,0 +1,15 @@
+{
+  "id": "rust-async-fn-trait-embedder",
+  "class": "coding",
+  "query": "rust 2024 async-fn-in-trait impl Send Sync embedder trait mock test",
+  "raw_context_files": [
+    "crates/amore-core/src/recall.rs",
+    "crates/amore-core/src/ensemble.rs",
+    "crates/amore-core/tests/recall_degraded.rs"
+  ],
+  "canonical_docs_paths": [
+    ".",
+    "docs"
+  ],
+  "rationale": "Developer asking about Rust 2024 native async-fn-in-traits pattern. recall.rs has the Embedder trait using this pattern; ensemble.rs has LlmClient using same pattern."
+}
