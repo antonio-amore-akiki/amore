@@ -10,8 +10,17 @@ repository.workspace = true
 name = "token-reduction"
 path = "src/main.rs"
 
+[[bin]]
+name = "seed_load_test_corpus"
+path = "src/bin/seed_load_test_corpus.rs"
+
 [dependencies]
 amore-core = { path = "../amore-core" }
+
+# H.10 corpus seeder deps (all workspace — no new external deps)
+qdrant-client.workspace = true
+rusqlite.workspace = true
+tokio.workspace = true
 
 # Real tokenizer — cl100k_base BPE (GPT-4 + Anthropic-aligned token counter).
 # Anthropic does not publish their tokenizer publicly; cl100k_base is the de

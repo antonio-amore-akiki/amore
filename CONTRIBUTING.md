@@ -9,6 +9,7 @@ Brief and action-first. Read this before opening a PR.
 - `cargo` + `git`
 - Optional: PowerShell 7+ for `scripts/*.ps1`
 - Optional: Inno Setup 6.7+ for `installer/windows/` work
+- Optional: `oha` (Rust HTTP load tester) for `tests/qa/h10_*` — install via `cargo install oha`
 
 ## First-time setup
 
