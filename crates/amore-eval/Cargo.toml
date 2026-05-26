@@ -14,6 +14,14 @@ path = "src/main.rs"
 name = "seed_load_test_corpus"
 path = "src/bin/seed_load_test_corpus.rs"
 
+[[bin]]
+name = "amore-eval-benchmark"
+path = "src/bin/benchmark.rs"
+
+[[bin]]
+name = "amore-eval-longmemeval"
+path = "src/bin/longmemeval_runner.rs"
+
 [dependencies]
 amore-core = { path = "../amore-core" }
 
@@ -41,3 +49,9 @@ anyhow.workspace = true
 clap.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+
+# Latency histogram for p50/p95/p99/p99.9 percentile reporting (benchmark.rs)
+hdrhistogram = "7"
+
+# Cross-platform user data directory resolution (benchmark.rs, longmemeval_runner.rs)
+dirs.workspace = true
