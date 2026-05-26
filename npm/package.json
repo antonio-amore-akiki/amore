@@ -1,6 +1,6 @@
 {
   "name": "@anto/obelion",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Universal MCP agent memory backbone — hybrid retrieval (BM25 + vector + canonical-docs router) + cryptographic provenance + 7 IDE adapters. Rust core, distributed as signed cross-OS binaries via GitHub Releases.",
   "license": "Apache-2.0",
   "author": "Antonio <antonioakiki15@gmail.com>",

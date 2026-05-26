@@ -1289,7 +1289,7 @@ dependencies = [
 
 [[package]]
 name = "obelion-adapter-claude"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "dirs",
@@ -1300,7 +1300,7 @@ dependencies = [
 
 [[package]]
 name = "obelion-adapter-cline"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "dirs",
@@ -1311,7 +1311,7 @@ dependencies = [
 
 [[package]]
 name = "obelion-adapter-codex"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "dirs",
@@ -1323,7 +1323,7 @@ dependencies = [
 
 [[package]]
 name = "obelion-adapter-cursor"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "dirs",
@@ -1334,7 +1334,7 @@ dependencies = [
 
 [[package]]
 name = "obelion-adapter-hermes"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "dirs",
@@ -1346,7 +1346,7 @@ dependencies = [
 
 [[package]]
 name = "obelion-adapter-opencode"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "dirs",
@@ -1357,7 +1357,7 @@ dependencies = [
 
 [[package]]
 name = "obelion-adapter-windsurf"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "dirs",
@@ -1368,7 +1368,7 @@ dependencies = [
 
 [[package]]
 name = "obelion-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1388,7 +1388,7 @@ dependencies = [
 
 [[package]]
 name = "obelion-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "canonical_json",
@@ -1407,7 +1407,7 @@ dependencies = [
 
 [[package]]
 name = "obelion-mcp"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "dirs",
