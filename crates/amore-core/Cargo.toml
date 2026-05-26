@@ -24,6 +24,9 @@ bb8.workspace = true
 async-trait.workspace = true
 tar.workspace = true
 flate2 = "1.0"
+tantivy.workspace = true
+sled.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
+tempfile = "3"
