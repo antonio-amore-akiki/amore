@@ -16,6 +16,13 @@ use std::path::{Path, PathBuf};
 
 const HEADER_SCAN_LINES: usize = 10;
 const EXCERPT_MAX_CHARS: usize = 800;
+/// Body window scanned for keyword matches. Beyond filename + title + topic
+/// line, the router also matches against the first N chars of the body so
+/// doc-internal vocabulary (e.g. `Hasleo`, `Kopia`, `WAL`, `BEGIN IMMEDIATE`)
+/// is reachable without forcing every author to maintain a `topic:` line.
+/// 2000 chars keeps the score deterministic on small canonical docs while
+/// staying cheap (single substring scan per query token).
+const BODY_KEYWORD_SCAN_CHARS: usize = 2000;
 
 pub struct CanonicalDocsRouter {
     /// If true, only docs with `stable: true` header qualify. Default true.
@@ -92,11 +99,21 @@ impl CanonicalDocsRouter {
             .and_then(|s| s.to_str())
             .unwrap_or("")
             .to_string();
+        // Body keywords: lowercased first N chars of body, so doc-internal
+        // vocabulary contributes to matching even when authors haven't curated
+        // a `topic:` line. Substring contains() is O(N*M) total — N tokens *
+        // M chars — fine at this scale.
+        let body_keywords: String = body
+            .chars()
+            .take(BODY_KEYWORD_SCAN_CHARS)
+            .collect::<String>()
+            .to_lowercase();
         let haystack = format!(
-            "{} {} {}",
+            "{} {} {} {}",
             filename.to_lowercase(),
             title.to_lowercase(),
-            topic_line.to_lowercase()
+            topic_line.to_lowercase(),
+            body_keywords,
         );
         let matches: usize = q_tokens
             .iter()
@@ -303,6 +320,30 @@ mod tests {
         let hits = r.route("hasleo", &[d.as_path()]).unwrap();
         assert!(!hits.is_empty(), "topic: line must drive matching");
         assert!(hits[0].path.ends_with("esoteric-name.md"));
+    }
+
+    #[test]
+    fn router_matches_body_keywords_when_title_filename_topic_miss() {
+        // Body-scan path (2026-05-26): a query about doc-internal vocabulary
+        // that does NOT appear in filename / title / topic-line must still
+        // match via the first N chars of the body. Models the real A9 finding
+        // that queries like "kopia daily snapshot dpapi credentials" missed
+        // when the title only said "Backup Stack".
+        let d = fresh_dir();
+        write_doc(
+            &d,
+            "backup-stack.md",
+            "stable: true\n# Backup Stack\n\nKopia daily snapshot uses DPAPI credentials in C:/Users/anto/.kopia/.cred.\n",
+        );
+        let r = CanonicalDocsRouter::new();
+        let hits = r
+            .route("kopia dpapi credentials", &[d.as_path()])
+            .unwrap();
+        assert!(
+            !hits.is_empty(),
+            "body-scan must surface backup-stack on kopia+dpapi+credentials"
+        );
+        assert!(hits[0].path.ends_with("backup-stack.md"));
     }
 
     #[test]
