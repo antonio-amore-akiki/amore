@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # actions/checkout v4.2.2 (Scorecard Pinned-Dependencies 2026-05-26)
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       # dtolnay/rust-toolchain stable rev-pin 2026-05-26
       - uses: dtolnay/rust-toolchain@4f366e621dc8fa63f557ca04b8f4361824a35a45
         with:
@@ -56,7 +56,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       # actions/checkout v4.2.2 (Scorecard Pinned-Dependencies 2026-05-26)
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       # dtolnay/rust-toolchain stable rev-pin 2026-05-26
       - uses: dtolnay/rust-toolchain@4f366e621dc8fa63f557ca04b8f4361824a35a45
         with:
