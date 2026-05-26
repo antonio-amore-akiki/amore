@@ -43,6 +43,15 @@ tantivy = "0.22"
 # WAL + LRU-on-disk store — H.8 streaming ingest + H.13 multi-level cache
 sled = "0.34"
 
+# ONNX inference — H.3 cross-encoder reranker (BAAI/bge-reranker-base) per ADR
+ort = "2"
+
+# HuggingFace tokenizers — paired with ort for reranker input tokenization
+tokenizers = "0.20"
+
+# In-memory LRU cache — H.13 multi-level cache (L1; L2 is sled from H.8 dep)
+moka = { version = "0.12", features = ["future"] }
+
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 
@@ -63,8 +72,11 @@ sha2 = "0.10"
 hex = "0.4"
 canonical_json = "0.7"
 
-# HTTP client (Ollama, Qdrant fallback)
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# HTTP client (Ollama, Qdrant fallback) — multipart added for H.7 snapshot upload
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "multipart", "stream"] }
+
+# Snapshot gzip compression (flate2 is transitive via tonic but made explicit for H.7)
+flate2 = "1"
 
 # Connection pooling (H.4 Qdrant gRPC pool)
 bb8 = "0.8"
