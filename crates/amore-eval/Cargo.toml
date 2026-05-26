@@ -35,7 +35,7 @@ tokio.workspace = true
 # facto industry-standard reference for measuring agent context tokens.
 # Default features include the encoding data baked into the crate via
 # include_str!, so no network access is required at runtime.
-tiktoken-rs = "0.7"
+tiktoken-rs = "0.11"
 
 # Filesystem walker for fixture discovery
 walkdir = "2"
