@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='windows-1252'?>
 <!--
-  Amore Windows MSI installer — W8.5A
+  Amore Windows MSI installer
   Bundles: amore-cli + amore-mcp + amore-gui + ollama + qdrant
   Built with: cargo-wix 0.3.9 + WiX Toolset 3.14.1
   Signed with: Sigstore cosign keyless OIDC
