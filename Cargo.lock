@@ -1372,6 +1372,7 @@ version = "0.2.1"
 dependencies = [
  "anyhow",
  "clap",
+ "dirs",
  "obelion-adapter-claude",
  "obelion-adapter-cline",
  "obelion-adapter-codex",
@@ -1380,6 +1381,8 @@ dependencies = [
  "obelion-adapter-opencode",
  "obelion-adapter-windsurf",
  "obelion-core",
+ "reqwest",
+ "serde",
  "serde_json",
  "tokio",
  "tracing",

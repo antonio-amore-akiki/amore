@@ -1,15 +1,12 @@
 // obelion — CLI entry point.
 //
-// Subcommands (v0.1.0):
-//   init claude         Patch ~/.claude.json (Claude Code) to register obelion MCP server.
-//   init cursor         Patch ~/.cursor/mcp.json (Cursor) to register obelion MCP server.
+// Subcommands (v0.1.0+):
+//   init <ide>          Patch the IDE's MCP config file to register obelion.
 //   recall <query>      Embed query, search Qdrant, print top hits as JSON.
 //   serve               Launch obelion-mcp inline (wraps the same code path).
 //   status              Print resolved daemon URLs + version info.
-//
-// Init contract: atomic-write (tmp + rename), .bak sibling on overwrite,
-// byte-identical on repeat (idempotent). --dry-run prints proposed content
-// without touching disk.
+//   doctor              Self-diagnose all dep states (Ollama, Qdrant, SQLite,
+//                       data dir writable). Outputs machine-readable JSON.
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -21,6 +18,9 @@ use obelion_adapter_hermes::HermesAdapter;
 use obelion_adapter_opencode::OpencodeAdapter;
 use obelion_adapter_windsurf::WindsurfAdapter;
 use obelion_core::ide_adapter::{ApplyOutcome, IdeAdapter, apply, dry_run};
+use obelion_core::sqlite_store::SqliteStore;
+use std::path::PathBuf;
+use std::time::Duration;
 
 #[derive(Parser)]
 #[command(
@@ -55,9 +55,14 @@ enum Command {
     },
     /// Print resolved daemon endpoints + version info.
     Status,
+    /// Self-diagnose all dep states. Outputs JSON; exits non-zero if any
+    /// FAIL check is detected. Use this to triage "why isn't obelion
+    /// working?" without scrolling MCP server logs.
+    Doctor,
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_target(false)
@@ -69,6 +74,7 @@ fn main() -> Result<()> {
         Command::Serve => cmd_serve(),
         Command::Recall { query, top_k } => cmd_recall(query, top_k),
         Command::Status => cmd_status(),
+        Command::Doctor => cmd_doctor().await,
     }
 }
 
@@ -143,5 +149,154 @@ fn cmd_status() -> Result<()> {
     println!("  qdrant     {qdrant}");
     println!("  ollama     {ollama}");
     println!("  collection {collection}");
+    Ok(())
+}
+
+#[derive(serde::Serialize)]
+struct DoctorCheck {
+    name: &'static str,
+    verdict: &'static str, // "PASS" | "FAIL" | "WARN"
+    detail: String,
+}
+
+#[derive(serde::Serialize)]
+struct DoctorReport {
+    version: &'static str,
+    checks: Vec<DoctorCheck>,
+    all_pass: bool,
+}
+
+fn resolve_doctor_sqlite_path() -> PathBuf {
+    if let Ok(dir) = std::env::var("OBELION_DATA_DIR") {
+        return PathBuf::from(dir).join("obelion.db");
+    }
+    let base = dirs::config_dir()
+        .or_else(dirs::data_dir)
+        .or_else(dirs::home_dir)
+        .unwrap_or_else(|| PathBuf::from("."));
+    base.join("obelion").join("obelion.db")
+}
+
+async fn probe_http(url: &str) -> DoctorCheck {
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(3))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            return DoctorCheck {
+                name: "http_client_init",
+                verdict: "FAIL",
+                detail: format!("reqwest builder: {e}"),
+            };
+        }
+    };
+    match client.get(url).send().await {
+        Ok(r) if r.status().is_success() => DoctorCheck {
+            name: "http_probe",
+            verdict: "PASS",
+            detail: format!("GET {url} -> {}", r.status()),
+        },
+        Ok(r) => DoctorCheck {
+            name: "http_probe",
+            verdict: "FAIL",
+            detail: format!("GET {url} -> {}", r.status()),
+        },
+        Err(e) => DoctorCheck {
+            name: "http_probe",
+            verdict: "FAIL",
+            detail: format!("GET {url}: {e}"),
+        },
+    }
+}
+
+async fn cmd_doctor() -> Result<()> {
+    let ollama_url = std::env::var("OBELION_OLLAMA_URL")
+        .unwrap_or_else(|_| "http://127.0.0.1:11434".to_string());
+    let qdrant_http_url = std::env::var("OBELION_QDRANT_HTTP_URL")
+        .unwrap_or_else(|_| "http://127.0.0.1:6333".to_string());
+
+    let mut checks: Vec<DoctorCheck> = Vec::new();
+
+    // 1. Ollama reachable + responding to /api/version
+    let mut c = probe_http(&format!("{ollama_url}/api/version")).await;
+    c.name = "ollama_api_version";
+    if c.verdict == "FAIL" {
+        c.detail = format!("{} (remediation: `ollama serve` to start)", c.detail);
+    }
+    checks.push(c);
+
+    // 2. Qdrant HTTP /readyz
+    let mut c = probe_http(&format!("{qdrant_http_url}/readyz")).await;
+    c.name = "qdrant_http_readyz";
+    if c.verdict == "FAIL" {
+        c.detail = format!(
+            "{} (remediation: `docker run -d -p 6333:6333 -p 6334:6334 qdrant/qdrant:v1.15.4`)",
+            c.detail
+        );
+    }
+    checks.push(c);
+
+    // 3. SQLite store path + WAL mode + count
+    let sqlite_path = resolve_doctor_sqlite_path();
+    if let Some(parent) = sqlite_path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let sqlite_check = match SqliteStore::open(&sqlite_path) {
+        Ok(store) => {
+            let mode = store.journal_mode().unwrap_or_else(|e| format!("err: {e}"));
+            let count = store.count_observations().unwrap_or(0);
+            let ok = mode.eq_ignore_ascii_case("wal");
+            DoctorCheck {
+                name: "sqlite_store",
+                verdict: if ok { "PASS" } else { "WARN" },
+                detail: format!(
+                    "path={} journal_mode={} observations={}",
+                    sqlite_path.display(),
+                    mode,
+                    count
+                ),
+            }
+        }
+        Err(e) => DoctorCheck {
+            name: "sqlite_store",
+            verdict: "FAIL",
+            detail: format!("open {}: {e}", sqlite_path.display()),
+        },
+    };
+    checks.push(sqlite_check);
+
+    // 4. Data dir writable
+    let probe_file = sqlite_path
+        .parent()
+        .map(|p| p.join(".obelion-doctor-probe"))
+        .unwrap_or_else(|| PathBuf::from(".obelion-doctor-probe"));
+    let write_check = match std::fs::write(&probe_file, b"obelion-doctor") {
+        Ok(()) => {
+            let _ = std::fs::remove_file(&probe_file);
+            DoctorCheck {
+                name: "data_dir_writable",
+                verdict: "PASS",
+                detail: format!("{} writable", probe_file.parent().unwrap().display()),
+            }
+        }
+        Err(e) => DoctorCheck {
+            name: "data_dir_writable",
+            verdict: "FAIL",
+            detail: format!("write probe at {}: {e}", probe_file.display()),
+        },
+    };
+    checks.push(write_check);
+
+    let all_pass = checks.iter().all(|c| c.verdict == "PASS");
+    let report = DoctorReport {
+        version: obelion_core::VERSION,
+        checks,
+        all_pass,
+    };
+    println!("{}", serde_json::to_string_pretty(&report)?);
+    if !all_pass {
+        std::process::exit(1);
+    }
     Ok(())
 }
