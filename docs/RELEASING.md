@@ -177,6 +177,30 @@ The `docker-publish` job in `.github/workflows/release.yml` builds and pushes a
 `linux/amd64` + `linux/arm64` image from `Dockerfile.multiarch` to
 `antonioamoreakiki/amore:<release_tag>` and `antonioamoreakiki/amore:latest`.
 
+## Homebrew tap secret
+
+The `homebrew-update` job in `.github/workflows/release.yml` pushes a regenerated
+`Formula/amore.rb` to `antonio-amore-akiki/homebrew-amore` on every release.
+
+**One-time setup — create the PAT:**
+
+1. Go to https://github.com/settings/tokens?type=beta (Fine-grained personal access tokens).
+2. Click **Generate new token**. Set:
+   - Token name: `amore-homebrew-tap-push`
+   - Expiration: 1 year (renew annually)
+   - Resource owner: `antonio-amore-akiki`
+   - Repository access: **Only select repositories** → `antonio-amore-akiki/homebrew-amore`
+   - Repository permissions: **Contents → Read and write** (all other permissions: No access)
+3. Click **Generate token** and copy the value immediately.
+
+**Add the secret to the amore repo:**
+
+1. In the `antonio-amore-akiki/amore` repo: **Settings → Secrets and variables → Actions → New repository secret**.
+2. Name: `HOMEBREW_TAP_PAT`, value: the token from step 3 above.
+
+The job runs only after `macos-build` and `linux-build` complete (closing F-47 race),
+so `sha256sum` always sees final uploaded tarballs and AppImage before the formula is written.
+
 ## Future work
 
 - **macOS**: add `-IncludeMac` branch if Apple hardware becomes available; sign with `codesign` + `xcrun notarytool`.

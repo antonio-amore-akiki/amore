@@ -368,3 +368,106 @@ jobs:
           tags: |
             antonioamoreakiki/amore:latest
             antonioamoreakiki/amore:${{ inputs.release_tag }}
+
+  homebrew-update:
+    # Closes F-47 race: runs only after macos-build + linux-build have uploaded their
+    # release artifacts, so SHA256 computation sees final, signed tarballs/AppImages.
+    # Regenerates Formula/amore.rb in antonio-amore-akiki/homebrew-amore and pushes.
+    # Requires HOMEBREW_TAP_PAT secret: fine-grained PAT with contents:write on homebrew-amore.
+    needs: [macos-build, linux-build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    if: ${{ inputs.release_tag != '' }}
+    steps:
+      - name: Checkout tap repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: antonio-amore-akiki/homebrew-amore
+          token: ${{ secrets.HOMEBREW_TAP_PAT }}
+          path: tap
+
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ inputs.release_tag }}" \
+            -R antonio-amore-akiki/amore \
+            -D release-assets \
+            --pattern "amore-*-macos-*.tar.gz" \
+            --pattern "amore-*-x86_64.AppImage"
+          sha256sum release-assets/*.tar.gz release-assets/*.AppImage > sha.txt
+          echo "--- sha.txt ---"
+          cat sha.txt
+
+      - name: Regenerate Formula/amore.rb
+        run: |
+          VERSION="${{ inputs.version }}"
+          MACOS_X64_SHA=$(grep "macos-x86_64.tar.gz" sha.txt | cut -d' ' -f1)
+          MACOS_ARM_SHA=$(grep "macos-aarch64.tar.gz" sha.txt | cut -d' ' -f1)
+          LINUX_SHA=$(grep "x86_64.AppImage" sha.txt | cut -d' ' -f1)
+          mkdir -p tap/Formula
+          cat > tap/Formula/amore.rb <<EOF
+          class Amore < Formula
+            desc "Local-first MCP memory backbone for AI coding assistants"
+            homepage "https://github.com/antonio-amore-akiki/amore"
+            version "${VERSION}"
+            license "Apache-2.0"
+
+            on_macos do
+              on_intel do
+                url "https://github.com/antonio-amore-akiki/amore/releases/download/${{ inputs.release_tag }}/amore-${VERSION}-macos-x86_64.tar.gz"
+                sha256 "${MACOS_X64_SHA}"
+              end
+              on_arm do
+                url "https://github.com/antonio-amore-akiki/amore/releases/download/${{ inputs.release_tag }}/amore-${VERSION}-macos-aarch64.tar.gz"
+                sha256 "${MACOS_ARM_SHA}"
+              end
+            end
+
+            on_linux do
+              url "https://github.com/antonio-amore-akiki/amore/releases/download/${{ inputs.release_tag }}/amore-${VERSION}-x86_64.AppImage"
+              sha256 "${LINUX_SHA}"
+            end
+
+            depends_on "qdrant" => :recommended
+            depends_on "ollama" => :recommended
+
+            def install
+              on_macos do
+                bin.install "amore"
+                bin.install "amore-mcp"
+                bin.install "amore-gui"
+              end
+              on_linux do
+                bin.install "amore-${VERSION}-x86_64.AppImage" => "amore-gui"
+              end
+            end
+
+            def caveats
+              <<~EOS
+                Amore installed. Run 'amore-gui' to launch the wizard.
+                First-run auto-wires Claude Code / Claude Desktop / Cursor / Cline / Continue.
+              EOS
+            end
+
+            test do
+              system "#{bin}/amore-mcp", "--version"
+            end
+          end
+          EOF
+
+      - name: Pull-rebase and push to tap
+        run: |
+          cd tap
+          git config user.name "amore-release-bot"
+          git config user.email "release-bot@antonio-amore-akiki.dev"
+          git add Formula/amore.rb
+          git commit -m "bump: amore ${{ inputs.release_tag }}"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin main && break
+            echo "Push attempt ${i} failed; retrying in $((i*5))s..."
+            sleep $((i*5))
+          done
