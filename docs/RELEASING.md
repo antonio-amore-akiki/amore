@@ -150,6 +150,33 @@ Sources: reproducible-builds.org/docs/source-date-epoch + doc.rust-lang.org/carg
 
 Sources: github.com/cross-rs/cross | doc.rust-lang.org/nightly/rustc/platform-support.html
 
+## Crates.io secrets
+
+Crates.io publishing requires the `CARGO_REGISTRY_TOKEN` secret in repo settings. Set this once:
+
+1. Run `cargo login` on your dev machine — this writes the token to `~/.cargo/credentials.toml`.
+2. Copy the token value (or generate a new one at https://crates.io/settings/tokens).
+3. In the GitHub repo: **Settings → Secrets and variables → Actions → New repository secret**.
+   Name: `CARGO_REGISTRY_TOKEN`, value: the token from step 2.
+
+The `crates-publish` job in `.github/workflows/release.yml` publishes `amore-core`, `amore-mcp`,
+`amore-cli`, and `amore-gui` in that order (amore-core first because it is a direct dependency
+of the others). Each crate must have `publish = true` (the default) in its `Cargo.toml`.
+
+## Docker Hub secrets
+
+Docker Hub multi-arch publishing requires two secrets in repo settings:
+
+1. Log in to Docker Hub at https://hub.docker.com → **Account Settings → Personal access tokens → Generate new token**.
+   Scope: **Read, Write, Delete** (needed to push new tags and overwrite `latest`).
+2. In the GitHub repo: **Settings → Secrets and variables → Actions**:
+   - `DOCKER_USERNAME`: your Docker Hub username (e.g. `antonioamoreakiki`)
+   - `DOCKER_HUB_TOKEN`: the access token generated in step 1.
+
+The `docker-publish` job in `.github/workflows/release.yml` builds and pushes a
+`linux/amd64` + `linux/arm64` image from `Dockerfile.multiarch` to
+`antonioamoreakiki/amore:<release_tag>` and `antonioamoreakiki/amore:latest`.
+
 ## Future work
 
 - **macOS**: add `-IncludeMac` branch if Apple hardware becomes available; sign with `codesign` + `xcrun notarytool`.
