@@ -6,7 +6,7 @@
 #
 # Steps:
 #   1. Ensure Docker daemon is live (calls recover-docker.ps1 if needed)
-#   2. Start qdrant container (qdrant/qdrant:v1.13.0, idempotent)
+#   2. Start qdrant container (qdrant/qdrant:v1.18.0, idempotent — pinned to qdrant-client crate minor)
 #   3. Start ollama natively (no-op if already running)
 #   4. Pull nomic-embed-text model
 #   5. Build amore-mcp if missing
@@ -29,7 +29,7 @@ $RepoRoot  = (Resolve-Path "$PSScriptRoot\..").Path
 $StateDir  = "$RepoRoot\state"
 $SmokeOut  = "$StateDir\working-product-smoke-docker.json"
 $OllamaExe = "$env:USERPROFILE\AppData\Local\Programs\Ollama\ollama.exe"
-$QdrantImg = "qdrant/qdrant:v1.13.0"
+$QdrantImg = "qdrant/qdrant:v1.18.0"  # pinned to match qdrant-client 1.18.0 in Cargo.toml — must stay within ±1 minor of the Rust client version, else gRPC operations error "Client version X is not compatible with server version Y"
 $ContainerName = "amore-qdrant"
 $ScriptStart = Get-Date
 
