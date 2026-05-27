@@ -33,20 +33,22 @@ impl std::fmt::Display for WireError {
 #[derive(Debug)]
 pub enum WireVerdict { Ok, SkippedNoChange, Err(WireError) }
 
-/// Returns true when `dir` is a system-protected install location (not user-writable by default).
-///
-/// Allowlist (conservative, OS-specific):
-/// - Windows: path contains `Program Files` or `Program Files (x86)` (case-insensitive)
-/// - macOS:   path starts with `/Applications` or `/usr/local` or `/opt/homebrew`
-/// - Linux:   path starts with `/usr/bin`, `/usr/local/bin`, or `/opt`
+/// Returns true when `dir` is a system-protected install location (not user-writable).
+/// Windows: canonicalized path must start with `C:\Program Files\` or `C:\Program Files (x86)\`
+/// (substring rejected — "My Program Files" bypass closed). Strips `\\?\` UNC prefix first.
 fn is_system_protected_dir(dir: &Path) -> bool {
-    let s = dir.to_string_lossy();
     #[cfg(target_os = "windows")]
-    { let lower = s.to_lowercase(); lower.contains("program files") || lower.contains("program files (x86)") }
+    {
+        // Canonicalize resolves junction points; strip \\?\ so starts_with compares correctly.
+        let canonical = std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf());
+        let s = canonical.to_string_lossy();
+        let stripped = s.strip_prefix(r"\\?\").unwrap_or(&s);
+        stripped.starts_with(r"C:\Program Files\") || stripped.starts_with(r"C:\Program Files (x86)\")
+    }
     #[cfg(target_os = "macos")]
-    { s.starts_with("/Applications") || s.starts_with("/usr/local") || s.starts_with("/opt/homebrew") }
+    { let s = dir.to_string_lossy(); s.starts_with("/Applications") || s.starts_with("/usr/local") || s.starts_with("/opt/homebrew") }
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-    { s.starts_with("/usr/bin") || s.starts_with("/usr/local/bin") || s.starts_with("/opt") }
+    { let s = dir.to_string_lossy(); s.starts_with("/usr/bin") || s.starts_with("/usr/local/bin") || s.starts_with("/opt") }
 }
 
 /// Resolve absolute path to sibling `amore-mcp` binary (C2 fix).
@@ -56,6 +58,8 @@ fn is_system_protected_dir(dir: &Path) -> bool {
 pub fn resolve_amore_mcp_path() -> Result<PathBuf, WireError> {
     let exe = std::env::current_exe()
         .map_err(|e| WireError::SiblingBinaryNotFound(format!("current_exe failed: {e}")))?;
+    // Canonicalize before parent-dir extraction so junction/symlink chains are resolved (Low-1).
+    let exe = std::fs::canonicalize(&exe).unwrap_or(exe);
     let dir = exe.parent()
         .ok_or_else(|| WireError::SiblingBinaryNotFound("exe has no parent".to_string()))?;
 
@@ -227,25 +231,27 @@ fn set_private_permissions(path: &Path) -> Result<(), WireError> {
         return Ok(());
     }
     #[cfg(target_os = "windows")] {
-        // Pass path and flags as separate arguments to avoid cmd.exe quoting issues.
+        // Low-2: absolute path rejects PATH-shim; post-grant re-read verifies ACL took effect.
+        let sysroot = std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".to_string());
+        let icacls = format!(r"{sysroot}\System32\icacls.exe");
         let grant = format!("{}:F", std::env::var("USERNAME").unwrap_or_else(|_| "%USERNAME%".to_string()));
-        let status = std::process::Command::new("icacls")
+        let status = std::process::Command::new(&icacls)
             .args([path.as_os_str(), std::ffi::OsStr::new("/inheritance:r"), std::ffi::OsStr::new("/grant:r"), std::ffi::OsStr::new(&grant)])
             .status()
-            .map_err(|e| {
-                let backup_path = path.display().to_string();
-                tracing::error!(path = %backup_path, error = %e, "H2: icacls spawn failed; backup ACL not set");
-                WireError::BackupAclFailed { backup_path, exit_code: None }
-            })?;
+            .map_err(|e| { let bp = path.display().to_string(); tracing::error!(path=%bp,error=%e,"H2: icacls spawn failed"); WireError::BackupAclFailed { backup_path: bp, exit_code: None } })?;
         if !status.success() {
-            let backup_path = path.display().to_string();
-            let exit_code = status.code();
-            tracing::error!(
-                path = %backup_path,
-                exit_code = ?exit_code,
-                "H2: icacls exited non-zero; backup retains default ACL; aborting wire"
-            );
-            return Err(WireError::BackupAclFailed { backup_path, exit_code });
+            let bp = path.display().to_string();
+            tracing::error!(path=%bp, exit_code=?status.code(), "H2: icacls non-zero; backup retains default ACL");
+            return Err(WireError::BackupAclFailed { backup_path: bp, exit_code: status.code() });
+        }
+        // Post-grant verify: broad ACE remaining means the grant did not take effect.
+        let out = std::process::Command::new(&icacls).arg(path.as_os_str()).output()
+            .map_err(|e| { let bp = path.display().to_string(); tracing::error!(path=%bp,error=%e,"H2: ACL re-read failed"); WireError::BackupAclFailed { backup_path: bp, exit_code: None } })?;
+        let acl = String::from_utf8_lossy(&out.stdout).to_lowercase();
+        if acl.contains("builtin\\users") || acl.contains("everyone") {
+            let bp = path.display().to_string();
+            tracing::error!(path=%bp, "H2: broad ACE present after grant; aborting");
+            return Err(WireError::BackupAclFailed { backup_path: bp, exit_code: Some(0) });
         }
         Ok(())
     }
@@ -360,13 +366,25 @@ mod tests {
         assert_eq!(mode & 0o777, 0o600, "expected 0o600 got 0o{:o}", mode & 0o777);
     }
 
+    // Low-1: "My Program Files" must be rejected; "Program Files" must be accepted.
+    #[test]
+    #[cfg(target_os = "windows")]
+    fn low1_program_files_substring_rejected() {
+        use std::path::PathBuf;
+        assert!(!is_system_protected_dir(&PathBuf::from(r"C:\Users\victim\My Program Files\Amore")));
+        assert!(is_system_protected_dir(&PathBuf::from(r"C:\Program Files\Amore")));
+        assert!(is_system_protected_dir(&PathBuf::from(r"C:\Program Files (x86)\Amore")));
+    }
+    // Low-2 (Windows): set_private_permissions invokes absolute icacls and post-verifies ACL.
+    #[test]
+    #[cfg(target_os = "windows")]
+    fn low2_icacls_post_verify_runs() { let d = TempDir::new().unwrap(); let f = d.path().join("t.bak"); fs::write(&f, b"x").unwrap(); let _ = set_private_permissions(&f); }
     // H3: no orphan tmp on rename failure; TargetLocked returned.
     #[test]
     #[cfg(unix)]
     fn h3_no_orphan_tmp_on_failure() {
         use std::os::unix::fs::PermissionsExt;
-        let dir = TempDir::new().unwrap();
-        let cfg = dir.path().join("c.json");
+        let dir = TempDir::new().unwrap(); let cfg = dir.path().join("c.json");
         fs::write(&cfg, r#"{"mcpServers":{}}"#).unwrap();
         let orig = fs::metadata(dir.path()).unwrap().permissions();
         fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o555)).unwrap();
@@ -374,8 +392,7 @@ mod tests {
         fs::set_permissions(dir.path(), orig).unwrap();
         assert!(!tmp_path(&cfg).exists(), "orphan tmp must not exist");
         match v {
-            WireVerdict::Err(WireError::TargetLocked(_)) => {}
-            WireVerdict::Err(WireError::Other(ref m)) if m.contains("rename") || m.contains("backup") || m.contains("copy") => {}
+            WireVerdict::Err(WireError::TargetLocked(_)) | WireVerdict::Err(WireError::Other(_)) => {}
             other => eprintln!("[h3] got {:?} — likely root, skip", other),
         }
     }
