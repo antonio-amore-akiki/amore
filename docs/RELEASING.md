@@ -165,6 +165,29 @@ of the others). Each crate must have `publish = true` (the default) in its `Carg
 
 ## Docker Hub secrets
 
+## PyPI Trusted Publishing
+
+The `pypi-publish` job in `.github/workflows/release.yml` publishes `python/amore` to PyPI
+using OIDC Trusted Publishing -- **no token storage required**.
+
+One-time setup (Antonio does this once on pypi.org):
+
+1. Log in to https://pypi.org → **Your projects → Manage → Publishing → Add a new publisher**.
+2. Fill in: Publisher: **GitHub Actions**, Owner: `antonio-amore-akiki`,
+   Repository name: `amore`, Workflow name: `release.yml`, Environment name: (leave blank).
+3. Save. No secret needed in the repo -- the OIDC token is issued automatically by GHA.
+
+## npm publishing
+
+The `npm-publish` job publishes `npm/amore-mcp` to npmjs.com with `--provenance`.
+
+Requires `NPM_TOKEN` secret (classic token, publish scope):
+
+1. https://www.npmjs.com → **Account → Access Tokens → Generate New Token → Classic → Publish**.
+2. GitHub repo: **Settings → Secrets → Actions → New secret**: `NPM_TOKEN`.
+
+## Docker Hub secrets
+
 Docker Hub multi-arch publishing requires two secrets in repo settings:
 
 1. Log in to Docker Hub at https://hub.docker.com → **Account Settings → Personal access tokens → Generate new token**.

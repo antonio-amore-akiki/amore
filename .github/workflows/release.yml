@@ -369,6 +369,72 @@ jobs:
             antonioamoreakiki/amore:latest
             antonioamoreakiki/amore:${{ inputs.release_tag }}
 
+  pypi-publish:
+    # Publishes python/amore to PyPI via OIDC Trusted Publishing (no token storage).
+    # One-time setup: Antonio adds Trusted Publisher on pypi.org/manage ->
+    #   publisher: GitHub Actions, repo: antonio-amore-akiki/amore, workflow: release.yml.
+    # See docs/RELEASING.md -- PyPI Trusted Publishing.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write   # required for OIDC Trusted Publishing
+    if: ${{ inputs.release_tag != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.release_tag }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d1a37f9f5fc5e1952bc9e0e3 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: python -m pip install --upgrade build
+
+      - name: Build sdist + wheel
+        working-directory: python/amore
+        run: python -m build
+
+      - name: Publish to PyPI (OIDC Trusted Publishing -- no token required)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: python/amore/dist/
+
+  npm-publish:
+    # Publishes npm/amore-mcp to npmjs.com.
+    # Requires NPM_TOKEN secret (classic token with publish scope) in repo settings.
+    # One-time setup: Antonio creates token at npmjs.com/settings -> Access Tokens ->
+    #   Generate New Token (Granular or Classic with publish). Add as NPM_TOKEN secret.
+    # See docs/RELEASING.md -- npm publishing.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write   # required for npm publish --provenance
+    if: ${{ inputs.release_tag != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.release_tag }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Publish amore-mcp to npm (with provenance)
+        working-directory: npm/amore-mcp
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public
+
   homebrew-update:
     # Closes F-47 race: runs only after macos-build + linux-build have uploaded their
     # release artifacts, so SHA256 computation sees final, signed tarballs/AppImages.
