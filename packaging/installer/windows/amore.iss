@@ -42,6 +42,13 @@ Source: "amore-windows-x64.msi"; DestDir: "{tmp}"; Flags: deleteafterinstall
 [Run]
 ; Silent MSI install. The MSI itself owns the binary placement + tray autostart Run-key + bundled ollama+qdrant.
 Filename: "msiexec.exe"; Parameters: "/i ""{tmp}\amore-windows-x64.msi"" /qn /norestart"; Flags: runascurrentuser waituntilterminated; StatusMsg: "Installing Amore..."
+; Auto-wire AI IDEs after MSI places binaries. Fires under both interactive and /VERYSILENT installs.
+; Non-zero exit from any entry fails the installer (no Flags: dontfailonprepare) so wiring errors are loud.
+; NOTE: --self-contained flag requires Phase A6 (amore-mcp self-contained bundle); registered here as
+; future-state. Until A6 lands, amore-mcp falls back gracefully if flag is unrecognised.
+Filename: "{app}\amore-gui.exe"; Parameters: "--auto-wire"; Flags: runhidden runascurrentuser waituntilterminated; StatusMsg: "Detecting and wiring AI IDEs..."
+Filename: "{app}\amore-mcp.exe"; Parameters: "--register-claude-code --self-contained"; Flags: runhidden runascurrentuser waituntilterminated
+Filename: "{app}\amore-mcp.exe"; Parameters: "--register-claude-desktop --self-contained"; Flags: runhidden runascurrentuser waituntilterminated
 
 [UninstallRun]
 ; Mirror uninstall via msiexec /x to keep MSI ownership.
