@@ -5,27 +5,28 @@
 // cold-start time, and release binary sizes.
 //
 // Usage:
-//   amore-eval-benchmark <SUBCOMMAND> [--corpus-size N] [--queries N] [--output PATH]
+//   amore-eval-benchmark [--mock-deps] <SUBCOMMAND> [--corpus-size N] [--queries N] [--output PATH]
 //
 // Subcommands:
-//   latency           Recall latency percentiles (requires live Qdrant + Ollama)
-//   throughput        Sustained QPS for 60 s (requires live Qdrant + Ollama)
+//   latency           Recall latency percentiles (--mock-deps: in-process BM25; else needs Qdrant+Ollama)
+//   throughput        Sustained QPS (--mock-deps: in-process BM25 over timed window; else needs daemons)
 //   cache-hit-ratio   Zipfian L1/L2 hit-ratio post-warmup (in-process, no daemon)
-//   cold-start        Time-to-first-recall on cold cache (requires live Qdrant + Ollama)
+//   cold-start        Time-to-first-recall (--mock-deps: SqliteStore open+first-search; else needs daemons)
 //   binary-size       Size of each release binary on disk (no daemon)
 //   all               Run all subcommands; writes consolidated JSON report
 //
 // Output: JSON report to --output path (default LOCALAPPDATA\Amore\benchmarks\<ts>-<sub>.json)
 //         Summary table printed to stdout.
 //
-// NOTE: latency / throughput / cold-start require a live Qdrant + Ollama instance.
+// NOTE: without --mock-deps, latency/throughput/cold-start require a live Qdrant+Ollama instance.
 // Set AMORE_QDRANT_URL (default 127.0.0.1:6333) and AMORE_OLLAMA_URL.
-// Without live daemons those subcommands emit SKIPPED and exit 0.
+// Without live daemons and without --mock-deps those subcommands emit SKIPPED and exit 0.
 
 #![deny(clippy::unwrap_used)]
 #![cfg_attr(test, allow(clippy::unwrap_used))]
 
 use anyhow::{Context, Result};
+use amore_core::sqlite_store::SqliteStore;
 use clap::{Parser, Subcommand};
 use hdrhistogram::Histogram;
 use serde::{Deserialize, Serialize};
@@ -54,6 +55,13 @@ struct Cli {
     /// Output path for JSON report (default: LOCALAPPDATA\Amore\benchmarks\<ts>-<sub>.json)
     #[arg(long)]
     output: Option<PathBuf>,
+
+    /// Use in-process BM25 (SqliteStore) — no Qdrant/Ollama required.
+    /// Latency/throughput/cold-start are measured against the SQLite FTS5 BM25
+    /// recall path only. Numbers reflect BM25-only performance, not the full
+    /// hybrid (BM25 + Qdrant vector) stack.
+    #[arg(long)]
+    mock_deps: bool,
 }
 
 #[derive(Debug, Subcommand)]
@@ -359,40 +367,195 @@ fn run_cache_hit_ratio(queries: usize) -> Result<CacheHitRatioResult> {
     })
 }
 
-fn run_latency(corpus_size: usize, queries: usize) -> Result<LatencyResult> {
-    let addr = std::env::var("AMORE_QDRANT_URL").unwrap_or_else(|_| "127.0.0.1:6333".to_string());
-    if !daemon_reachable(&addr) {
-        println!("SKIPPED — Qdrant not reachable at {addr}. Start daemon or set AMORE_QDRANT_URL.");
-        return Ok(LatencyResult { p50_ms: 0.0, p95_ms: 0.0, p99_ms: 0.0, p99_9_ms: 0.0,
-            total_queries: 0, errors: 0, status: "skipped-no-daemon".to_string() });
+// ── Mock-deps corpus helpers ───────────────────────────────────────────────────
+
+/// Seed an in-memory SqliteStore with `n` synthetic observations.
+/// Each doc contains its index in the text so BM25 can match on numeric tokens.
+fn seed_mock_store(n: usize) -> Result<SqliteStore> {
+    let store = SqliteStore::open_in_memory().context("open in-memory SQLite")?;
+    for i in 0..n {
+        let id = format!("doc-{i}");
+        let text = format!(
+            "observation {i} rust async memory agent recall session context embedding bm25 fts5 \
+             tantivy hybrid search index corpus benchmark query latency throughput token reduction \
+             canonical docs router excerpt provenance snapshot backup kopia qdrant ollama sqlite \
+             worker compaction wal circuit breaker cross encoder reranker cosine rrf score"
+        );
+        store
+            .insert_observation(&id, &serde_json::json!({"session_id": &id, "text": text}))
+            .with_context(|| format!("seed doc {i}"))?;
     }
-    println!("MEASUREMENT PENDING: run with live Qdrant + Ollama (corpus={corpus_size} queries={queries}).");
-    Ok(LatencyResult { p50_ms: 0.0, p95_ms: 0.0, p99_ms: 0.0, p99_9_ms: 0.0,
-        total_queries: queries as u64, errors: 0, status: "pending-daemon".to_string() })
+    Ok(store)
 }
 
-fn run_throughput(corpus_size: usize, queries: usize) -> Result<ThroughputResult> {
-    let addr = std::env::var("AMORE_QDRANT_URL").unwrap_or_else(|_| "127.0.0.1:6333".to_string());
-    if !daemon_reachable(&addr) {
-        println!("SKIPPED — Qdrant not reachable at {addr}.");
-        return Ok(ThroughputResult { achieved_qps: 0.0, error_rate: 0.0, duration_s: 0.0,
-            total_queries: 0, errors: 0, status: "skipped-no-daemon".to_string() });
-    }
-    println!("MEASUREMENT PENDING: run with live Qdrant + Ollama (corpus={corpus_size} queries={queries}).");
-    Ok(ThroughputResult { achieved_qps: 0.0, error_rate: 0.0, duration_s: 60.0,
-        total_queries: queries as u64, errors: 0, status: "pending-daemon".to_string() })
+/// Deterministic query rotation: cycles through representative terms.
+fn query_for_idx(i: usize) -> &'static str {
+    const QUERIES: &[&str] = &[
+        "rust async memory recall",
+        "bm25 search index corpus",
+        "session context embedding",
+        "canonical docs router excerpt",
+        "tantivy hybrid search",
+        "snapshot backup kopia",
+        "circuit breaker latency",
+        "token reduction benchmark",
+        "qdrant vector cosine",
+        "compaction wal worker",
+    ];
+    QUERIES[i % QUERIES.len()]
 }
 
-fn run_cold_start() -> Result<ColdStartResult> {
+fn run_latency(corpus_size: usize, queries: usize, mock_deps: bool) -> Result<LatencyResult> {
+    if mock_deps {
+        let effective_corpus = corpus_size.min(5_000); // cap for in-process speed
+        println!(
+            "INFO: mock-deps mode — seeding {effective_corpus} docs into in-process BM25 store"
+        );
+        let store = seed_mock_store(effective_corpus).context("seed mock store")?;
+        let mut samples: Vec<Duration> = Vec::with_capacity(queries);
+        let mut errors: u64 = 0;
+        for i in 0..queries {
+            let q = query_for_idx(i);
+            let t0 = Instant::now();
+            match store.bm25_search(q, 10) {
+                Ok(_) => samples.push(t0.elapsed()),
+                Err(_) => errors += 1,
+            }
+        }
+        let mut result = build_latency_histogram(&samples)?;
+        result.errors = errors;
+        result.status = "mock-deps-bm25-only".to_string();
+        println!(
+            "Latency (mock-deps BM25, corpus={effective_corpus}, N={queries}): \
+             p50={:.2}ms p95={:.2}ms p99={:.2}ms p99.9={:.2}ms errors={errors}",
+            result.p50_ms, result.p95_ms, result.p99_ms, result.p99_9_ms
+        );
+        return Ok(result);
+    }
     let addr = std::env::var("AMORE_QDRANT_URL").unwrap_or_else(|_| "127.0.0.1:6333".to_string());
     if !daemon_reachable(&addr) {
-        println!("SKIPPED — Qdrant not reachable at {addr}.");
-        return Ok(ColdStartResult { time_to_first_recall_ms: 0.0, status: "skipped-no-daemon".to_string() });
+        println!(
+            "SKIPPED — Qdrant not reachable at {addr}. Pass --mock-deps or start daemon."
+        );
+        return Ok(LatencyResult {
+            p50_ms: 0.0, p95_ms: 0.0, p99_ms: 0.0, p99_9_ms: 0.0,
+            total_queries: 0, errors: 0, status: "skipped-no-daemon".to_string(),
+        });
+    }
+    println!(
+        "MEASUREMENT PENDING: run with live Qdrant + Ollama (corpus={corpus_size} queries={queries})."
+    );
+    Ok(LatencyResult {
+        p50_ms: 0.0, p95_ms: 0.0, p99_ms: 0.0, p99_9_ms: 0.0,
+        total_queries: queries as u64, errors: 0, status: "pending-daemon".to_string(),
+    })
+}
+
+fn run_throughput(corpus_size: usize, queries: usize, mock_deps: bool) -> Result<ThroughputResult> {
+    if mock_deps {
+        let effective_corpus = corpus_size.min(5_000);
+        println!(
+            "INFO: mock-deps mode — measuring sustained BM25 QPS over timed window \
+             (corpus={effective_corpus})"
+        );
+        let store = seed_mock_store(effective_corpus).context("seed mock store")?;
+        // Run until wall-clock exceeds 10s (capped from 60s for CI/agent speed).
+        // 10s is sufficient to get a stable QPS number for BM25.
+        let window = Duration::from_secs(10);
+        let deadline = Instant::now() + window;
+        let mut count: u64 = 0;
+        let mut errors: u64 = 0;
+        let t0 = Instant::now();
+        let mut i = 0usize;
+        while Instant::now() < deadline {
+            let q = query_for_idx(i);
+            match store.bm25_search(q, 10) {
+                Ok(_) => count += 1,
+                Err(_) => errors += 1,
+            }
+            i += 1;
+            if i >= queries && queries > 0 {
+                break;
+            }
+        }
+        let elapsed = t0.elapsed().as_secs_f64();
+        let achieved_qps = count as f64 / elapsed;
+        let error_rate = if count + errors > 0 {
+            errors as f64 / (count + errors) as f64
+        } else {
+            0.0
+        };
+        println!(
+            "Throughput (mock-deps BM25, corpus={effective_corpus}): \
+             {achieved_qps:.1} QPS over {elapsed:.1}s  queries={count}  errors={errors}  \
+             error_rate={:.2}%",
+            error_rate * 100.0
+        );
+        return Ok(ThroughputResult {
+            achieved_qps,
+            error_rate,
+            duration_s: elapsed,
+            total_queries: count,
+            errors,
+            status: "mock-deps-bm25-only".to_string(),
+        });
+    }
+    let addr = std::env::var("AMORE_QDRANT_URL").unwrap_or_else(|_| "127.0.0.1:6333".to_string());
+    if !daemon_reachable(&addr) {
+        println!("SKIPPED — Qdrant not reachable at {addr}. Pass --mock-deps or start daemon.");
+        return Ok(ThroughputResult {
+            achieved_qps: 0.0, error_rate: 0.0, duration_s: 0.0,
+            total_queries: 0, errors: 0, status: "skipped-no-daemon".to_string(),
+        });
+    }
+    println!(
+        "MEASUREMENT PENDING: run with live Qdrant + Ollama (corpus={corpus_size} queries={queries})."
+    );
+    Ok(ThroughputResult {
+        achieved_qps: 0.0, error_rate: 0.0, duration_s: 60.0,
+        total_queries: queries as u64, errors: 0, status: "pending-daemon".to_string(),
+    })
+}
+
+fn run_cold_start(mock_deps: bool) -> Result<ColdStartResult> {
+    if mock_deps {
+        // Cold-start: time from SqliteStore::open_in_memory() through first bm25_search result.
+        // This measures the SQLite FTS5 init + index-build + first query path — the cold path
+        // a fresh Amore process takes before any cache warming.
+        let t0 = Instant::now();
+        let store = SqliteStore::open_in_memory().context("cold-start open")?;
+        // Insert one minimal doc to force FTS5 schema creation + first write.
+        store
+            .insert_observation("cold", &serde_json::json!({"text": "cold start benchmark"}))
+            .context("cold-start insert")?;
+        // First search — this is the recall path a real query would hit.
+        let _hits = store
+            .bm25_search("cold start", 1)
+            .context("cold-start search")?;
+        let elapsed_ms = t0.elapsed().as_secs_f64() * 1000.0;
+        println!(
+            "Cold-start (mock-deps: SqliteStore open+insert+first-search): {elapsed_ms:.2}ms"
+        );
+        return Ok(ColdStartResult {
+            time_to_first_recall_ms: elapsed_ms,
+            status: "mock-deps-bm25-only".to_string(),
+        });
+    }
+    let addr = std::env::var("AMORE_QDRANT_URL").unwrap_or_else(|_| "127.0.0.1:6333".to_string());
+    if !daemon_reachable(&addr) {
+        println!("SKIPPED — Qdrant not reachable at {addr}. Pass --mock-deps or start daemon.");
+        return Ok(ColdStartResult {
+            time_to_first_recall_ms: 0.0,
+            status: "skipped-no-daemon".to_string(),
+        });
     }
     let start = Instant::now();
     let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
     println!("MEASUREMENT PENDING: run with live Qdrant + Ollama.");
-    Ok(ColdStartResult { time_to_first_recall_ms: elapsed_ms, status: "pending-daemon".to_string() })
+    Ok(ColdStartResult {
+        time_to_first_recall_ms: elapsed_ms,
+        status: "pending-daemon".to_string(),
+    })
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -400,19 +563,20 @@ fn run_cold_start() -> Result<ColdStartResult> {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let hw = hardware_info();
+    let mock = cli.mock_deps;
     let (sub_name, results) = match &cli.command {
         Sub::BinarySize => ("binary-size", serde_json::to_value(run_binary_size()?)?),
         Sub::CacheHitRatio => ("cache-hit-ratio", serde_json::to_value(run_cache_hit_ratio(cli.queries)?)?),
-        Sub::Latency => ("latency", serde_json::to_value(run_latency(cli.corpus_size, cli.queries)?)?),
-        Sub::Throughput => ("throughput", serde_json::to_value(run_throughput(cli.corpus_size, cli.queries)?)?),
-        Sub::ColdStart => ("cold-start", serde_json::to_value(run_cold_start()?)?),
+        Sub::Latency => ("latency", serde_json::to_value(run_latency(cli.corpus_size, cli.queries, mock)?)?),
+        Sub::Throughput => ("throughput", serde_json::to_value(run_throughput(cli.corpus_size, cli.queries, mock)?)?),
+        Sub::ColdStart => ("cold-start", serde_json::to_value(run_cold_start(mock)?)?),
         Sub::All => {
             let v = serde_json::json!({
                 "binary_size": run_binary_size()?,
                 "cache_hit_ratio": run_cache_hit_ratio(cli.queries)?,
-                "latency": run_latency(cli.corpus_size, cli.queries)?,
-                "throughput": run_throughput(cli.corpus_size, cli.queries)?,
-                "cold_start": run_cold_start()?,
+                "latency": run_latency(cli.corpus_size, cli.queries, mock)?,
+                "throughput": run_throughput(cli.corpus_size, cli.queries, mock)?,
+                "cold_start": run_cold_start(mock)?,
             });
             ("all", v)
         }
