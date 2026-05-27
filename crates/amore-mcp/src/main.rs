@@ -205,7 +205,7 @@ impl AmoreServer {
     }
 
     #[tool(
-        description = "Canonical-docs lookup: topic-matches the query against *.md files with `stable: true` headers in the configured search paths (default: ~/.claude/docs, <cwd>/.claude/docs, <cwd>/docs). Deterministic source-of-truth surface for known domains — beats probabilistic recall when an authoritative doc exists. Returns a JSON array of {path, title, topic_score, excerpt}."
+        description = "Canonical-docs lookup: topic-matches the query against *.md files with `stable: true` headers in the configured search paths (default: ~/.claude/docs, <cwd>/.claude/docs, <cwd>/docs). Deterministic source-of-truth surface for known domains — beats probabilistic recall when an authoritative doc exists. Returns a JSON array of {path, title, topic_score, excerpt}, capped at TOP_K_HITS = 3 results."
     )]
     async fn canonical_doc_lookup(
         &self,

@@ -51,7 +51,7 @@ impl CanonicalDocsRouter {
     /// Walk `search_paths` (each treated as a directory containing `*.md`
     /// files), return docs whose topic keywords overlap with the query.
     /// Result is sorted by `topic_score` descending and **capped at
-    /// `TOP_K_HITS`** (5) to prevent over-fetch on common-vocabulary
+    /// `TOP_K_HITS`** (3) to prevent over-fetch on common-vocabulary
     /// queries from blowing past the raw-context baseline. Non-existent
     /// paths are skipped without error (some agents have only the user
     /// dir, some only the workspace dir).

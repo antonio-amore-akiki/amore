@@ -61,7 +61,7 @@ const TEMPLATES: &[&str] = &[
     "The backup harness verifies cosign verify-blob in a clean container.",
     "Lazy embedder timeout flips the ollama_unavailable degraded flag.",
     "Property tests validate RRF fusion is monotone, bounded, deterministic.",
-    "The canonical-docs router achieves 91.9% token reduction on research queries.",
+    "The canonical-docs router achieves 89.3% token reduction on a 43-fixture eval (TOP_K=3).",
     "Multi-writer SQLite WAL test catches the chain-fork concurrency bug.",
     "Release workflow splits bundle upload from archive for cross-OS compat.",
     "Inno Setup compiles a 7.6 MB installer with silent Ollama install.",
