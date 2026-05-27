@@ -16,6 +16,8 @@ use tray_icon::{
     TrayIcon, TrayIconBuilder,
     menu::{Menu, MenuItem, PredefinedMenuItem},
 };
+// reqwest::blocking is a workspace dependency (amore-gui/Cargo.toml line 30).
+// serde_json and tracing are workspace deps already present in this crate.
 
 /// Opaque handle that keeps the tray icon alive for the process lifetime.
 pub struct TrayHandle {
@@ -230,30 +232,92 @@ fn linux_autostart_check() {
 
 // ── Update check ──────────────────────────────────────────────────────────────
 
+/// Sanitize a GitHub release tag_name to `[a-zA-Z0-9._-]` only.
+///
+/// Returns `Some(sanitized)` when the input is non-empty and every character
+/// passes the allow-list; returns `None` on empty input or any rejected character.
+pub(crate) fn sanitize_tag_name(raw: &str) -> Option<String> {
+    if raw.is_empty() {
+        return None;
+    }
+    let s: String = raw.chars().collect();
+    if s.chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_')
+    {
+        Some(s)
+    } else {
+        None
+    }
+}
+
 fn check_for_updates() {
+    // User-Agent interpolation is build-time only (env! macro) — safe.
+    let user_agent = format!("amore-tray/{}", env!("CARGO_PKG_VERSION"));
     let current = env!("CARGO_PKG_VERSION");
+
     std::thread::spawn(move || {
         let url = "https://api.github.com/repos/antonio-amore-akiki/amore/releases/latest";
-        let out = std::process::Command::new("powershell")
-            .args([
-                "-NoProfile", "-Command",
-                &format!(
-                    "(Invoke-RestMethod -Uri '{url}' -Headers @{{Accept='application/vnd.github.v3+json';'User-Agent'='amore-tray/{current}'}}).tag_name"
-                ),
-            ])
-            .output();
-        match out {
-            Ok(o) if o.status.success() => {
-                let latest = String::from_utf8_lossy(&o.stdout).trim().to_string();
-                if latest.is_empty() {
-                    eprintln!("[amore-tray] update check: no tag returned");
-                } else if latest != format!("v{current}") {
-                    eprintln!("[amore-tray] update available: {latest} (running v{current})");
-                } else {
-                    eprintln!("[amore-tray] up to date (v{current})");
+
+        let client = match reqwest::blocking::Client::builder()
+            .user_agent(&user_agent)
+            .build()
+        {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::warn!(error = %e, "update check: failed to build HTTP client");
+                return;
+            }
+        };
+
+        let resp = client
+            .get(url)
+            .header("Accept", "application/vnd.github.v3+json")
+            .send();
+
+        match resp {
+            Ok(r) if r.status().is_success() => {
+                match r.json::<serde_json::Value>() {
+                    Ok(json) => {
+                        let raw_tag = json
+                            .get("tag_name")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("");
+
+                        match sanitize_tag_name(raw_tag) {
+                            None => {
+                                tracing::warn!(
+                                    raw_tag = raw_tag,
+                                    "update check: tag_name failed sanitization — \
+                                     contains non-alphanumeric characters or is empty"
+                                );
+                            }
+                            Some(latest) => {
+                                if latest != format!("v{current}") {
+                                    tracing::info!(
+                                        latest = %latest,
+                                        current = %current,
+                                        "update available"
+                                    );
+                                } else {
+                                    tracing::info!(version = %current, "up to date");
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!(error = %e, "update check: failed to parse JSON response");
+                    }
                 }
             }
-            _ => eprintln!("[amore-tray] update check failed (no network or GitHub unreachable)"),
+            Ok(r) => {
+                tracing::warn!(
+                    status = %r.status(),
+                    "update check: GitHub API returned non-success status"
+                );
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "update check failed (no network or GitHub unreachable)");
+            }
         }
     });
 }
@@ -283,4 +347,51 @@ fn load_tray_icon() -> tray_icon::Icon {
         .flat_map(|_| [138u8, 43, 226, 255])
         .collect();
     tray_icon::Icon::from_rgba(rgba, 16, 16).expect("static RGBA icon data is valid")
+}
+
+// ---------------------------------------------------------------------------
+// Unit tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::sanitize_tag_name;
+
+    #[test]
+    fn sanitize_tag_name_accepts_valid() {
+        // Typical semver release tags — all must pass.
+        assert_eq!(sanitize_tag_name("v1.2.3"), Some("v1.2.3".to_string()));
+        assert_eq!(sanitize_tag_name("1.0.0"), Some("1.0.0".to_string()));
+        assert_eq!(sanitize_tag_name("v0.4.0-rc.1"), Some("v0.4.0-rc.1".to_string()));
+        assert_eq!(
+            sanitize_tag_name("release_2025"),
+            Some("release_2025".to_string())
+        );
+    }
+
+    #[test]
+    fn sanitize_tag_name_rejects_invalid() {
+        // Any character outside [a-zA-Z0-9._-] must be rejected.
+        assert_eq!(sanitize_tag_name(""), None, "empty input must return None");
+        assert_eq!(
+            sanitize_tag_name("v1.0.0; rm -rf /"),
+            None,
+            "shell metacharacters must be rejected"
+        );
+        assert_eq!(
+            sanitize_tag_name("v1.0.0\n"),
+            None,
+            "newline must be rejected"
+        );
+        assert_eq!(
+            sanitize_tag_name("v1.0.0<script>"),
+            None,
+            "angle brackets must be rejected"
+        );
+        assert_eq!(
+            sanitize_tag_name("v1.0.0 beta"),
+            None,
+            "space must be rejected"
+        );
+    }
 }
