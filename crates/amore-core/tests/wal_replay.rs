@@ -13,6 +13,13 @@ use tempfile::TempDir;
 // Helpers
 // ---------------------------------------------------------------------------
 
+/// Fixed 32-byte test key. Bypasses the OS keyring so tests are isolated and
+/// repeatable regardless of keyring state or parallel test execution.
+const TEST_KEY: [u8; 32] = [0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE, 0xBA, 0xBE,
+                             0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
+                             0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10,
+                             0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88];
+
 fn make_record(doc_id: u64) -> WalRecord {
     WalRecord {
         kind: WalKind::Upsert,
@@ -23,7 +30,7 @@ fn make_record(doc_id: u64) -> WalRecord {
 }
 
 fn open_wal(dir: &TempDir) -> Result<Wal> {
-    Wal::open(&dir.path().join("test_wal"))
+    Ok(Wal::open_with_key(&dir.path().join("test_wal"), TEST_KEY.to_vec())?)
 }
 
 // ---------------------------------------------------------------------------
@@ -206,7 +213,7 @@ async fn t4_kill_mid_ingest_recover_on_startup() -> Result<()> {
     // but the downstream flush had not yet been acked.
     {
         let wal_path = dir.path().join("ingest_wal");
-        let wal = Wal::open(&wal_path)?;
+        let wal = Wal::open_with_key(&wal_path, TEST_KEY.to_vec())?;
         for i in 0..200u64 {
             wal.append(&make_record(i))?;
         }
