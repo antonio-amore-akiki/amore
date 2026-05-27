@@ -2,6 +2,18 @@ stable: true
 
 # Installation — Amore
 
+## Installer (no terminal needed — recommended)
+
+| OS | Download | What to do |
+|---|---|---|
+| Windows | [amore-windows-x64.msi](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-windows-x64.msi) | Double-click. If SmartScreen warns, click "More info" → "Run anyway". |
+| macOS | `brew install antonio-amore-akiki/tap/amore` (one Terminal command) OR [amore-1.0.0-macos-x86_64.tar.gz](https://github.com/antonio-amore-akiki/amore/releases/latest) | Run Homebrew command, or download + double-click the `.tar.gz`. |
+| Linux | [amore-1.0.0-x86_64.AppImage](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-1.0.0-x86_64.AppImage) | Make executable (`chmod +x`), then double-click. No sudo needed. |
+
+After installing, the first-run wizard opens automatically. It takes about 2 minutes and guides you through connecting Amore to your AI tools (Claude Desktop, Cursor, Cline, Continue.dev).
+
+## Developer install paths (terminal required)
+
 5 paths, each yields the same v1.0.0 binaries.
 
 ## 1. Homebrew (macOS/Linux)

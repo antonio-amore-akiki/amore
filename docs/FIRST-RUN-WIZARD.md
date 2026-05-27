@@ -38,10 +38,10 @@ Back is available on every screen except Welcome. Next requires screen-specific 
 
 ## Screen 3: Bundled Components
 
-| Component | Version |
-|-----------|---------|
-| Ollama (local AI runtime) | v0.3.x |
-| Qdrant (vector store) | v1.15.x |
+| Component | User-facing label | Version |
+|-----------|------------------|---------|
+| Ollama | Local AI model | v0.3.x |
+| Qdrant | Memory index | v1.15.x |
 
 First-run disk usage: approximately 2–4 GB.
 
