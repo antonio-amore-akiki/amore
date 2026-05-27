@@ -6,6 +6,27 @@ Every cell must be backed by a runnable command or marked PENDING.
 
 ---
 
+## Token reduction — canonical-docs router (43 fixtures, measured 2026-05-27)
+
+| Metric | Result | Target | Verdict |
+|---|---|---|---|
+| Average token reduction | **21.1%** | ≥ 85% (stretch) | PARTIAL |
+| Worst-case reduction | -144.6% (one outlier: `timeout-amore-ms-env-cap`) | ≥ 75% | FAIL |
+| Sample size | 43 fixtures | ≥ 30 | PASS |
+
+**What this measures**: token count of Amore's routed-context recall (top-k canonical-docs snippets) vs raw-context baseline (full doc dump) for 43 real questions about Amore itself (install, config, troubleshooting). Lower is better; positive % = Amore used fewer tokens.
+
+**Reproduction**:
+```
+amore-eval-benchmark --release token-reduction \
+  --fixtures crates/amore-eval/fixtures/ \
+  --results-tsv state/results.tsv
+```
+
+**Honest read**: 21% per-query savings is modest. The community reference of "~70× per session" from `lucasrosati/claude-code-memory-setup` measures a different thing — session-level context-window utilization across many turns. v1.1 plan: real Claude Code session-level measurement to close the gap.
+
+---
+
 ## Datasets
 
 | Dataset | License | Purpose | Status |
