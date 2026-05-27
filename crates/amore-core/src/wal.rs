@@ -16,9 +16,20 @@
 //   Tag mismatch on replay → error-logged + skipped (no panic).
 //   Payload bounded at MAX_WAL_PAYLOAD_BYTES (16 KiB) on append.
 //   Legacy records (no tag, serde default) accepted; re-stamped on next flush.
+//
+// Security (H1 residual — keyring-deletion downgrade):
+//   A SHA256(machine_key)[..16] fingerprint is stored in `<wal_path>.fingerprint`
+//   (first 16 bytes of SHA256, hex-encoded, 32 chars).
+//   On Wal::open():
+//     - fingerprint absent (first run): generate/load key → write fingerprint → open.
+//     - fingerprint present + keyring entry missing → WalError::KeyringEntryMissing.
+//     - fingerprint present + key loaded + fingerprint matches → open normally.
+//     - fingerprint present + key loaded + fingerprint mismatches →
+//         WalError::KeyFingerprintMismatch { stored, current }.
+//   Wal::open_with_key() (test-only bypass) does NOT interact with the fingerprint.
 
 use std::{
-    path::Path,
+    path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
 };
 
@@ -26,7 +37,7 @@ use anyhow::{Context, Result};
 use hmac::{Hmac, Mac};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
-use sha2::Sha256;
+use sha2::{Digest, Sha256};
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -41,6 +52,14 @@ pub enum WalError {
     PayloadTooLarge(usize),
     #[error("WAL machine key unavailable: {0}")]
     KeyUnavailable(String),
+    /// Fingerprint file exists but the OS keyring entry was deleted — explicit attack signal.
+    /// Do NOT auto-regenerate: caller must investigate.
+    #[error("WAL key fingerprint file exists but keyring entry is missing — possible keyring deletion attack")]
+    KeyringEntryMissing,
+    /// Fingerprint on disk does not match the key currently in the keyring.
+    /// Refusing to open to prevent silent WAL history erasure.
+    #[error("WAL key fingerprint mismatch: stored={stored}, current={current}")]
+    KeyFingerprintMismatch { stored: String, current: String },
     #[error("WAL operation failed: {0}")]
     Other(#[from] anyhow::Error),
 }
@@ -101,24 +120,149 @@ fn compute_tag(key: &[u8], record: &WalRecord) -> [u8; 32] {
     mac.finalize().into_bytes().into()
 }
 
-/// Load or generate the 32-byte machine key from the OS keyring (fail closed).
-fn load_or_create_machine_key() -> Result<Vec<u8>, WalError> {
+/// Compute the key fingerprint: SHA256(key)[..16] as a 32-char lowercase hex string.
+fn key_fingerprint(key: &[u8]) -> String {
+    let hash = Sha256::digest(key);
+    hex::encode(&hash[..16])
+}
+
+/// Path of the fingerprint file adjacent to the WAL sled DB directory.
+fn fingerprint_path(wal_path: &Path) -> PathBuf {
+    // e.g. `/data/wal` → `/data/wal.fingerprint`
+    let mut fp = wal_path.as_os_str().to_owned();
+    fp.push(".fingerprint");
+    PathBuf::from(fp)
+}
+
+/// Read the fingerprint file; returns `None` if the file does not exist.
+fn read_fingerprint(fp_path: &Path) -> Result<Option<String>, WalError> {
+    match std::fs::read_to_string(fp_path) {
+        Ok(s) => Ok(Some(s.trim().to_owned())),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(WalError::KeyUnavailable(format!(
+            "reading fingerprint file {}: {e}",
+            fp_path.display()
+        ))),
+    }
+}
+
+/// Write the fingerprint file atomically (write-then-rename on the same filesystem).
+fn write_fingerprint(fp_path: &Path, fingerprint: &str) -> Result<(), WalError> {
+    // Write to a temp file in the same directory, then rename for atomicity.
+    let tmp = fp_path.with_extension("fingerprint.tmp");
+    std::fs::write(&tmp, fingerprint).map_err(|e| {
+        WalError::KeyUnavailable(format!("writing fingerprint tmp {}: {e}", tmp.display()))
+    })?;
+    std::fs::rename(&tmp, fp_path).map_err(|e| {
+        WalError::KeyUnavailable(format!("renaming fingerprint {}: {e}", fp_path.display()))
+    })?;
+    Ok(())
+}
+
+/// Enforce the fingerprint invariant given an already-resolved key and the stored fingerprint.
+///
+/// Called after the keyring state is known. Separated for unit-testability.
+///
+/// `stored_fp`  — `None` if the fingerprint file doesn't exist yet (first run).
+/// `key`        — the key bytes resolved from the keyring (or `None` if keyring entry absent).
+/// `fp_path`    — path to write the fingerprint file on first run.
+///
+/// Returns the verified key bytes on success, or the appropriate `WalError` on failure.
+fn check_or_init_fingerprint(
+    stored_fp: Option<String>,
+    key: Option<Vec<u8>>,
+    fp_path: &Path,
+) -> Result<Vec<u8>, WalError> {
+    match (stored_fp, key) {
+        // ── fingerprint absent, key present → first run with pre-existing key ──
+        (None, Some(k)) => {
+            let fp = key_fingerprint(&k);
+            write_fingerprint(fp_path, &fp)?;
+            tracing::info!(target: "amore.wal", fingerprint = %fp, "wrote initial WAL key fingerprint");
+            Ok(k)
+        }
+
+        // ── fingerprint absent, key absent → caller generates key; write fingerprint ──
+        // (handled in load_or_create_machine_key before calling this)
+        (None, None) => {
+            // Unreachable via load_or_create_machine_key (key is always Some here in None/None).
+            // Guard against direct misuse.
+            Err(WalError::KeyUnavailable(
+                "internal: check_or_init_fingerprint called with both absent".into(),
+            ))
+        }
+
+        // ── fingerprint present, keyring entry deleted → explicit attack signal ──
+        (Some(_), None) => {
+            tracing::error!(
+                target: "amore.wal",
+                "WAL keyring entry missing while fingerprint exists — possible keyring deletion attack"
+            );
+            Err(WalError::KeyringEntryMissing)
+        }
+
+        // ── fingerprint present, key present → verify match ──
+        (Some(stored), Some(k)) => {
+            let current = key_fingerprint(&k);
+            if stored != current {
+                tracing::error!(
+                    target: "amore.wal",
+                    stored = %stored,
+                    current = %current,
+                    "WAL key fingerprint mismatch — refusing to open"
+                );
+                return Err(WalError::KeyFingerprintMismatch { stored, current });
+            }
+            Ok(k)
+        }
+    }
+}
+
+/// Load the machine key from keyring AND enforce the fingerprint invariant.
+///
+/// `wal_path` — the sled DB path (fingerprint lives at `<wal_path>.fingerprint`).
+///
+/// State machine:
+///   - fingerprint absent, keyring present → first run; write fingerprint.
+///   - fingerprint absent, keyring absent  → first run; generate key, write fingerprint.
+///   - fingerprint present, keyring absent → attack signal; `KeyringEntryMissing`.
+///   - fingerprint present, keyring present, match  → normal open.
+///   - fingerprint present, keyring present, mismatch → `KeyFingerprintMismatch`.
+fn load_or_create_machine_key(wal_path: &Path) -> Result<Vec<u8>, WalError> {
+    let fp_path = fingerprint_path(wal_path);
+    let stored_fp = read_fingerprint(&fp_path)?;
+
     let entry = keyring::Entry::new("amore", "wal-hmac-key")
         .map_err(|e| WalError::KeyUnavailable(format!("keyring entry: {e}")))?;
 
     match entry.get_password() {
-        Ok(hex_key) => hex::decode(&hex_key)
-            .map_err(|e| WalError::KeyUnavailable(format!("corrupt keyring value: {e}"))),
-        Err(keyring::Error::NoEntry) => {
+        // ── keyring entry absent + no fingerprint → first run: generate key ──
+        Err(keyring::Error::NoEntry) if stored_fp.is_none() => {
             let mut raw = [0u8; 32];
             rand::thread_rng().fill_bytes(&mut raw);
             let hex_key = hex::encode(raw);
             entry
                 .set_password(&hex_key)
                 .map_err(|e| WalError::KeyUnavailable(format!("keyring set: {e}")))?;
-            tracing::info!(target: "amore.wal", "generated new WAL machine key in keyring");
+            let fp = key_fingerprint(&raw);
+            write_fingerprint(&fp_path, &fp)?;
+            tracing::info!(target: "amore.wal", fingerprint = %fp, "generated new WAL machine key and fingerprint");
             Ok(raw.to_vec())
         }
+
+        // ── keyring entry absent + fingerprint present → attack signal ──
+        Err(keyring::Error::NoEntry) => {
+            check_or_init_fingerprint(stored_fp, None, &fp_path)
+        }
+
+        // ── key present → verify/init fingerprint ──
+        Ok(hex_key) => {
+            let key = hex::decode(&hex_key)
+                .map_err(|e| WalError::KeyUnavailable(format!("corrupt keyring value: {e}")))?;
+            check_or_init_fingerprint(stored_fp, Some(key), &fp_path)
+        }
+
+        // ── any other keyring error → fail closed ──
         Err(e) => Err(WalError::KeyUnavailable(format!("keyring get: {e}"))),
     }
 }
@@ -133,10 +277,17 @@ pub struct Wal {
 
 impl Wal {
     /// Open or create a sled-backed WAL at `path`.
-    /// Loads (or generates on first run) the HMAC machine key from the OS keyring.
-    /// Returns `WalError::KeyUnavailable` if the OS keyring is unreachable (fail closed).
+    ///
+    /// Loads (or generates on first run) the HMAC machine key from the OS keyring and
+    /// enforces the key-fingerprint invariant — refuses to open if the fingerprint on disk
+    /// does not match the key in the keyring (keyring-deletion downgrade attack mitigation).
+    ///
+    /// Returns:
+    ///   - `WalError::KeyUnavailable`       — OS keyring unreachable (fail closed)
+    ///   - `WalError::KeyringEntryMissing`  — fingerprint exists but keyring entry deleted
+    ///   - `WalError::KeyFingerprintMismatch` — key in keyring differs from stored fingerprint
     pub fn open(path: &Path) -> Result<Self, WalError> {
-        let machine_key = load_or_create_machine_key()?;
+        let machine_key = load_or_create_machine_key(path)?;
         Self::open_with_key(path, machine_key)
     }
 
@@ -375,5 +526,105 @@ mod tests {
         assert_eq!(replayed.len(), 1, "legacy record must be accepted");
         assert_eq!(replayed[0].1.doc_id, 7);
         assert_eq!(replayed[0].1.payload_json, r#"{"text":"legacy"}"#);
+    }
+
+    // ── Fingerprint tests (H1 residual) ─────────────────────────────────────
+
+    use super::{
+        check_or_init_fingerprint, fingerprint_path, key_fingerprint,
+        read_fingerprint, write_fingerprint,
+    };
+
+    /// FP-1: First open (no fingerprint file) with a key → fingerprint file created,
+    ///        contents match SHA256(key)[..16] hex.
+    #[test]
+    fn fp1_first_open_creates_fingerprint_file() {
+        let dir = TempDir::new().unwrap();
+        let wal_path = dir.path().join("wal");
+        let fp_path = fingerprint_path(&wal_path);
+
+        // Precondition: fingerprint file does not exist.
+        assert!(!fp_path.exists(), "fingerprint file must not exist before first open");
+
+        let key = vec![0xAA_u8; 32];
+        let result = check_or_init_fingerprint(None, Some(key.clone()), &fp_path);
+        assert!(result.is_ok(), "first open must succeed: {result:?}");
+
+        // Fingerprint file must now exist and contain the correct value.
+        assert!(fp_path.exists(), "fingerprint file must be created on first open");
+        let stored = read_fingerprint(&fp_path).unwrap().unwrap();
+        let expected = key_fingerprint(&key);
+        assert_eq!(stored, expected, "stored fingerprint must match SHA256(key)[..16]");
+    }
+
+    /// FP-2: Subsequent open with the same key → succeeds (fingerprint matches).
+    #[test]
+    fn fp2_subsequent_open_matching_key_succeeds() {
+        let dir = TempDir::new().unwrap();
+        let wal_path = dir.path().join("wal");
+        let fp_path = fingerprint_path(&wal_path);
+
+        let key = vec![0xBB_u8; 32];
+        let fp = key_fingerprint(&key);
+
+        // Simulate a previous open by writing the fingerprint file.
+        write_fingerprint(&fp_path, &fp).expect("write fingerprint must succeed");
+
+        // Subsequent open with the same key must succeed.
+        let result = check_or_init_fingerprint(Some(fp.clone()), Some(key.clone()), &fp_path);
+        assert!(
+            result.is_ok(),
+            "matching key must open successfully: {result:?}"
+        );
+        assert_eq!(result.unwrap(), key, "returned key must equal the input key");
+    }
+
+    /// FP-3: Fingerprint file present, different key supplied → `KeyFingerprintMismatch`.
+    #[test]
+    fn fp3_mismatched_key_returns_fingerprint_mismatch_error() {
+        let dir = TempDir::new().unwrap();
+        let wal_path = dir.path().join("wal");
+        let fp_path = fingerprint_path(&wal_path);
+
+        let original_key = vec![0xCC_u8; 32];
+        let stored_fp = key_fingerprint(&original_key);
+        write_fingerprint(&fp_path, &stored_fp).expect("write fingerprint must succeed");
+
+        // Use a different key (simulates attacker replacing keyring entry).
+        let attacker_key = vec![0xDD_u8; 32];
+        let current_fp = key_fingerprint(&attacker_key);
+
+        let result =
+            check_or_init_fingerprint(Some(stored_fp.clone()), Some(attacker_key), &fp_path);
+
+        match result {
+            Err(WalError::KeyFingerprintMismatch { stored, current }) => {
+                assert_eq!(stored, stored_fp, "stored field must match on-disk fingerprint");
+                assert_eq!(current, current_fp, "current field must match attacker key fingerprint");
+            }
+            other => panic!("expected KeyFingerprintMismatch, got {other:?}"),
+        }
+    }
+
+    /// FP-4: Fingerprint file exists but keyring entry is absent (deleted) →
+    ///        `KeyringEntryMissing`.
+    #[test]
+    fn fp4_missing_keyring_entry_when_fingerprint_exists_returns_error() {
+        let dir = TempDir::new().unwrap();
+        let wal_path = dir.path().join("wal");
+        let fp_path = fingerprint_path(&wal_path);
+
+        // Simulate an existing fingerprint file (key was previously set up).
+        let key = vec![0xEE_u8; 32];
+        let fp = key_fingerprint(&key);
+        write_fingerprint(&fp_path, &fp).expect("write fingerprint must succeed");
+
+        // Simulate keyring entry deletion: pass None for the key.
+        let result = check_or_init_fingerprint(Some(fp), None, &fp_path);
+
+        match result {
+            Err(WalError::KeyringEntryMissing) => {} // expected
+            other => panic!("expected KeyringEntryMissing, got {other:?}"),
+        }
     }
 }
