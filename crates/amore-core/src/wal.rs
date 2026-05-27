@@ -627,4 +627,119 @@ mod tests {
             other => panic!("expected KeyringEntryMissing, got {other:?}"),
         }
     }
+
+    // ── Gap-closure tests (mutation score: ack/unacked, boundary, NotFound) ──
+
+    /// GAP-1: ack/unacked round-trip.
+    ///
+    /// Append 5 records → all 5 appear in unacked().
+    /// Ack 2 specific seqs → unacked() shrinks to 3 and the acked seqs are absent.
+    /// Catches mutations to ack() that silently no-op, and unacked() that drops or
+    /// duplicates records or flips the acked-predicate polarity.
+    #[test]
+    fn gap1_ack_unacked_round_trip() {
+        let dir = TempDir::new().unwrap();
+        let wal = make_wal_with_key(&dir, &[0x11_u8; 32]);
+
+        // Append 5 distinct records and collect their sequence numbers.
+        let seqs: Vec<u64> = (0..5)
+            .map(|i| {
+                wal.append(&WalRecord {
+                    kind: WalKind::Upsert,
+                    doc_id: i,
+                    payload_json: format!(r#"{{"i":{i}}}"#),
+                    ts_utc: 1_700_000_000 + i as i64,
+                })
+                .expect("append must succeed")
+            })
+            .collect();
+
+        // Before any ack: all 5 records must be unacked.
+        let before = wal.unacked().expect("unacked must succeed");
+        assert_eq!(before.len(), 5, "all 5 records must appear before any ack");
+
+        // Ack the records at index 1 and 3 (arbitrary — ensures non-contiguous coverage).
+        let acked_seq_a = seqs[1];
+        let acked_seq_b = seqs[3];
+        wal.ack(acked_seq_a).expect("ack must succeed");
+        wal.ack(acked_seq_b).expect("ack must succeed");
+
+        // After acking 2: only 3 must remain, and the acked seqs must not appear.
+        let after = wal.unacked().expect("unacked must succeed after ack");
+        assert_eq!(after.len(), 3, "3 records must remain after acking 2");
+
+        let remaining_seqs: Vec<u64> = after.iter().map(|(s, _)| *s).collect();
+        assert!(
+            !remaining_seqs.contains(&acked_seq_a),
+            "acked seq {acked_seq_a} must not appear in unacked()"
+        );
+        assert!(
+            !remaining_seqs.contains(&acked_seq_b),
+            "acked seq {acked_seq_b} must not appear in unacked()"
+        );
+    }
+
+    /// GAP-2: MAX_WAL_PAYLOAD_BYTES boundary (off-by-one).
+    ///
+    /// Exactly MAX_WAL_PAYLOAD_BYTES → append succeeds.
+    /// MAX_WAL_PAYLOAD_BYTES + 1 → PayloadTooLarge.
+    /// Catches the `>` vs `>=` mutation on the size check.
+    #[test]
+    fn gap2_payload_boundary_exact_succeeds_plus_one_fails() {
+        let dir = TempDir::new().unwrap();
+        let wal = make_wal_with_key(&dir, &[0x22_u8; 32]);
+
+        // Exactly at the limit must succeed.
+        let at_limit = WalRecord {
+            kind: WalKind::Upsert,
+            doc_id: 1,
+            payload_json: "x".repeat(MAX_WAL_PAYLOAD_BYTES),
+            ts_utc: 1_700_000_000,
+        };
+        wal.append(&at_limit)
+            .expect("append at exactly MAX_WAL_PAYLOAD_BYTES must succeed");
+
+        // One byte over the limit must fail with PayloadTooLarge.
+        let over_limit = WalRecord {
+            kind: WalKind::Upsert,
+            doc_id: 2,
+            payload_json: "x".repeat(MAX_WAL_PAYLOAD_BYTES + 1),
+            ts_utc: 1_700_000_001,
+        };
+        match wal.append(&over_limit) {
+            Err(WalError::PayloadTooLarge(n)) => {
+                assert_eq!(n, MAX_WAL_PAYLOAD_BYTES + 1, "reported size must match payload length");
+            }
+            other => panic!("expected PayloadTooLarge, got {other:?}"),
+        }
+    }
+
+    /// GAP-3: read_fingerprint NotFound guard path.
+    ///
+    /// Fresh directory (no fingerprint file) → Ok(None).
+    /// After writing a fingerprint file → Ok(Some(_)) with the written value.
+    /// Catches mutations that swap the NotFound arm to Err or unconditionally return Ok(None).
+    #[test]
+    fn gap3_read_fingerprint_not_found_returns_ok_none_then_ok_some_after_write() {
+        let dir = TempDir::new().unwrap();
+        let wal_path = dir.path().join("wal");
+        let fp_path = fingerprint_path(&wal_path);
+
+        // Before the file exists: must return Ok(None) (NotFound is not an error).
+        let result = read_fingerprint(&fp_path);
+        assert!(
+            matches!(result, Ok(None)),
+            "read_fingerprint on absent file must return Ok(None), got {result:?}"
+        );
+
+        // Write a fingerprint and read it back: must return Ok(Some(value)).
+        let expected = "deadbeef01234567deadbeef01234567";
+        write_fingerprint(&fp_path, expected).expect("write_fingerprint must succeed");
+
+        let result2 = read_fingerprint(&fp_path);
+        match result2 {
+            Ok(Some(ref s)) if s == expected => {} // expected
+            other => panic!("expected Ok(Some({expected:?})), got {other:?}"),
+        }
+    }
 }
