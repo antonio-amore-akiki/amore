@@ -49,7 +49,7 @@ certutil -hashfile <file> SHA256   # Windows
 ```
 Match against the SHA above. Full signing chain: [SLSA L3 attestation](docs/SLSA-L3-ATTESTATION.md).
 
-**Power-user CLI**: `brew install antonio-amore-akiki/tap/amore` (macOS) or `cargo install --git https://github.com/antonio-amore-akiki/amore amore-cli` (any OS).
+**Power-user CLI**: `brew install antonio-amore-akiki/amore/amore` (macOS) or `cargo install --git https://github.com/antonio-amore-akiki/amore amore-cli` (any OS).
 
 </details>
 
@@ -339,7 +339,7 @@ has an unproven root cause is not a stable cut. The gate fires only when both la
 
 | # | Criterion | Status |
 |---|-----------|--------|
-| 1 | One-click install per OS (macOS Homebrew / Windows .msi / Linux .deb/.rpm/.AppImage) | PASS — Windows MSI bundling Ollama+Qdrant + macOS Homebrew tap LIVE (`brew install antonio-amore-akiki/tap/amore`; SHA-verified `087aedc6…` aarch64 + `1932dfd9…` x86_64) + Linux AppImage/.deb/.rpm shipping; SSH-signed `sha256sums.txt.sig` chain |
+| 1 | One-click install per OS (macOS Homebrew / Windows .msi / Linux .deb/.rpm/.AppImage) | PASS — Windows MSI bundling Ollama+Qdrant + macOS Homebrew tap LIVE (`brew install antonio-amore-akiki/amore/amore`; SHA-verified `087aedc6…` aarch64 + `1932dfd9…` x86_64) + Linux AppImage/.deb/.rpm shipping; SSH-signed `sha256sums.txt.sig` chain |
 | 2 | First-run wizard ≤ 2 min — see [`docs/FIRST-RUN-WIZARD.md`](docs/FIRST-RUN-WIZARD.md) | PASS — 6-screen `AmoreWizardApp` wired into shipped binary; 18/18 lib tests PASS |
 | 3 | IDE auto-wire: Claude Desktop / Claude Code / Cursor / Cline / Continue | PASS — 5-IDE detect + atomic-merge wire; binary `--no-gui` reports `ide_count:5` |
 | 4 | Tray icon for daily ops (no terminal required after install) | PASS — `--tray` dispatches to `tray::run_tray_loop()`; HKCU Run-key autostart wired |

@@ -117,7 +117,7 @@ cp /tmp/amore-rollback/amore.exe "$(which amore)"
 If Homebrew tap is available and binary swap is not needed:
 
 ```bash
-brew tap antonio-amore-akiki/tap
+brew tap antonio-amore-akiki/amore
 brew install amore@<prev-version>
 # e.g.: brew install amore@0.4.0
 

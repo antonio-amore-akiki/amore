@@ -18,7 +18,7 @@ First public release.
 - **MCP server** over stdio + gRPC for IDE integration. Native `rmcp` protocol.
 - **Hybrid recall**: BM25 (tantivy) + vector search (qdrant) + cross-encoder reranker (`BAAI/bge-reranker-base` via ort).
 - **Power-user CLI**: `amore`, `amore-mcp`, `amore-gui`. `amore doctor` for diagnostics; `amore --version` for build info.
-- **Homebrew tap** at `antonio-amore-akiki/homebrew-tap` — `brew install antonio-amore-akiki/tap/amore`.
+- **Homebrew tap** at `antonio-amore-akiki/homebrew-amore` — `brew install antonio-amore-akiki/amore/amore`.
 - **Observability**: Prometheus `/metrics`, OpenTelemetry 3-signal (traces + metrics + structured logs), HTTP `/healthz` + `/readyz`.
 - **Feature flags** at compile time (`qdrant`, `reranker`, `wm`, `grpc`, `fts`) and runtime (`AMORE_FEATURES`).
 - **Graceful shutdown** on SIGTERM: WAL flush + in-flight drain + clean exit.

@@ -6,7 +6,7 @@ Single-author local-first project — public roadmap is intentionally short and 
 
 - Windows MSI (cargo-wix; bundles Ollama + Qdrant; ~60 MB)
 - Linux AppImage + `.deb` + `.rpm`
-- **macOS Homebrew tap LIVE** — `brew install antonio-amore-akiki/tap/amore` works for Apple Silicon + Intel via GHA macos-latest builds (free public-repo runners)
+- **macOS Homebrew tap LIVE** — `brew install antonio-amore-akiki/amore/amore` works for Apple Silicon + Intel via GHA macos-latest builds (free public-repo runners)
 - 6-screen first-run wizard (≤2 min target); 5-IDE auto-detect + auto-wire (Claude Desktop / Claude Code / Cursor / Cline / Continue.dev)
 - System-tray icon (cross-platform); HKCU Run-key autostart on Windows
 - SSH-signed `sha256sums.txt`; CycloneDX SBOM `composition.aggregate = complete`; SLSA L3 attestation
