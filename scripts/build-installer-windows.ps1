@@ -46,7 +46,9 @@ $OllamaVersion = "v0.24.0"
 $OllamaZipUrl  = "https://github.com/ollama/ollama/releases/download/$OllamaVersion/ollama-windows-amd64.zip"
 $OllamaZipSha  = "40c523d3eeba6f4647c5ca58fe47f15b8dee79f7675ebf573458890064f424c7"
 
-# qdrant v1.18.1 — no upstream sha file for Windows zip; sentinel until first build
+# qdrant v1.18.1 — SHA256 cross-checked against SLSA L3 provenance and Git tag
+# signature per the manual protocol documented in docs/QDRANT-SHA-VERIFICATION.md.
+# Re-run that protocol on every upstream upgrade before pinning a new SHA here.
 $QdrantVersion = "v1.18.1"
 $QdrantZipUrl  = "https://github.com/qdrant/qdrant/releases/download/$QdrantVersion/qdrant-x86_64-pc-windows-msvc.zip"
 $QdrantZipSha  = "fe1eab78c24157b21988b3480ce75709e76ca0168ba644fc5a49017bacfec1c6"

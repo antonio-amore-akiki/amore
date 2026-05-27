@@ -455,21 +455,33 @@ fn maybe_migrate_data_dir(amore_db_path: &PathBuf) {
 /// semicolon-separated) overrides (legacy OBELION_DOCS_PATHS also accepted);
 /// default is [~/.claude/docs, <cwd>/.claude/docs, <cwd>/docs]. Non-existent
 /// paths are kept (the router skips them at route time).
+///
+/// M3: env-derived paths are validated against `home_dir()` via
+/// `amore_core::docs::validate_docs_path`. Paths that fail validation are
+/// logged and dropped unless `AMORE_DOCS_PATHS_ALLOW_ANY=1` is set.
 fn resolve_docs_paths() -> Vec<PathBuf> {
+    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
     if let Some(val) = env_with_legacy("AMORE_DOCS_PATHS", "OBELION_DOCS_PATHS") {
         let sep = if val.contains(';') { ';' } else { ':' };
         return val
             .split(sep)
             .filter(|s| !s.is_empty())
             .map(PathBuf::from)
+            .filter(|p| {
+                match amore_core::docs::validate_docs_path(p, &home) {
+                    Ok(()) => true,
+                    Err(reason) => {
+                        tracing::warn!("docs path rejected: {reason}");
+                        false
+                    }
+                }
+            })
             .collect();
     }
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let mut out = Vec::new();
-    if let Some(home) = dirs::home_dir() {
-        out.push(home.join(".claude").join("docs"));
-    }
-    out.push(cwd.join(".claude").join("docs"));
-    out.push(cwd.join("docs"));
-    out
+    vec![
+        home.join(".claude").join("docs"),
+        cwd.join(".claude").join("docs"),
+        cwd.join("docs"),
+    ]
 }
