@@ -39,6 +39,8 @@ sha2 = { workspace = true }
 hex = { workspace = true }
 # System tray icon (Tauri-maintained, Adopt per release docs §6).
 tray-icon = { workspace = true }
+# Structured logging — required by tray update-check (C3 security fix).
+tracing = { workspace = true }
 
 [dev-dependencies]
 # Temporary directory fixtures for IDE detect/wire tests.
