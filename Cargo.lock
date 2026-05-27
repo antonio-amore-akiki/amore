@@ -233,6 +233,11 @@ dependencies = [
 [[package]]
 name = "amore-integration-tests"
 version = "1.0.0"
+dependencies = [
+ "amore-core",
+ "serde_json",
+ "tempfile",
+]
 
 [[package]]
 name = "amore-mcp"
