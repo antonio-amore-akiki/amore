@@ -9,6 +9,10 @@ use std::path::{Path, PathBuf};
 #[derive(Debug)]
 pub enum WireError {
     SiblingBinaryNotFound(String),
+    /// C2: sibling resolved in a user-writable directory; same-dir hijack possible.
+    InsecureInstallLocation { dir: String },
+    /// H2: icacls exited non-zero; backup ACL not set; aborting wire.
+    BackupAclFailed { backup_path: String, exit_code: Option<i32> },
     TargetLocked(String),
     Other(String),
 }
@@ -16,6 +20,10 @@ impl std::fmt::Display for WireError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             WireError::SiblingBinaryNotFound(s) => write!(f, "sibling amore-mcp not found: {s}"),
+            WireError::InsecureInstallLocation { dir } =>
+                write!(f, "insecure install location — sibling dir is user-writable: {dir}; set AMORE_ALLOW_USER_INSTALL=1 to override"),
+            WireError::BackupAclFailed { backup_path, exit_code } =>
+                write!(f, "icacls failed (exit {exit_code:?}) on backup {backup_path}; wire aborted"),
             WireError::TargetLocked(s) => write!(f, "target locked: {s}"),
             WireError::Other(s) => write!(f, "{s}"),
         }
@@ -25,13 +33,44 @@ impl std::fmt::Display for WireError {
 #[derive(Debug)]
 pub enum WireVerdict { Ok, SkippedNoChange, Err(WireError) }
 
+/// Returns true when `dir` is a system-protected install location (not user-writable by default).
+///
+/// Allowlist (conservative, OS-specific):
+/// - Windows: path contains `Program Files` or `Program Files (x86)` (case-insensitive)
+/// - macOS:   path starts with `/Applications` or `/usr/local` or `/opt/homebrew`
+/// - Linux:   path starts with `/usr/bin`, `/usr/local/bin`, or `/opt`
+fn is_system_protected_dir(dir: &Path) -> bool {
+    let s = dir.to_string_lossy();
+    #[cfg(target_os = "windows")]
+    { let lower = s.to_lowercase(); lower.contains("program files") || lower.contains("program files (x86)") }
+    #[cfg(target_os = "macos")]
+    { s.starts_with("/Applications") || s.starts_with("/usr/local") || s.starts_with("/opt/homebrew") }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    { s.starts_with("/usr/bin") || s.starts_with("/usr/local/bin") || s.starts_with("/opt") }
+}
+
 /// Resolve absolute path to sibling `amore-mcp` binary (C2 fix).
 /// Fails closed — never falls back to bare PATH name.
+/// Refuses when the sibling dir is not a system-protected location unless
+/// `AMORE_ALLOW_USER_INSTALL=1` is set in the environment.
 pub fn resolve_amore_mcp_path() -> Result<PathBuf, WireError> {
     let exe = std::env::current_exe()
         .map_err(|e| WireError::SiblingBinaryNotFound(format!("current_exe failed: {e}")))?;
     let dir = exe.parent()
         .ok_or_else(|| WireError::SiblingBinaryNotFound("exe has no parent".to_string()))?;
+
+    // C2: enforce system-protected install location unless user explicitly opts in.
+    let allow_user_install = std::env::var("AMORE_ALLOW_USER_INSTALL")
+        .map(|v| v == "1")
+        .unwrap_or(false);
+    if !allow_user_install && !is_system_protected_dir(dir) {
+        tracing::error!(
+            dir = %dir.display(),
+            "C2: sibling amore-mcp is in a user-writable directory; refusing wire to prevent same-dir hijack"
+        );
+        return Err(WireError::InsecureInstallLocation { dir: dir.display().to_string() });
+    }
+
     let name = format!("amore-mcp{}", std::env::consts::EXE_SUFFIX);
     let p = dir.join(&name);
     if !p.exists() {
@@ -130,7 +169,12 @@ pub(crate) fn write_atomic(target: &Path, content: &str) -> WireVerdict {
         if bak_old.exists() { let _ = std::fs::rename(&bak_old, &bak); }
         return WireVerdict::Err(WireError::Other(format!("backup copy failed: {e}")));
     }
-    set_private_permissions(&bak);
+    // H2: abort if ACL cannot be set on the backup — retaining world-readable ACL is a security failure.
+    if let Err(e) = set_private_permissions(&bak) {
+        // Roll back: restore the old .bak if we had rotated it.
+        if bak_old.exists() { let _ = std::fs::rename(&bak_old, &bak); }
+        return WireVerdict::Err(e);
+    }
     if bak_old.exists() { let _ = std::fs::remove_file(&bak_old); }
 
     // H3: write tmp → sync → rename with retry.
@@ -171,23 +215,42 @@ fn retry_rename(src: &Path, dst: &Path) -> std::io::Result<()> {
     Err(last.unwrap())
 }
 
-fn set_private_permissions(path: &Path) {
+/// Set private permissions on `path`.
+/// Returns `Err(WireError::BackupAclFailed)` on Windows when icacls exits non-zero.
+/// On Unix, a chmod failure is logged but not fatal (non-critical perms path).
+fn set_private_permissions(path: &Path) -> Result<(), WireError> {
     #[cfg(unix)] {
         use std::os::unix::fs::PermissionsExt;
         if let Err(e) = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)) {
-            eprintln!("[amore-wire] warn: 0o600 failed {}: {e}", path.display());
+            tracing::warn!(path = %path.display(), error = %e, "chmod 0o600 failed on backup");
         }
+        return Ok(());
     }
     #[cfg(target_os = "windows")] {
         // Pass path and flags as separate arguments to avoid cmd.exe quoting issues.
         let grant = format!("{}:F", std::env::var("USERNAME").unwrap_or_else(|_| "%USERNAME%".to_string()));
-        if let Ok(s) = std::process::Command::new("icacls")
+        let status = std::process::Command::new("icacls")
             .args([path.as_os_str(), std::ffi::OsStr::new("/inheritance:r"), std::ffi::OsStr::new("/grant:r"), std::ffi::OsStr::new(&grant)])
             .status()
-            && !s.success() {
-            eprintln!("[amore-wire] warn: icacls exit {:?} on {}", s.code(), path.display());
+            .map_err(|e| {
+                let backup_path = path.display().to_string();
+                tracing::error!(path = %backup_path, error = %e, "H2: icacls spawn failed; backup ACL not set");
+                WireError::BackupAclFailed { backup_path, exit_code: None }
+            })?;
+        if !status.success() {
+            let backup_path = path.display().to_string();
+            let exit_code = status.code();
+            tracing::error!(
+                path = %backup_path,
+                exit_code = ?exit_code,
+                "H2: icacls exited non-zero; backup retains default ACL; aborting wire"
+            );
+            return Err(WireError::BackupAclFailed { backup_path, exit_code });
         }
+        Ok(())
     }
+    #[cfg(not(any(unix, target_os = "windows")))]
+    { let _ = path; Ok(()) }
 }
 
 pub(crate) fn tmp_path(o: &Path) -> PathBuf {
@@ -217,7 +280,7 @@ mod tests {
     use std::fs;
     use tempfile::TempDir;
 
-    // C2: absolute path + correct name when fake sibling exists.
+    // C2: absolute path + correct name when fake sibling exists (opt-in for build dirs).
     #[test]
     fn c2_wired_command_is_absolute() {
         let exe = std::env::current_exe().expect("current_exe");
@@ -226,9 +289,12 @@ mod tests {
         let fake = dir.join(&bin);
         let existed = fake.exists();
         if !existed { fs::write(&fake, b"").expect("create fake"); }
+        // SAFETY: test-only mutation; tests run single-threaded under cargo test --lib.
+        unsafe { std::env::set_var("AMORE_ALLOW_USER_INSTALL", "1"); }
         let result = resolve_amore_mcp_path();
+        unsafe { std::env::remove_var("AMORE_ALLOW_USER_INSTALL"); }
         if !existed { let _ = fs::remove_file(&fake); }
-        let p = result.expect("should succeed with fake sibling");
+        let p = result.expect("should succeed with AMORE_ALLOW_USER_INSTALL=1");
         assert!(p.is_absolute(), "must be absolute: {}", p.display());
         assert_eq!(p.file_name().and_then(|n| n.to_str()).unwrap(), bin);
     }
@@ -236,11 +302,35 @@ mod tests {
     // C2: fails closed when sibling absent.
     #[test]
     fn c2_fails_closed_when_absent() {
+        // SAFETY: test-only mutation; tests run single-threaded under cargo test --lib.
+        unsafe { std::env::set_var("AMORE_ALLOW_USER_INSTALL", "1"); }
         let exe = std::env::current_exe().expect("current_exe");
         let candidate = exe.parent().expect("parent").join(format!("amore-mcp{}", std::env::consts::EXE_SUFFIX));
-        if !candidate.exists() {
-            assert!(matches!(resolve_amore_mcp_path(), Err(WireError::SiblingBinaryNotFound(_))));
-        }
+        let r = if candidate.exists() { Ok(candidate) } else { resolve_amore_mcp_path() };
+        unsafe { std::env::remove_var("AMORE_ALLOW_USER_INSTALL"); }
+        if r.is_ok() { return; } // sibling present — skip
+        assert!(matches!(r, Err(WireError::SiblingBinaryNotFound(_))));
+    }
+
+    // C2: tmp dir is not system-protected; Program Files / /usr/local/bin is.
+    #[test]
+    fn c2_install_location_allowlist() {
+        assert!(!is_system_protected_dir(&std::env::temp_dir().join("x")), "tmp must not be protected");
+        #[cfg(target_os = "windows")]
+        assert!(is_system_protected_dir(&std::path::PathBuf::from(r"C:\Program Files\Amore")));
+        #[cfg(target_os = "macos")]
+        assert!(is_system_protected_dir(&std::path::PathBuf::from("/Applications/Amore")));
+        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+        assert!(is_system_protected_dir(&std::path::PathBuf::from("/usr/local/bin")));
+    }
+
+    // H2 (Windows): BackupAclFailed Display includes exit code.
+    #[test]
+    #[cfg(target_os = "windows")]
+    fn h2_backup_acl_failed_display() {
+        let e = WireError::BackupAclFailed { backup_path: r"C:\x.bak".to_string(), exit_code: Some(5) };
+        let msg = e.to_string();
+        assert!(msg.contains("icacls failed") && msg.contains('5'), "Display: {msg}");
     }
 
     // H2: only one .bak after multiple writes, no .bak-<ts> accumulation.
