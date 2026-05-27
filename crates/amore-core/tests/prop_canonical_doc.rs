@@ -14,7 +14,7 @@
 
 #![cfg_attr(test, allow(clippy::unwrap_used))]
 
-use amore_core::docs::CanonicalDocsRouter;
+use amore_core::docs::{CanonicalDocsRouter, TOP_K_HITS};
 use proptest::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -191,6 +191,70 @@ proptest! {
              but got {} hits",
             hits.len()
         );
+
+        cleanup(&dir);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Property 4: TOP_K_HITS cap holds across corpus sizes
+// ---------------------------------------------------------------------------
+// Regression for the token-reduction over-fetch surfaced in BENCHMARKS.md:
+// common-vocabulary queries used to return 30-49 docs, inflating injected
+// context past the raw-context baseline. `route()` now truncates after the
+// score-sort. This property generates an arbitrary corpus size up to 30 and
+// asserts the cap (imported from amore_core::docs::TOP_K_HITS — single
+// source of truth) is honored regardless of how many docs match.
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(64))]
+
+    #[test]
+    fn prop_router_caps_at_top_k(
+        n_docs in 1usize..=30usize,
+        stem   in arb_stem(),
+    ) {
+        let dir = fresh_dir();
+        // Write `n_docs` matching docs sharing the same broad-vocabulary body.
+        // Filenames must be unique so multiple docs land in the same dir.
+        for i in 0..n_docs {
+            let body =
+                "stable: true\n# Amore Doc\n\nAmore install windows linux macos docs.\n";
+            write_doc(&dir, &format!("{stem}-{i:02}.md"), body);
+        }
+        let router = CanonicalDocsRouter::new();
+        let hits = router
+            .route("amore install windows linux macos docs", &[dir.as_path()])
+            .unwrap();
+
+        prop_assert!(
+            hits.len() <= TOP_K_HITS,
+            "router must cap at TOP_K_HITS ({}) regardless of corpus size, \
+             corpus={} got={}",
+            TOP_K_HITS,
+            n_docs,
+            hits.len()
+        );
+        // Sub-cap corpora must return every match (cap shouldn't drop hits
+        // when there's nothing to drop).
+        if n_docs <= TOP_K_HITS {
+            prop_assert_eq!(
+                hits.len(), n_docs,
+                "sub-cap corpus must return every match"
+            );
+        } else {
+            prop_assert_eq!(
+                hits.len(), TOP_K_HITS,
+                "over-cap corpus must collapse to exactly TOP_K_HITS"
+            );
+        }
+        // Score sort must hold post-truncate.
+        for w in hits.windows(2) {
+            prop_assert!(
+                w[0].topic_score >= w[1].topic_score,
+                "hits must stay score-sorted after truncate"
+            );
+        }
 
         cleanup(&dir);
     }
