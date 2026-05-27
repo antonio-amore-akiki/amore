@@ -36,11 +36,11 @@ Click your OS → double-click the file → done. No terminal, no setup.
 | Platform | Download | SHA256 |
 |---|---|---|
 | Windows 10/11 — installer `.msi` (double-click; also works for GPO/SCCM/Intune) | [amore-windows-x64.msi](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-windows-x64.msi) | `a59eb99d…` |
-| macOS 12+ Apple Silicon | [amore-1.0.0-macos-aarch64.dmg](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-1.0.0-macos-aarch64.dmg) | `ad9614cc…` |
-| macOS 12+ Intel | [amore-1.0.0-macos-x86_64.dmg](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-1.0.0-macos-x86_64.dmg) | `34473b6b…` |
-| Linux portable AppImage | [amore-gui-x86_64.AppImage](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-gui-x86_64.AppImage) | `3e433ae1…` |
-| Linux Debian / Ubuntu `.deb` | [amore-1.0.0-linux-amd64.deb](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-1.0.0-linux-amd64.deb) | `ebaeea57…` |
-| Linux Fedora / RHEL `.rpm` | [amore-1.0.0-linux-x86_64.rpm](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-1.0.0-linux-x86_64.rpm) | `9c850d22…` |
+| macOS 12+ Apple Silicon | [amore-1.0.0-macos-aarch64.dmg](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-1.0.0-macos-aarch64.dmg) | `1d195f82…` |
+| macOS 12+ Intel | [amore-1.0.0-macos-x86_64.dmg](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-1.0.0-macos-x86_64.dmg) | `8efede3e…` |
+| Linux portable AppImage | [amore-gui-x86_64.AppImage](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-gui-x86_64.AppImage) | `6d0b3f3e…` |
+| Linux Debian / Ubuntu `.deb` | [amore-1.0.0-linux-amd64.deb](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-1.0.0-linux-amd64.deb) | `520bf91f…` |
+| Linux Fedora / RHEL `.rpm` | [amore-1.0.0-linux-x86_64.rpm](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-1.0.0-linux-x86_64.rpm) | `f3352ce0…` |
 
 **Verify** any download:
 ```
@@ -337,7 +337,7 @@ has an unproven root cause is not a stable cut. The gate fires only when both la
 
 | # | Criterion | Status |
 |---|-----------|--------|
-| 1 | One-click install per OS (macOS Homebrew / Windows .msi / Linux .deb/.rpm/.AppImage) | PASS — Windows MSI bundling Ollama+Qdrant + macOS Homebrew tap LIVE (`brew install antonio-amore-akiki/tap/amore`; SHA-verified `198e1722…` aarch64 + `0875d71e…` x86_64) + Linux AppImage/.deb/.rpm shipping; SSH-signed `sha256sums.txt.sig` chain |
+| 1 | One-click install per OS (macOS Homebrew / Windows .msi / Linux .deb/.rpm/.AppImage) | PASS — Windows MSI bundling Ollama+Qdrant + macOS Homebrew tap LIVE (`brew install antonio-amore-akiki/tap/amore`; SHA-verified `087aedc6…` aarch64 + `1932dfd9…` x86_64) + Linux AppImage/.deb/.rpm shipping; SSH-signed `sha256sums.txt.sig` chain |
 | 2 | First-run wizard ≤ 2 min — see [`docs/FIRST-RUN-WIZARD.md`](docs/FIRST-RUN-WIZARD.md) | PASS — 6-screen `AmoreWizardApp` wired into shipped binary; 18/18 lib tests PASS |
 | 3 | IDE auto-wire: Claude Desktop / Claude Code / Cursor / Cline / Continue | PASS — 5-IDE detect + atomic-merge wire; binary `--no-gui` reports `ide_count:5` |
 | 4 | Tray icon for daily ops (no terminal required after install) | PASS — `--tray` dispatches to `tray::run_tray_loop()`; HKCU Run-key autostart wired |
