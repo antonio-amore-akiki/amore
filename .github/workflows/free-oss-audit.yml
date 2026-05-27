@@ -1,0 +1,228 @@
+# Free OSS Audit Stack — strongest available free substitute for accredited audit.
+#
+# Honest scope: this is NOT a substitute for paid SOC2/ISO27001/NCC pen-test.
+# It is the maximum achievable under the free-only project constraint (F-39).
+# See docs/FREE-OSS-AUDIT.md for the honest-scope statement.
+#
+# Triggers: weekly Monday 06:00 UTC, push to main, workflow_dispatch.
+# Aggregate job commits updated docs/FREE-OSS-AUDIT.md back to main.
+
+name: Free OSS Audit Stack
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly Monday 06:00 UTC
+
+# Least-privilege top-level; jobs that need writes declare their own permissions.
+permissions:
+  contents: read
+  security-events: write
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cargo-audit:
+    name: cargo-audit (RUSTSEC advisory scan)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c6158d  # v4.2.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-audit-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-audit-
+
+      - run: cargo install cargo-audit --locked
+
+      - run: cargo audit --json > audit.json || true
+        # || true: non-zero exit means vulnerabilities found; we still want the artifact.
+
+      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882  # v4.4.3
+        with:
+          name: cargo-audit
+          path: audit.json
+          retention-days: 30
+
+  gitleaks:
+    name: gitleaks (secret scan)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: gitleaks/gitleaks-action@cb7149b9b57195b609c63e8518d2c37a82b59e6e  # v2.3.6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  semgrep:
+    name: semgrep (SAST)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container:
+      image: returntocorp/semgrep:1.95.0@sha256:30e6afa99ebd8e7b4115d4904898108eb4bf77025819e9263f09cf14e6f6e549  # OSSF Scorecard Pinned-Dependencies
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - run: semgrep ci --config p/rust --config .semgrep.yml --json --output semgrep.json || true
+
+      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882  # v4.4.3
+        with:
+          name: semgrep
+          path: semgrep.json
+          retention-days: 30
+
+  cargo-fuzz:
+    name: cargo-fuzz (300s per target, nightly-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - name: Cache cargo registry (nightly)
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c6158d  # v4.2.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-fuzz-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-fuzz-
+
+      - run: cargo install cargo-fuzz --locked
+
+      - name: Run fuzz targets (300s each)
+        run: |
+          TARGETS=$(cargo fuzz list 2>/dev/null || echo "wal_envelope")
+          for target in $TARGETS; do
+            echo "Fuzzing target: $target"
+            cargo fuzz run "$target" -- -max_total_time=300 2>&1 || true
+          done
+
+      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882  # v4.4.3
+        if: always()
+        with:
+          name: cargo-fuzz
+          path: fuzz/artifacts
+          retention-days: 30
+          if-no-files-found: ignore
+
+  cargo-mutants:
+    name: cargo-mutants (mutation testing)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c6158d  # v4.2.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-mutants-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-mutants-
+
+      - run: cargo install cargo-mutants --locked
+
+      - run: cargo mutants --json --output-in-dir mutants-out || true
+
+      - name: Collect mutants output
+        run: |
+          find mutants-out -name "*.json" -exec cp {} mutants.json \; 2>/dev/null || echo '{"error":"no mutants output"}' > mutants.json
+
+      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882  # v4.4.3
+        with:
+          name: cargo-mutants
+          path: mutants.json
+          retention-days: 30
+
+  ossf-scorecard:
+    name: ossf-scorecard (supply-chain hygiene)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
+      actions: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: ossf/scorecard-action@62b2cac7ed8198b15735ed49ab1e5cf35480ba46  # v2.4.0
+        with:
+          results_file: scorecard.json
+          results_format: json
+          publish_results: true
+
+      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882  # v4.4.3
+        with:
+          name: scorecard
+          path: scorecard.json
+          retention-days: 30
+
+  aggregate:
+    name: aggregate (commit FREE-OSS-AUDIT.md)
+    needs: [cargo-audit, gitleaks, semgrep, cargo-fuzz, cargo-mutants, ossf-scorecard]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: true  # required for git push in aggregate
+
+      - uses: actions/download-artifact@fa0a91b85d4f404e444306234a07170d7c7aec4c  # v4.1.8
+        with:
+          merge-multiple: true
+        continue-on-error: true  # some jobs may have failed; aggregate best-effort
+
+      - name: Generate FREE-OSS-AUDIT.md
+        run: python scripts/aggregate-free-oss-audit.py > docs/FREE-OSS-AUDIT.md
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/FREE-OSS-AUDIT.md
+          git diff --staged --quiet || git commit -m "chore(audit): refresh FREE-OSS-AUDIT.md [skip ci]"
+          git push
