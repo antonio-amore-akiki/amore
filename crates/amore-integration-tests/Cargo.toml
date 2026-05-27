@@ -20,4 +20,13 @@ path = "tests/mcp_handshake.rs"
 name = "init_dry_run"
 path = "tests/init_dry_run.rs"
 
+[[test]]
+name = "working_product_docker"
+path = "tests/working_product_docker.rs"
+
 [dependencies]
+
+[dev-dependencies]
+amore-core = { path = "../amore-core" }
+serde_json = { workspace = true }
+tempfile = "3"
