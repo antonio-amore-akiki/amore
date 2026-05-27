@@ -23,6 +23,7 @@ mod commands {
     pub mod snapshot;
 }
 mod secrets;
+mod update;
 
 use amore_adapter_claude::ClaudeAdapter;
 use amore_adapter_cline::ClineAdapter;
@@ -83,6 +84,19 @@ enum Command {
     },
     /// Print active compile-time Cargo features and runtime AMORE_FLAG_* flags.
     Flags(commands::flags::FlagsArgs),
+    /// Check for and apply binary updates from GitHub releases.
+    Update {
+        #[command(subcommand)]
+        action: UpdateAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum UpdateAction {
+    /// Check whether a newer release is available (24h gate; AMORE_NO_AUTOUPDATE=1 skips).
+    Check,
+    /// Apply the latest release update (prompts before replacing binary).
+    Apply,
 }
 
 #[derive(Subcommand)]
@@ -139,7 +153,29 @@ async fn main() -> Result<()> {
         Command::Snapshot { action } => cmd_snapshot(action).await,
         Command::Secrets { action } => cmd_secrets(action),
         Command::Flags(args) => commands::flags::run(args),
+        Command::Update { action } => cmd_update(action).await,
     }
+}
+
+async fn cmd_update(action: UpdateAction) -> Result<()> {
+    match action {
+        UpdateAction::Check => {
+            let status = update::check_for_update().await?;
+            match &status {
+                update::UpdateStatus::Disabled => println!("Auto-update disabled (AMORE_NO_AUTOUPDATE=1)."),
+                update::UpdateStatus::TooSoon => println!("Last check was less than 24h ago. Run `amore update apply` to force."),
+                update::UpdateStatus::UpToDate => println!("amore v{} is the latest release.", amore_core::VERSION),
+                update::UpdateStatus::Available { version } => {
+                    println!("Update available: v{version}. Run `amore update apply` to install.");
+                }
+            }
+        }
+        UpdateAction::Apply => {
+            let status = update::check_for_update().await?;
+            update::apply_update(status, false).await?;
+        }
+    }
+    Ok(())
 }
 
 async fn cmd_snapshot(action: SnapshotCommand) -> Result<()> {
