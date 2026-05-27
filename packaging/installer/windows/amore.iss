@@ -28,7 +28,17 @@ UninstallDisplayName=Amore {#AmoreVersion}
 UninstallDisplayIcon={app}\amore-gui.exe
 
 [Languages]
-Name: "english"; MessagesFile: "compiler:Default.isl"
+; Five required languages per D1 user requirement 2026-05-28 (Lebanon + EU: EN/FR/NL/DE/AR).
+; Arabic uses a vendored .isl from the Unofficial Inno Setup Translations project
+; (https://github.com/jrsoftware/issrc/blob/main/Files/Languages).
+; TODO: vendor/Arabic.isl is a stub — replace with the real Arabic.isl before the next
+; Windows build. Obtain from https://github.com/jrsoftware/unofficial-inno-setup-translations
+; and pin its SHA256 in this comment once vendored.
+Name: "en"; MessagesFile: "compiler:Default.isl"
+Name: "fr"; MessagesFile: "compiler:Languages\French.isl"
+Name: "nl"; MessagesFile: "compiler:Languages\Dutch.isl"
+Name: "de"; MessagesFile: "compiler:Languages\German.isl"
+Name: "ar"; MessagesFile: "vendor\Arabic.isl"
 
 [Files]
 ; The bundled MSI is extracted to {tmp} and removed after install completes.
