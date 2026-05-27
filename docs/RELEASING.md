@@ -1,13 +1,11 @@
 # Releasing Amore — Local Pipeline
 <!-- stable: true -->
 
-## Why local?
+## Release pipeline
 
-GHA paid minutes ran out on this private repo (run #26464161984 billing error).
-User mandate: "only completely unlimited free features or other public products".
-Flipping the repo to public is system-prohibited (access-control invariant).
-Result: release pipeline moved 100% local. macOS dropped — no Apple hardware
-available; no paid macOS CI minutes permitted.
+Release pipeline runs on free public-repo GHA + Sigstore keyless OIDC.
+Local pipeline retained as offline fallback only (no GHA access / air-gap).
+macOS targets deferred — no Apple hardware on dev host (see Cross-compilation targets below).
 
 ## Builder images (one-time pre-build — W8-8C M2)
 
@@ -155,5 +153,5 @@ Sources: github.com/cross-rs/cross | doc.rust-lang.org/nightly/rustc/platform-su
 ## Future work
 
 - **macOS**: add `-IncludeMac` branch if Apple hardware becomes available; sign with `codesign` + `xcrun notarytool`.
-- **GHA minutes**: revive `.github/workflows/release.yml` from git history if repo gains unlimited minutes.
+- **GHA minutes**: `.github/workflows/release.yml` runs on free public-repo runners; extend to matrix builds as needed.
 - **Windows Authenticode**: call AzureSignTool in step 3 when EV cert is available.
