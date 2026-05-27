@@ -45,6 +45,33 @@
 
         <!-- ─── Directory tree ─────────────────────────────────────────── -->
         <Directory Id='TARGETDIR' Name='SourceDir'>
+
+            <!-- F7 / reviewer-3 F-30: per-user qdrant storage dir under %LOCALAPPDATA%.
+                 Standard users have no write access to Program Files, so qdrant.exe must
+                 store its data here.  The full path is:
+                   %LOCALAPPDATA%\Amore\qdrant\storage
+                 CreateFolder + write-permission util-acl grant ensure the directory
+                 exists and is writable before the first qdrant.exe launch. -->
+            <Directory Id='LocalAppDataFolder'>
+                <Directory Id='LocalAppDataAmoreFolder' Name='Amore'>
+                    <Directory Id='LocalAppDataAmoreQdrantFolder' Name='qdrant'>
+                        <Directory Id='LocalAppDataAmoreQdrantStorageFolder' Name='storage'>
+                            <Component Id='QdrantStorageDir'
+                                       Guid='B3A9D2F1-C845-4E7A-8D6B-1F0E3C5A9274'>
+                                <CreateFolder Directory='LocalAppDataAmoreQdrantStorageFolder'>
+                                    <!-- Grant current user full control so qdrant.exe can
+                                         write collections and WAL files without elevation. -->
+                                    <util:PermissionEx
+                                        User='[LOGONUSER]'
+                                        GenericAll='yes'
+                                        xmlns:util='http://schemas.microsoft.com/wix/UtilExtension'/>
+                                </CreateFolder>
+                            </Component>
+                        </Directory>
+                    </Directory>
+                </Directory>
+            </Directory>
+
             <Directory Id='$(var.PlatformProgramFilesFolder)'>
                 <Directory Id='APPLICATIONFOLDER' Name='Amore'>
 
@@ -123,6 +150,17 @@
                             KeyPath='yes'/>
                     </Component>
 
+                    <!-- qdrant config.yaml — passed via --config-path at launch.
+                         Storage path in this file points to %LOCALAPPDATA%\Amore\qdrant\storage
+                         (user-writable). F7 / reviewer-3 F-30 fix. -->
+                    <Component Id='QdrantConfig' Guid='*'>
+                        <File Id='QdrantConfigYaml'
+                            DiskId='1'
+                            Name='qdrant-config.yaml'
+                            Source='$(var.CargoTargetDir)\..\packaging\installer\qdrant\config.yaml'
+                            KeyPath='yes'/>
+                    </Component>
+
                     <!-- PATH entry for bin dir (amore.exe accessible from any prompt) -->
                     <Component Id='PathEntry' Guid='D4E9B3A2-F71C-4D08-B6A5-3E2C9F8D1047' KeyPath='yes'>
                         <Environment
@@ -194,6 +232,8 @@
             <ComponentRef Id='AmoreCli'/>
             <ComponentRef Id='OllamaBin'/>
             <ComponentRef Id='QdrantBin'/>
+            <ComponentRef Id='QdrantConfig'/>
+            <ComponentRef Id='QdrantStorageDir'/>
             <ComponentRef Id='StartMenuShortcut'/>
             <ComponentRef Id='TrayAutoStart'/>
 
