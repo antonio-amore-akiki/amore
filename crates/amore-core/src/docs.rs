@@ -220,15 +220,30 @@ fn extract_excerpt(body: &str) -> String {
     buf
 }
 
-/// Convenience: resolve the canonical search paths for the current user.
-/// Returns [~/.claude/docs, <cwd>/.claude/docs, <cwd>/docs] in that order;
-/// callers filter the non-existent ones during `route()`.
+/// Resolve canonical search paths: [~/.claude/docs, <cwd>/.claude/docs, <cwd>/docs].
+/// Env-derived paths must be validated with `validate_docs_path` before use (M3).
 pub fn default_search_paths(home: &Path, cwd: &Path) -> Vec<PathBuf> {
     vec![
         home.join(".claude").join("docs"),
         cwd.join(".claude").join("docs"),
         cwd.join("docs"),
     ]
+}
+
+/// Accept a caller-supplied docs path only if it is inside `home_dir()`.
+/// Set `AMORE_DOCS_PATHS_ALLOW_ANY=1` to allow arbitrary paths (power-user opt-in).
+/// Returns `Ok(())` on acceptance, `Err(String)` with reason on rejection.
+pub fn validate_docs_path(path: &Path, home: &Path) -> Result<(), String> {
+    if std::env::var("AMORE_DOCS_PATHS_ALLOW_ANY").as_deref() == Ok("1") {
+        return Ok(());
+    }
+    if path.starts_with(home) {
+        return Ok(());
+    }
+    Err(format!(
+        "docs path {path:?} is outside home_dir {home:?}; \
+         set AMORE_DOCS_PATHS_ALLOW_ANY=1 to allow"
+    ))
 }
 
 #[cfg(test)]
@@ -361,13 +376,21 @@ mod tests {
     #[test]
     fn router_returns_no_hits_on_query_without_overlap() {
         let d = fresh_dir();
-        write_doc(
-            &d,
-            "rust.md",
-            "stable: true\n# Rust Async\n\nNetworking docs.\n",
-        );
-        let r = CanonicalDocsRouter::new();
-        let hits = r.route("chocolate cookies", &[d.as_path()]).unwrap();
+        write_doc(&d, "rust.md", "stable: true\n# Rust Async\n\nNetworking docs.\n");
+        let hits = CanonicalDocsRouter::new().route("chocolate cookies", &[d.as_path()]).unwrap();
         assert!(hits.is_empty(), "unrelated query must return no hits");
+    }
+
+    // M3: out-of-home rejected by default; opt-in env unlocks.
+    #[test]
+    fn validate_docs_path_home_guard() {
+        let home = std::path::Path::new("/home/user");
+        // SAFETY: test-only env mutation; tests run in isolated process.
+        unsafe { std::env::remove_var("AMORE_DOCS_PATHS_ALLOW_ANY") };
+        assert!(crate::docs::validate_docs_path(std::path::Path::new("/tmp/evil"), home).is_err());
+        assert!(crate::docs::validate_docs_path(&home.join("docs"), home).is_ok());
+        unsafe { std::env::set_var("AMORE_DOCS_PATHS_ALLOW_ANY", "1") };
+        assert!(crate::docs::validate_docs_path(std::path::Path::new("/tmp/evil"), home).is_ok());
+        unsafe { std::env::remove_var("AMORE_DOCS_PATHS_ALLOW_ANY") };
     }
 }

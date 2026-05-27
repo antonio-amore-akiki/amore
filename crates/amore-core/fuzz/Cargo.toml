@@ -35,3 +35,10 @@ path = "fuzz_targets/mcp_protocol.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "wal_replay"
+path = "fuzz_targets/wal_replay.rs"
+test = false
+doc = false
+bench = false

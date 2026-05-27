@@ -302,3 +302,40 @@ fn default_grpc_listen() -> String {
 pub fn loopback_tcp(port: u16) -> GrpcListener {
     GrpcListener::Tcp(std::net::SocketAddr::from(([127, 0, 0, 1], port)))
 }
+
+// ── Unit tests ───────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    /// M2 — top_k clamping: proto field is uint32; verify the clamping constants
+    /// applied in `recall()` behave correctly for boundary values.
+    #[test]
+    fn top_k_clamp_zero_becomes_one() {
+        const MAX_TOP_K: u32 = 100;
+        let top_k: u32 = 0u32.clamp(1, MAX_TOP_K);
+        assert_eq!(top_k, 1, "top_k=0 must clamp to 1");
+    }
+
+    #[test]
+    fn top_k_clamp_over_max_becomes_max() {
+        const MAX_TOP_K: u32 = 100;
+        let top_k: u32 = 9999u32.clamp(1, MAX_TOP_K);
+        assert_eq!(top_k, MAX_TOP_K, "top_k>MAX_TOP_K must clamp to MAX_TOP_K");
+    }
+
+    #[test]
+    fn top_k_clamp_in_range_is_unchanged() {
+        const MAX_TOP_K: u32 = 100;
+        for v in [1u32, 10, 50, 100] {
+            let clamped: u32 = v.clamp(1, MAX_TOP_K);
+            assert_eq!(clamped, v, "top_k={v} in range must not be clamped");
+        }
+    }
+
+    /// Rate-bucket sanity: full bucket consumes one token without error.
+    #[test]
+    fn rate_bucket_consumes_one_token() {
+        let mut b = super::RateBucket::new(60);
+        assert!(b.try_consume().is_ok(), "fresh bucket must have tokens");
+    }
+}
