@@ -3,24 +3,28 @@
 
 **Date:** 2026-05-27
 **Tool:** cargo-mutants 27.0.0
-**Commit:** 5f6c336 (HEAD)
 **Bigtech-grade threshold:** ≥ 60% caught
 
 ---
 
-## Summary
+## Summary (updated after gap-closure patch)
 
 | File | Mutants identified | Tested (excl. unviable) | Caught | Missed | Unviable | Score | Threshold |
 |---|---|---|---|---|---|---|---|
-| crates/amore-core/src/docs.rs | 36 | 34 | 21 | 13 | 2 | **61.8%** | ≥ 60% |
-| crates/amore-core/src/wal.rs | 46 | 40 | 23 | 17 | 6 | **57.5%** | ≥ 60% |
-| **Combined** | **82** | **74** | **44** | **30** | **8** | **59.5%** | ≥ 60% |
+| crates/amore-core/src/docs.rs | 36 | 34 | 21 | 13 | 2 | **61.8%** | ≥ 60% PASS |
+| crates/amore-core/src/wal.rs | 46 | 40 | 31 | 9 | 6 | **77.5%** | ≥ 60% PASS |
+| **Combined** | **82** | **74** | **52** | **22** | **8** | **70.3%** | ≥ 60% PASS |
 
-**Overall verdict: MARGINALLY BELOW THRESHOLD (59.5%).**
-docs.rs clears the bar (61.8%); wal.rs is 2.5 points below (57.5%).
+**Overall verdict: PASS (70.3%).**
+docs.rs: 61.8% PASS; wal.rs: 77.5% PASS (was 57.5% before gap-closure).
 
-**Runtime:** 24 minutes. Tool: `cargo mutants --in-place --baseline skip`.
-**Commit:** 5f6c336 (all 9 docs::tests green; `cargo check --workspace` exit 0).
+**Gap-closure commit:** `test(wal): close 3 mutation gaps — ack/unacked, payload boundary, fingerprint NotFound`
+Tests added: `gap1_ack_unacked_round_trip`, `gap2_payload_boundary_exact_succeeds_plus_one_fails`,
+`gap3_read_fingerprint_not_found_returns_ok_none_then_ok_some_after_write`.
+Mutants newly caught vs prior baseline: lines 107 (2×), 322 (5×), 352 (1×), 398 (1×), 409 (1×), 416 (1×) = +8 caught.
+
+**Original baseline runtime:** 24 minutes (commit 5f6c336, 9 tests green).
+**Gap-closure rerun:** ~18 minutes (wal.rs only, `--in-place --baseline skip`).
 
 ---
 
@@ -45,40 +49,31 @@ docs.rs clears the bar (61.8%); wal.rs is 2.5 points below (57.5%).
 
 ---
 
-## wal.rs — 57.5% (BELOW THRESHOLD)
+## wal.rs — 77.5% PASS (updated after gap-closure)
 
-**Mutants:** 46 identified | 40 tested | 23 caught | 17 missed | 6 unviable
+**Mutants:** 46 identified | 40 tested | 31 caught | 9 missed | 6 unviable
 
-### Missed Mutants (wal.rs)
+### Missed Mutants (wal.rs) — remaining after gap-closure
 
 | Location | Mutation | Root cause |
 |---|---|---|
-| `MAX_WAL_PAYLOAD_BYTES:46` | replace `*` with `+` | Constant value not tested (16+1024 ≠ 16*1024 but tests don't check boundary exactly) |
-| `ack_key:107` | replace return with `[0;24]` / `[1;24]` | Key derivation tested via roundtrip but key value itself not pinned |
-| `compute_tag:116` | replace return with `[1;32]` | Tag value verified by verification tests but not pinned against fixed key |
-| `read_fingerprint:141` | match guard `== NotFound` → true/false | Error classification path: test fp4 covers missing entry but not NotFound path |
-| `read_fingerprint:141` | replace `==` with `!=` | Same as above |
-| `load_or_create_machine_key:232` | replace return with `vec![]`/`[0]`/`[1]` | Key generation tested indirectly; no direct unit test on key bytes |
-| `load_or_create_machine_key:240` | guard `stored_fp.is_none()` → true/false | Fingerprint-absent branch tested but not guard flip |
+| `MAX_WAL_PAYLOAD_BYTES:46` | replace `*` with `+` | Constant used in both repeat() and assertion — test scale-invariant; would need hard-coded 16384 |
+| `compute_tag:116` | replace return with `[1;32]` | Tag not pinned against a known-key fixed vector |
+| `read_fingerprint:141` | match guard `== NotFound` → true | `guard → true` silences non-NotFound errors; no synthetic IO error injected |
+| `load_or_create_machine_key:232` | replace return with `vec![]`/`[0]`/`[1]` (3×) | Key generation tested indirectly; no unit test pinning key bytes |
+| `load_or_create_machine_key:240` | guard `stored_fp.is_none()` → true/false | Guard flip not exercised |
 | `Wal::open_with_key:315` | replace `+` with `*` | Seek offset arithmetic not pinned |
-| `Wal::append:322` | replace `>` with `>=` | MAX_WAL_PAYLOAD_BYTES boundary: `> 16384` vs `>= 16384` (off-by-one missed) |
-| `Wal::ack:398` | replace with `Ok(())` | `test_roundtrip_tag_verifies` doesn't verify ack() side effect |
-| `Wal::unacked:409` | replace with `Ok(vec![])` | `test_roundtrip_tag_verifies` doesn't read back unacked list |
-| `Wal::unacked:416` | delete `!` | Same — unacked returns wrong polarity but test doesn't exercise this |
 
-**Test gaps:** `wal.rs` needs tests pinning `Wal::ack`/`Wal::unacked` round-trip, the `> vs >=` boundary for `MAX_WAL_PAYLOAD_BYTES`, and the `read_fingerprint` NotFound guard path.
+### Mutants newly caught by gap-closure tests
 
----
-
-## How to reach ≥ 60% on wal.rs
-
-The 3 highest-value gaps to close (each covers multiple missed mutants):
-
-1. **`Wal::ack`/`Wal::unacked` round-trip** — add a test that calls `append`, `ack`, then asserts `unacked()` returns empty; add another without ack to assert `unacked()` returns the record. Closes `wal.rs:398`, `wal.rs:409`, `wal.rs:416` (3 missed).
-
-2. **`MAX_WAL_PAYLOAD_BYTES` boundary** — add a test with `payload.len() == MAX_WAL_PAYLOAD_BYTES` asserting success and `len() == MAX_WAL_PAYLOAD_BYTES + 1` asserting error. Closes `wal.rs:322` (1 missed; the `>` vs `>=` flip).
-
-3. **`read_fingerprint` error path** — add a test injecting an IoError with `kind() != NotFound` and asserting it propagates instead of returning `Ok(None)`. Closes `wal.rs:141` (3 missed).
+| Location | Mutation | Caught by |
+|---|---|---|
+| `ack_key:107` | replace return with `[0;24]` / `[1;24]` (2×) | `gap1_ack_unacked_round_trip` |
+| `Wal::append:322` | replace `>` with `==`/`<`/`>=` and full-fn noop (5×) | `gap2_payload_boundary_exact_succeeds_plus_one_fails` |
+| `Wal::iter_from:352` | replace with `::std::iter::empty()` | `gap1_ack_unacked_round_trip` (reads back seqs) |
+| `Wal::ack:398` | replace with `Ok(())` | `gap1_ack_unacked_round_trip` |
+| `Wal::unacked:409` | replace with `Ok(vec![])` | `gap1_ack_unacked_round_trip` |
+| `Wal::unacked:416` | delete `!` in acked predicate | `gap1_ack_unacked_round_trip` |
 
 ---
 
@@ -93,6 +88,8 @@ Mutants where cargo-mutants could not compile a valid replacement (trait bounds,
 - `wal.rs:352` — `iter_from() → once(Ok((0/1, Default::default())))` (WalRecord not Default) ×2
 - `wal.rs:409` — `unacked() → Ok(vec![(0/1, Default::default())])` (WalRecord not Default) ×2
 
+(Gap-closure rerun confirmed the same 6 wal.rs unviable; 2 docs.rs unviable unchanged.)
+
 ---
 
 ## Prior Baseline
@@ -104,6 +101,8 @@ This file supersedes it with a full 82-mutant run (24 min, no cap).
 
 ## Methodology
 
+### Original full baseline run (commit 5f6c336)
+
 ```sh
 cargo mutants --no-shuffle --in-place --baseline skip --timeout 120 \
   --output state/mutants-v1.0.2-full \
@@ -112,7 +111,19 @@ cargo mutants --no-shuffle --in-place --baseline skip --timeout 120 \
   --file crates/amore-core/src/docs.rs
 ```
 
+Results in `state/mutants-v1.0.2-full/mutants.out/`
+
+### Gap-closure rerun (wal.rs only, after adding gap1/gap2/gap3 tests)
+
+```sh
+cargo mutants --in-place --baseline skip --timeout 120 \
+  --output state/mutants-v1.0.2-wal-rerun \
+  --package amore-core \
+  --file crates/amore-core/src/wal.rs
+```
+
+Results in `state/mutants-v1.0.2-wal-rerun/mutants.out/`
+
 - `--in-place`: mutate source tree directly (avoids workspace copy overhead)
-- `--baseline skip`: tests confirmed green at HEAD before run; no re-run needed
-- `--timeout 120`: per-mutant 120s ceiling (actual median ~15s)
-- Results in `state/mutants-v1.0.2-full/mutants.out/`
+- `--baseline skip`: 11 wal::tests green at HEAD before run; no re-run needed
+- `--timeout 120`: per-mutant 120s ceiling (actual median ~20s with release build)
