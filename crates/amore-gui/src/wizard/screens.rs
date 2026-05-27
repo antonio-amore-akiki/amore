@@ -295,7 +295,8 @@ pub fn nav_row(ui: &mut egui::Ui, state: &mut WizardState) {
 fn preview_for_ide(ide: &crate::ide_detect::DetectedIde) -> String {
     match ide.config_format {
         ConfigFormat::Json => {
-            let entry = amore_mcp_entry_object();
+            let entry = amore_mcp_entry_object()
+                .unwrap_or_else(|e| serde_json::json!({"command": format!("<{e}>"), "args": ["--stdio"], "env": {}}));
             format!(
                 "{{\n  \"mcpServers\": {{\n    \"amore\": {}\n  }}\n}}",
                 serde_json::to_string_pretty(&entry).unwrap_or_default()

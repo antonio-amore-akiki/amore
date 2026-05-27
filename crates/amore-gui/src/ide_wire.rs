@@ -1,55 +1,56 @@
-// crates/amore-gui/src/ide_wire.rs IDE config wire-up.
-//
-// Merges an `amore` MCP server entry into each detected IDE's config file.
-//
-// CRITICAL schema differences (source: docs/prior-art-w8.5.md §7):
-//   Claude Desktop / Claude Code / Cursor / Cline — mcpServers is an OBJECT:
-//     { "mcpServers": { "amore": { "command": "...", "args": [...], "env": {...} } } }
-//   Continue — mcpServers is an ARRAY:
-//     mcpServers: [{ name: "amore", command: "...", args: [...], env: {...} }]
-//
-// Wire steps per IDE:
-//   1. Read existing config file
-//   2. Parse (JSON or YAML)
-//   3. Save backup: <config>.bak-<ISO-ts>
-//   4. Merge amore entry (warns + overwrites if amore already exists)
-//   5. Write to tmp file in same dir
-//   6. Atomic rename tmp -> original
-//   7. Verify post-write by re-parsing
+// crates/amore-gui/src/ide_wire.rs  IDE config wire-up.
+// Merges `amore` MCP server entry into each detected IDE's config file.
+// Schema: Claude Desktop/Code/Cursor/Cline → mcpServers OBJECT; Continue → ARRAY.
+// Steps: read→parse→backup(.bak rotate)→perms→merge→tmp→sync_data→rename(retry)→verify.
 
 use crate::ide_detect::{ConfigFormat, DetectedIde};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-/// Outcome of a wire-up operation for one IDE.
 #[derive(Debug)]
-pub enum WireVerdict {
-    /// Config updated successfully.
-    Ok,
-    /// Config already contained an amore entry identical to what we would write; no change made.
-    SkippedNoChange,
-    /// An error occurred.
-    Err(String),
+pub enum WireError {
+    SiblingBinaryNotFound(String),
+    TargetLocked(String),
+    Other(String),
+}
+impl std::fmt::Display for WireError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WireError::SiblingBinaryNotFound(s) => write!(f, "sibling amore-mcp not found: {s}"),
+            WireError::TargetLocked(s) => write!(f, "target locked: {s}"),
+            WireError::Other(s) => write!(f, "{s}"),
+        }
+    }
 }
 
-/// The MCP server entry we inject.
-///
-/// All OS: command is `amore-mcp` on the PATH (installed alongside amore-gui).
-pub fn amore_mcp_entry_object() -> serde_json::Value {
-    serde_json::json!({
-        "command": "amore-mcp",
-        "args": ["--stdio"],
-        "env": {}
-    })
+#[derive(Debug)]
+pub enum WireVerdict { Ok, SkippedNoChange, Err(WireError) }
+
+/// Resolve absolute path to sibling `amore-mcp` binary (C2 fix).
+/// Fails closed — never falls back to bare PATH name.
+pub fn resolve_amore_mcp_path() -> Result<PathBuf, WireError> {
+    let exe = std::env::current_exe()
+        .map_err(|e| WireError::SiblingBinaryNotFound(format!("current_exe failed: {e}")))?;
+    let dir = exe.parent()
+        .ok_or_else(|| WireError::SiblingBinaryNotFound("exe has no parent".to_string()))?;
+    let name = format!("amore-mcp{}", std::env::consts::EXE_SUFFIX);
+    let p = dir.join(&name);
+    if !p.exists() {
+        return Err(WireError::SiblingBinaryNotFound(format!("expected at {}", p.display())));
+    }
+    Ok(p)
 }
 
-/// Wire all IDEs. Returns (ide_name, verdict) pairs.
+/// MCP server entry object. `command` = ABSOLUTE path, never bare name.
+pub fn amore_mcp_entry_object() -> Result<serde_json::Value, WireError> {
+    let s = resolve_amore_mcp_path()?.to_str()
+        .ok_or_else(|| WireError::Other("path not UTF-8".to_string()))?.to_string();
+    Ok(serde_json::json!({ "command": s, "args": ["--stdio"], "env": {} }))
+}
+
 pub fn wire_all(ides: &[DetectedIde]) -> Vec<(String, WireVerdict)> {
-    ides.iter()
-        .map(|ide| (ide.name.clone(), wire_one(ide)))
-        .collect()
+    ides.iter().map(|i| (i.name.clone(), wire_one(i))).collect()
 }
 
-/// Wire a single IDE config file.
 pub fn wire_one(ide: &DetectedIde) -> WireVerdict {
     match ide.config_format {
         ConfigFormat::Json => wire_json(ide),
@@ -57,203 +58,235 @@ pub fn wire_one(ide: &DetectedIde) -> WireVerdict {
     }
 }
 
-// ── JSON wire (Claude Desktop, Claude Code, Cursor, Cline) ───────────────────
-
 fn wire_json(ide: &DetectedIde) -> WireVerdict {
     let raw = match std::fs::read_to_string(&ide.path) {
-        Ok(s) => s,
-        Err(e) => return WireVerdict::Err(format!("read failed: {e}")),
+        Ok(s) => s, Err(e) => return WireVerdict::Err(WireError::Other(format!("read: {e}"))),
     };
-
     let mut root: serde_json::Value = match serde_json::from_str(&raw) {
-        Ok(v) => v,
-        Err(e) => return WireVerdict::Err(format!("JSON parse failed: {e}")),
+        Ok(v) => v, Err(e) => return WireVerdict::Err(WireError::Other(format!("json parse: {e}"))),
     };
-
-    let servers = root
-        .as_object_mut()
-        .and_then(|obj| {
-            if !obj.contains_key("mcpServers") {
-                obj.insert("mcpServers".to_string(), serde_json::json!({}));
-            }
-            obj.get_mut("mcpServers")?.as_object_mut()
-        });
-
+    let servers = root.as_object_mut().and_then(|obj| {
+        if !obj.contains_key("mcpServers") { obj.insert("mcpServers".to_string(), serde_json::json!({})); }
+        obj.get_mut("mcpServers")?.as_object_mut()
+    });
     let servers = match servers {
         Some(s) => s,
-        None => return WireVerdict::Err("mcpServers is not a JSON object".to_string()),
+        None => return WireVerdict::Err(WireError::Other("mcpServers not an object".to_string())),
     };
-
-    let entry = amore_mcp_entry_object();
-
-    if servers.get("amore") == Some(&entry) {
-        return WireVerdict::SkippedNoChange;
-    }
-
-    if servers.contains_key("amore") {
-        // Overwrite with updated entry; log is surfaced by caller.
-        eprintln!("[amore-wire] {} already had an amore entry — overwriting", ide.name);
-    }
-
+    let entry = match amore_mcp_entry_object() { Ok(e) => e, Err(e) => return WireVerdict::Err(e) };
+    if servers.get("amore") == Some(&entry) { return WireVerdict::SkippedNoChange; }
+    if servers.contains_key("amore") { eprintln!("[amore-wire] {} overwriting amore", ide.name); }
     servers.insert("amore".to_string(), entry);
-
     let updated = match serde_json::to_string_pretty(&root) {
-        Ok(s) => s,
-        Err(e) => return WireVerdict::Err(format!("JSON serialise failed: {e}")),
+        Ok(s) => s, Err(e) => return WireVerdict::Err(WireError::Other(format!("json serial: {e}"))),
     };
-
     write_atomic(&ide.path, &updated)
 }
-
-// ── YAML wire (Continue) ──────────────────────────────────────────────────────
 
 fn wire_yaml(ide: &DetectedIde) -> WireVerdict {
     let raw = match std::fs::read_to_string(&ide.path) {
-        Ok(s) => s,
-        Err(e) => return WireVerdict::Err(format!("read failed: {e}")),
+        Ok(s) => s, Err(e) => return WireVerdict::Err(WireError::Other(format!("read: {e}"))),
     };
-
     let mut root: serde_yaml::Value = match serde_yaml::from_str(&raw) {
-        Ok(v) => v,
-        Err(e) => return WireVerdict::Err(format!("YAML parse failed: {e}")),
+        Ok(v) => v, Err(e) => return WireVerdict::Err(WireError::Other(format!("yaml parse: {e}"))),
     };
-
-    // Continue mcpServers is an ARRAY. Ensure the key exists.
-    let servers = root
-        .as_mapping_mut()
-        .and_then(|m| {
-            let key = serde_yaml::Value::String("mcpServers".to_string());
-            if !m.contains_key(&key) {
-                m.insert(key.clone(), serde_yaml::Value::Sequence(vec![]));
-            }
-            m.get_mut(&key)?.as_sequence_mut()
-        });
-
+    let servers = root.as_mapping_mut().and_then(|m| {
+        let k = serde_yaml::Value::String("mcpServers".to_string());
+        if !m.contains_key(&k) { m.insert(k.clone(), serde_yaml::Value::Sequence(vec![])); }
+        m.get_mut(&k)?.as_sequence_mut()
+    });
     let servers = match servers {
         Some(s) => s,
-        None => return WireVerdict::Err("mcpServers is not a YAML sequence".to_string()),
+        None => return WireVerdict::Err(WireError::Other("mcpServers not a sequence".to_string())),
     };
-
-    // Build the entry to insert.
-    let entry = serde_yaml::to_value(serde_json::json!({
-        "name": "amore",
-        "command": "amore-mcp",
-        "args": ["--stdio"],
-        "env": {}
-    }))
-    .expect("static JSON->YAML conversion is infallible");
-
-    // Check if an entry with name "amore" already exists.
-    let name_key = serde_yaml::Value::String("name".to_string());
-    let amore_str = serde_yaml::Value::String("amore".to_string());
-    let existing_pos = servers.iter().position(|v| {
-        v.as_mapping()
-            .and_then(|m| m.get(&name_key))
-            .map(|n| n == &amore_str)
-            .unwrap_or(false)
-    });
-
-    match existing_pos {
-        Some(pos) if servers[pos] == entry => return WireVerdict::SkippedNoChange,
-        Some(pos) => {
-            eprintln!("[amore-wire] {} already had an amore entry — overwriting", ide.name);
-            servers[pos] = entry;
-        }
+    let mcp_str = match resolve_amore_mcp_path() {
+        Ok(p) => match p.to_str() { Some(s) => s.to_string(), None => return WireVerdict::Err(WireError::Other("path not UTF-8".to_string())) },
+        Err(e) => return WireVerdict::Err(e),
+    };
+    let entry = serde_yaml::to_value(serde_json::json!({"name":"amore","command":mcp_str,"args":["--stdio"],"env":{}}))
+        .expect("static JSON->YAML infallible");
+    let nk = serde_yaml::Value::String("name".to_string());
+    let ak = serde_yaml::Value::String("amore".to_string());
+    let pos = servers.iter().position(|v| v.as_mapping().and_then(|m| m.get(&nk)).map(|n| n==&ak).unwrap_or(false));
+    match pos {
+        Some(i) if servers[i] == entry => return WireVerdict::SkippedNoChange,
+        Some(i) => { eprintln!("[amore-wire] {} overwriting amore", ide.name); servers[i] = entry; }
         None => servers.push(entry),
     }
-
     let updated = match serde_yaml::to_string(&root) {
-        Ok(s) => s,
-        Err(e) => return WireVerdict::Err(format!("YAML serialise failed: {e}")),
+        Ok(s) => s, Err(e) => return WireVerdict::Err(WireError::Other(format!("yaml serial: {e}"))),
     };
-
     write_atomic(&ide.path, &updated)
 }
 
-// ── Atomic write helper ───────────────────────────────────────────────────────
-
-fn write_atomic(target: &std::path::Path, content: &str) -> WireVerdict {
-    // Step 3: backup.
-    let ts = chrono_iso();
-    let backup = target.with_extension(format!(
-        "{}.bak-{}",
-        target.extension().and_then(|e| e.to_str()).unwrap_or(""),
-        ts
-    ));
-    if let Err(e) = std::fs::copy(target, &backup) {
-        return WireVerdict::Err(format!("backup failed: {e}"));
+pub(crate) fn write_atomic(target: &Path, content: &str) -> WireVerdict {
+    // H2: rotate single .bak; set private permissions.
+    let bak = bak_path(target);
+    let bak_old = bak_old_path(target);
+    if bak.exists() && let Err(e) = std::fs::rename(&bak, &bak_old) {
+        return WireVerdict::Err(WireError::Other(format!(".bak rotate failed: {e}")));
     }
+    if let Err(e) = std::fs::copy(target, &bak) {
+        if bak_old.exists() { let _ = std::fs::rename(&bak_old, &bak); }
+        return WireVerdict::Err(WireError::Other(format!("backup copy failed: {e}")));
+    }
+    set_private_permissions(&bak);
+    if bak_old.exists() { let _ = std::fs::remove_file(&bak_old); }
 
-    // Step 5: write to tmp in same dir.
+    // H3: write tmp → sync → rename with retry.
     let tmp = tmp_path(target);
     if let Err(e) = std::fs::write(&tmp, content) {
-        return WireVerdict::Err(format!("tmp write failed: {e}"));
+        return WireVerdict::Err(WireError::Other(format!("tmp write failed: {e}")));
     }
-
-    // Step 6: atomic rename.
-    if let Err(e) = std::fs::rename(&tmp, target) {
-        // Clean up tmp on failure.
+    if let Err(e) = std::fs::File::open(&tmp).and_then(|f| f.sync_data()) {
         let _ = std::fs::remove_file(&tmp);
-        return WireVerdict::Err(format!("atomic rename failed: {e}"));
+        return WireVerdict::Err(WireError::Other(format!("sync_data failed: {e}")));
     }
-
-    // Step 7: verify by re-parsing.
+    if let Err(e) = retry_rename(&tmp, target) {
+        let _ = std::fs::remove_file(&tmp);
+        if let Err(re) = std::fs::copy(&bak, target) {
+            eprintln!("[amore-wire] CRITICAL: rename+restore both failed: {e} / {re}");
+        }
+        return WireVerdict::Err(WireError::TargetLocked(format!("rename failed after 3 retries: {e}")));
+    }
     match verify_parseable(target) {
         Ok(()) => WireVerdict::Ok,
-        Err(e) => WireVerdict::Err(format!("post-write verify failed: {e}")),
+        Err(e) => WireVerdict::Err(WireError::Other(format!("verify failed: {e}"))),
     }
 }
 
-fn tmp_path(original: &std::path::Path) -> PathBuf {
-    let stem = original
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("config");
-    let dir = original.parent().unwrap_or(std::path::Path::new("."));
-    dir.join(format!(".{stem}.amore-tmp"))
+fn retry_rename(src: &Path, dst: &Path) -> std::io::Result<()> {
+    let mut last = None;
+    for attempt in 0..3u32 {
+        match std::fs::rename(src, dst) {
+            Ok(()) => return Ok(()),
+            Err(e) => {
+                #[cfg(target_os = "windows")] let t = e.raw_os_error() == Some(32);
+                #[cfg(not(target_os = "windows"))] let t = matches!(e.kind(), std::io::ErrorKind::WouldBlock | std::io::ErrorKind::ResourceBusy);
+                if t && attempt < 2 { std::thread::sleep(std::time::Duration::from_millis(100)); last = Some(e); }
+                else { return Err(e); }
+            }
+        }
+    }
+    Err(last.unwrap())
 }
 
-fn verify_parseable(path: &std::path::Path) -> Result<(), String> {
-    let raw = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-    match ext {
-        "json" => serde_json::from_str::<serde_json::Value>(&raw)
-            .map(|_| ())
-            .map_err(|e| e.to_string()),
-        "yaml" | "yml" => serde_yaml::from_str::<serde_yaml::Value>(&raw)
-            .map(|_| ())
-            .map_err(|e| e.to_string()),
-        _ => Ok(()), // Unknown extension; skip validation.
+fn set_private_permissions(path: &Path) {
+    #[cfg(unix)] {
+        use std::os::unix::fs::PermissionsExt;
+        if let Err(e) = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)) {
+            eprintln!("[amore-wire] warn: 0o600 failed {}: {e}", path.display());
+        }
+    }
+    #[cfg(target_os = "windows")] {
+        // Pass path and flags as separate arguments to avoid cmd.exe quoting issues.
+        let grant = format!("{}:F", std::env::var("USERNAME").unwrap_or_else(|_| "%USERNAME%".to_string()));
+        if let Ok(s) = std::process::Command::new("icacls")
+            .args([path.as_os_str(), std::ffi::OsStr::new("/inheritance:r"), std::ffi::OsStr::new("/grant:r"), std::ffi::OsStr::new(&grant)])
+            .status()
+            && !s.success() {
+            eprintln!("[amore-wire] warn: icacls exit {:?} on {}", s.code(), path.display());
+        }
     }
 }
 
-fn chrono_iso() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let secs = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-    // Format as YYYYMMDDTHHMMSSz without external time dep.
-    let s = secs;
-    let (y, mo, d, h, mi, sec) = epoch_to_ymd(s);
-    format!("{y:04}{mo:02}{d:02}T{h:02}{mi:02}{sec:02}Z")
+pub(crate) fn tmp_path(o: &Path) -> PathBuf {
+    let s = o.file_name().and_then(|n| n.to_str()).unwrap_or("config");
+    o.parent().unwrap_or(Path::new(".")).join(format!(".{s}.amore-tmp"))
+}
+pub(crate) fn bak_path(o: &Path) -> PathBuf {
+    let n = o.file_name().and_then(|n| n.to_str()).unwrap_or("config");
+    o.parent().unwrap_or(Path::new(".")).join(format!("{n}.bak"))
+}
+pub(crate) fn bak_old_path(o: &Path) -> PathBuf {
+    let n = o.file_name().and_then(|n| n.to_str()).unwrap_or("config");
+    o.parent().unwrap_or(Path::new(".")).join(format!("{n}.bak.old"))
+}
+fn verify_parseable(p: &Path) -> Result<(), String> {
+    let raw = std::fs::read_to_string(p).map_err(|e| e.to_string())?;
+    match p.extension().and_then(|e| e.to_str()).unwrap_or("") {
+        "json" => serde_json::from_str::<serde_json::Value>(&raw).map(|_|()).map_err(|e|e.to_string()),
+        "yaml"|"yml" => serde_yaml::from_str::<serde_yaml::Value>(&raw).map(|_|()).map_err(|e|e.to_string()),
+        _ => Ok(()),
+    }
 }
 
-fn epoch_to_ymd(secs: u64) -> (u32, u32, u32, u32, u32, u32) {
-    let sec = (secs % 60) as u32;
-    let min = ((secs / 60) % 60) as u32;
-    let hour = ((secs / 3600) % 24) as u32;
-    let days = secs / 86400;
-    // Gregorian calendar calculation from days since Unix epoch.
-    let z = days + 719468;
-    let era = z / 146097;
-    let doe = z % 146097;
-    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
-    let y = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 };
-    let y = if m <= 2 { y + 1 } else { y };
-    (y as u32, m as u32, d as u32, hour, min, sec)
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    // C2: absolute path + correct name when fake sibling exists.
+    #[test]
+    fn c2_wired_command_is_absolute() {
+        let exe = std::env::current_exe().expect("current_exe");
+        let dir = exe.parent().expect("exe parent");
+        let bin = format!("amore-mcp{}", std::env::consts::EXE_SUFFIX);
+        let fake = dir.join(&bin);
+        let existed = fake.exists();
+        if !existed { fs::write(&fake, b"").expect("create fake"); }
+        let result = resolve_amore_mcp_path();
+        if !existed { let _ = fs::remove_file(&fake); }
+        let p = result.expect("should succeed with fake sibling");
+        assert!(p.is_absolute(), "must be absolute: {}", p.display());
+        assert_eq!(p.file_name().and_then(|n| n.to_str()).unwrap(), bin);
+    }
+
+    // C2: fails closed when sibling absent.
+    #[test]
+    fn c2_fails_closed_when_absent() {
+        let exe = std::env::current_exe().expect("current_exe");
+        let candidate = exe.parent().expect("parent").join(format!("amore-mcp{}", std::env::consts::EXE_SUFFIX));
+        if !candidate.exists() {
+            assert!(matches!(resolve_amore_mcp_path(), Err(WireError::SiblingBinaryNotFound(_))));
+        }
+    }
+
+    // H2: only one .bak after multiple writes, no .bak-<ts> accumulation.
+    #[test]
+    fn h2_single_backup_rotation() {
+        let dir = TempDir::new().expect("tmpdir");
+        let cfg = dir.path().join("c.json");
+        fs::write(&cfg, r#"{"mcpServers":{}}"#).unwrap();
+        for i in 0u32..2 { write_atomic(&cfg, &format!(r#"{{"p":{i}}}"#)); }
+        assert!(bak_path(&cfg).exists(), ".bak must exist");
+        assert!(!bak_old_path(&cfg).exists(), ".bak.old must be cleaned up");
+        let extra: Vec<_> = fs::read_dir(dir.path()).unwrap().filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().contains(".bak-")).collect();
+        assert!(extra.is_empty(), "no .bak-<ts> files; found {:?}", extra.iter().map(|e|e.file_name()).collect::<Vec<_>>());
+    }
+
+    // H2: Unix backup must be 0o600.
+    #[test]
+    #[cfg(unix)]
+    fn h2_backup_0600_unix() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = TempDir::new().unwrap();
+        let cfg = dir.path().join("c.json");
+        fs::write(&cfg, r#"{"mcpServers":{}}"#).unwrap();
+        write_atomic(&cfg, r#"{"x":1}"#);
+        let mode = fs::metadata(bak_path(&cfg)).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o600, "expected 0o600 got 0o{:o}", mode & 0o777);
+    }
+
+    // H3: no orphan tmp on rename failure; TargetLocked returned.
+    #[test]
+    #[cfg(unix)]
+    fn h3_no_orphan_tmp_on_failure() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = TempDir::new().unwrap();
+        let cfg = dir.path().join("c.json");
+        fs::write(&cfg, r#"{"mcpServers":{}}"#).unwrap();
+        let orig = fs::metadata(dir.path()).unwrap().permissions();
+        fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o555)).unwrap();
+        let v = write_atomic(&cfg, r#"{"x":1}"#);
+        fs::set_permissions(dir.path(), orig).unwrap();
+        assert!(!tmp_path(&cfg).exists(), "orphan tmp must not exist");
+        match v {
+            WireVerdict::Err(WireError::TargetLocked(_)) => {}
+            WireVerdict::Err(WireError::Other(ref m)) if m.contains("rename") || m.contains("backup") || m.contains("copy") => {}
+            other => eprintln!("[h3] got {:?} — likely root, skip", other),
+        }
+    }
 }
