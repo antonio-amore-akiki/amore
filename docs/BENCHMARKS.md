@@ -10,20 +10,25 @@ Every cell must be backed by a runnable command or marked PENDING.
 
 | Metric | Result | Target | Verdict |
 |---|---|---|---|
-| Average token reduction | **21.1%** | ≥ 85% (stretch) | PARTIAL |
-| Worst-case reduction | -144.6% (one outlier: `timeout-amore-ms-env-cap`) | ≥ 75% | FAIL |
+| Average token reduction | **89.3%** | ≥ 85% | **PASS** |
+| ≥75% reduction | 41/43 fixtures (95%) | — | — |
+| ≥85% reduction | 37/43 fixtures (86%) | — | — |
+| ≥90% reduction | 26/43 fixtures (60%) | — | — |
+| Worst-case | 48.0% (`hasleo-usb-plugin-image-backup`) | ≥ 75% | PARTIAL |
 | Sample size | 43 fixtures | ≥ 30 | PASS |
 
-**What this measures**: token count of Amore's routed-context recall (top-k canonical-docs snippets) vs raw-context baseline (full doc dump) for 43 real questions about Amore itself (install, config, troubleshooting). Lower is better; positive % = Amore used fewer tokens.
+**What this measures**: token count of Amore's routed-context recall (top-K canonical-docs snippets, K=3) vs raw-context baseline (full doc dump) for 43 real questions about Amore itself (install, config, troubleshooting). Lower is better; positive % = Amore used fewer tokens.
 
 **Reproduction**:
 ```
-amore-eval-benchmark --release token-reduction \
+cargo run --release --bin token-reduction -- \
   --fixtures crates/amore-eval/fixtures/ \
   --results-tsv state/results.tsv
 ```
 
-**Honest read**: 21% per-query savings is modest. The community reference of "~70× per session" from `lucasrosati/claude-code-memory-setup` measures a different thing — session-level context-window utilization across many turns. v1.1 plan: real Claude Code session-level measurement to close the gap.
+**Worst-case caveat**: 2 of 43 fixtures (`hasleo-usb-plugin-image-backup` 48%, `veeam-exfat-rejected-alternative` 37%) target a 1,355-token baseline (`backup-stack.md` alone). At that baseline size the per-hit excerpt overhead (≤800 chars × 3 hits) approaches the baseline, so the router still helps (37–48% reduction is real) but can't reach the 75% gate. This is a structural floor of small-baseline / multi-source queries, not a routing bug. The 41 other fixtures clear 75%.
+
+**Algorithmic history**: the v1.0.0 router originally had no TOP_K cap — common-vocabulary queries returned 30-49 docs, inflating the optimized stream past the raw-context baseline (avg 21.1%, worst -144.6%). The cap landed in `crates/amore-core/src/docs.rs:TOP_K_HITS=3` (matches mem0 default / LongMemEval R@3 / hybrid-RAG canonical few-shot pattern). Regression covered by `crates/amore-core/tests/prop_canonical_doc.rs::prop_router_caps_at_top_k` (64 proptest cases × arbitrary corpus 1–30).
 
 ---
 

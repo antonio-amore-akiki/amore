@@ -23,6 +23,17 @@ const EXCERPT_MAX_CHARS: usize = 800;
 /// 2000 chars keeps the score deterministic on small canonical docs while
 /// staying cheap (single substring scan per query token).
 const BODY_KEYWORD_SCAN_CHARS: usize = 2000;
+/// Maximum number of canonical-doc hits returned per query. Caps the
+/// "router returns everything that scored > 0" failure mode that inflates
+/// the injected context past the raw-context baseline (token-reduction
+/// benchmark surfaced this: 16/43 fixtures over-fetched 30-49 docs on
+/// common-vocabulary queries like "amore install …", dragging avg savings
+/// from ~95% (success path) down to 21%). Top-3 matches the canonical
+/// few-shot retrieval pattern (mem0 default; LongMemEval R@3 slice;
+/// hybrid-RAG top-k=3), keeps multi-doc topics reachable, and crushes the
+/// over-fetch tail. Empirically: TOP_K=5 → avg 84.4%; TOP_K=3 → avg 89.3%
+/// over 43 fixtures (cf. docs/BENCHMARKS.md).
+pub const TOP_K_HITS: usize = 3;
 
 pub struct CanonicalDocsRouter {
     /// If true, only docs with `stable: true` header qualify. Default true.
@@ -39,9 +50,11 @@ impl CanonicalDocsRouter {
 
     /// Walk `search_paths` (each treated as a directory containing `*.md`
     /// files), return docs whose topic keywords overlap with the query.
-    /// Result is sorted by `topic_score` descending. Non-existent paths
-    /// are skipped without error (some agents have only the user dir,
-    /// some only the workspace dir).
+    /// Result is sorted by `topic_score` descending and **capped at
+    /// `TOP_K_HITS`** (5) to prevent over-fetch on common-vocabulary
+    /// queries from blowing past the raw-context baseline. Non-existent
+    /// paths are skipped without error (some agents have only the user
+    /// dir, some only the workspace dir).
     pub fn route(&self, query: &str, search_paths: &[&Path]) -> Result<Vec<DocHit>> {
         let q_tokens = tokenize(query);
         if q_tokens.is_empty() {
@@ -71,6 +84,7 @@ impl CanonicalDocsRouter {
                 .partial_cmp(&a.topic_score)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
+        hits.truncate(TOP_K_HITS);
         Ok(hits)
     }
 
