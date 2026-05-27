@@ -54,6 +54,7 @@ Recall across Claude Code, Cursor, Cline, Codex, and Windsurf sessions.\
 depends = "libgtk-3-0, libayatana-appindicator3-1"
 section = "utils"
 priority = "optional"
+maintainer-scripts = "../../packaging/installer/linux/DEBIAN"
 assets = [
     ["../../target/release/amore", "usr/bin/amore", "755"],
     ["../../packaging/installer/linux/amore.desktop", "usr/share/applications/amore.desktop", "644"],

@@ -1,0 +1,15 @@
+#!/bin/sh
+set -e
+# Detect non-root install user via fallback chain (closes F26 + reviewer-3 F-36).
+# Priority: SUDO_USER (sudo install) → PKEXEC_UID (polkit/pkexec) → logname/who (headless).
+TARGET_USER="${SUDO_USER:-}"
+[ -z "$TARGET_USER" ] && [ -n "${PKEXEC_UID:-}" ] && TARGET_USER="$(getent passwd "$PKEXEC_UID" | cut -d: -f1)"
+[ -z "$TARGET_USER" ] && TARGET_USER="$(logname 2>/dev/null || who am i | awk '{print $1}')"
+if [ -z "$TARGET_USER" ] || [ "$TARGET_USER" = "root" ]; then
+    echo "amore postinst: cannot resolve non-root install user. Skipping IDE auto-wire — run manually: amore-mcp --register-claude-code --self-contained" >&2
+    exit 0
+fi
+# Wire IDEs as the target user. || true: non-fatal if IDE is absent; error is still logged to stderr.
+runuser -u "$TARGET_USER" -- amore-mcp --register-claude-code --self-contained 2>&1 || true
+runuser -u "$TARGET_USER" -- amore-mcp --register-claude-desktop --self-contained 2>&1 || true
+exit 0
