@@ -1,0 +1,29 @@
+# Amore — bundled qdrant server configuration
+#
+# This file is passed to the bundled qdrant.exe via:
+#   qdrant.exe --config-path <path-to-this-file>
+# from the installer/auto-wire launch site.
+#
+# The ${LOCALAPPDATA:-$HOME/.local/share} shell-expansion is NOT processed by
+# qdrant's YAML parser directly — the installer substitutes the literal resolved
+# path at launch time (see packaging/installer/windows/main.wxs CustomAction and
+# packaging/installer/linux/DEBIAN/postinst).  The placeholder is left here as
+# documentation of the per-OS intent.
+#
+# F7 / reviewer-3 F-30: write to a user-writable per-user directory, never to
+# Program Files (read-only for standard users on Windows).
+
+storage:
+  # Windows runtime value: %LOCALAPPDATA%\Amore\qdrant\storage
+  # Linux runtime value:   $HOME/.local/share/Amore/qdrant/storage
+  # macOS runtime value:   $HOME/Library/Application Support/Amore/qdrant/storage
+  storage_path: "${LOCALAPPDATA:-$HOME/.local/share}/Amore/qdrant/storage"
+
+service:
+  # Bind to localhost only — qdrant is a local companion, not exposed to LAN.
+  host: "127.0.0.1"
+  http_port: 6333
+  grpc_port: 6334
+
+# Keep telemetry off for privacy compliance (GDPR / PRIVACY.md).
+telemetry_disabled: true
