@@ -68,6 +68,8 @@ to the same MCP server simultaneously via stdio.
    `topic:` line + body excerpt).
 4. Return top 3 hits as inlined system-reminders.
 
+Returns top-3 hits by topic score (TOP_K_HITS = 3, mem0/LongMemEval R@3 canonical pattern).
+
 This is the deterministic source-of-truth router for known domains
 where probabilistic recall is the wrong tool.
 
