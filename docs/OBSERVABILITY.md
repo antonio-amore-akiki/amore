@@ -36,7 +36,7 @@ JSON logs include `trace_id` + `span_id` when OTel is active.
 
 ## Health Endpoints (W2-2D)
 
-Bind: `AMORE_HEALTH_BIND` (default `0.0.0.0:9091`).
+Bind: `AMORE_HEALTH_BIND` (default `127.0.0.1:9091`). Set `AMORE_HEALTH_ALLOW_NETWORK=1` to allow non-loopback binds.
 
 - `GET /healthz` — 200 if process alive.
 - `GET /readyz` — 200 if `wal_replayed` AND `warmed_up`; 503 otherwise.
