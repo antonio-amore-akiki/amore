@@ -13,6 +13,7 @@ members = [
     "crates/amore-adapter-hermes",
     "crates/amore-eval",
     "crates/amore-gui",
+    "crates/amore-i18n",
     "crates/amore-integration-tests",
 ]
 

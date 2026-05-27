@@ -1,0 +1,23 @@
+[package]
+name = "amore-i18n"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Runtime i18n for Amore — EN/FR/NL/DE/AR via Project Fluent"
+
+[dependencies]
+# Project Fluent — message parsing + formatting
+fluent = "0.16"
+fluent-bundle = "0.15"
+# OS locale detection
+sys-locale = "0.3"
+# Language identifier parsing (BCP 47)
+unic-langid = { version = "0.9", features = ["macros"] }
+# Error handling (library pattern per rust/coding-style.md)
+thiserror = "2"
+
+[dev-dependencies]
+# No extra dev deps needed — integration tests use std only

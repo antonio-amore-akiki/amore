@@ -74,6 +74,16 @@ amore serve     # starts MCP server on stdio
 
 See `docs/quickstart/<ide>.md` for IDE-specific adapter setup.
 
+## Languages
+
+Amore ships in 5 languages: English, French, Dutch, German, Arabic.
+
+The installer, CLI, and GUI all display translated text automatically based on your OS locale.
+
+Arabic UI text renders right-to-left in the installer (Inno Setup full RTL) and command line (terminal inherits OS BiDi). The graphical wizard renders Arabic text correctly but its button layout remains left-to-right until our UI framework (egui) ships native RTL support (tracked at github.com/emilk/egui/issues/1016).
+
+All non-English strings are machine-seeded and community-refinable — open a pull request to improve a translation.
+
 ## Sources
 
 - brew.sh formula docs
