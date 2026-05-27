@@ -37,9 +37,12 @@ Fix: ensure `vendor/onnxruntime/onnxruntime.dll` exists; download from `github.c
 Symptom: `Address already in use` for Prometheus or healthz endpoints.
 
 ```bash
-export AMORE_HEALTH_BIND=0.0.0.0:9192
+export AMORE_HEALTH_BIND=127.0.0.1:9192
 amore serve
 ```
+
+Note: the default binds to loopback only. To expose the healthz endpoint on all interfaces
+(e.g. in a container), set `AMORE_HEALTH_ALLOW_NETWORK=1` alongside a non-loopback bind address.
 
 ## 7. OOM during compaction
 
