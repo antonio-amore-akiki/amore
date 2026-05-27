@@ -1,0 +1,52 @@
+{
+  "name": "amore-mcp",
+  "version": "1.0.2",
+  "description": "Amore MCP server — universal agent memory backbone. Rust binary distributed via GitHub Releases, installed automatically.",
+  "license": "Apache-2.0",
+  "author": "Antonio <antonioakiki15@gmail.com>",
+  "homepage": "https://github.com/antonio-amore-akiki/amore",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/antonio-amore-akiki/amore.git"
+  },
+  "bugs": {
+    "url": "https://github.com/antonio-amore-akiki/amore/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "agent-memory",
+    "retrieval-augmented-generation",
+    "rust",
+    "claude-code",
+    "cursor",
+    "codex",
+    "cline",
+    "windsurf",
+    "opencode",
+    "hermes"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "amore-mcp": "./bin/amore-mcp.js"
+  },
+  "scripts": {
+    "postinstall": "node scripts/install.js"
+  },
+  "files": [
+    "bin/",
+    "scripts/",
+    "README.md"
+  ],
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ]
+}
