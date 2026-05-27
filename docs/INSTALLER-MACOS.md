@@ -13,7 +13,7 @@ stable: true
 The fastest path for users comfortable with a terminal.
 
 ```sh
-brew tap antonio-amore-akiki/tap
+brew tap antonio-amore-akiki/amore
 brew install amore
 ```
 

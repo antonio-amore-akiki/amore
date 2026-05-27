@@ -8,7 +8,7 @@ stable: true
 
 ```bash
 brew uninstall amore
-brew untap antonio-amore-akiki/tap
+brew untap antonio-amore-akiki/amore
 ```
 
 ### WinGet

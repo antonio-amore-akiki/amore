@@ -85,7 +85,7 @@ See `docs/INSTALL.md`.
 npm install -g @anto/amore
 
 # Homebrew (macOS/Linux)
-brew install antonio-amore-akiki/tap/amore
+brew install antonio-amore-akiki/amore/amore
 
 # winget (Windows)
 winget install AmoreMCP.Amore
