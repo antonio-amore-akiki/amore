@@ -74,10 +74,14 @@ thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-# Crypto provenance (canonical-JSON + sha256 envelopes)
+# Crypto provenance (canonical-JSON + sha256 envelopes + HMAC-SHA256 WAL integrity)
 sha2 = "0.10"
+hmac = "0.12"
 hex = "0.4"
 canonical_json = "0.7"
+
+# Secure random bytes (WAL machine-key generation)
+rand = "0.8"
 
 # HTTP client (Ollama, Qdrant fallback) — multipart added for H.7 snapshot upload
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "multipart", "stream"] }
