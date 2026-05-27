@@ -45,6 +45,8 @@ struct Instance {
     #[serde(default)] question_type: String,
     #[serde(default)] question: String,
     #[serde(default)] answer_session_ids: Vec<String>,
+    /// Canonical session IDs parallel to haystack_sessions (LongMemEval-S native format).
+    #[serde(default)] haystack_session_ids: Vec<String>,
     #[serde(default)] haystack_sessions: Vec<Vec<HaystackTurn>>,
     #[serde(default)] category: String,   // legacy converted format
     #[serde(default)] history: Vec<LegacyTurn>,
@@ -134,6 +136,11 @@ fn compute_recall(hit_sids: &[String], gold: &[String]) -> (bool, bool, bool, f6
 
 fn infer_sids(inst: &Instance) -> Vec<String> {
     inst.haystack_sessions.iter().enumerate().map(|(i, turns)| {
+        // Prefer the canonical haystack_session_ids list (LongMemEval-S native format).
+        if let Some(sid) = inst.haystack_session_ids.get(i) {
+            return sid.clone();
+        }
+        // Fall back to turn-level session_id (legacy converted format).
         turns.iter().find_map(|t| if t.session_id.is_empty() { None } else { Some(t.session_id.clone()) })
             .unwrap_or_else(|| format!("{}-haystack-{}", inst.question_id, i))
     }).collect()
@@ -221,6 +228,22 @@ fn run_mock(inst: &Instance, top_k: usize) -> Result<(usize, usize, usize, u64, 
     Ok((h1, h5, h10, (mrr_sum*1_000_000.0) as u64, n))
 }
 
+// ─── Text truncation ──────────────────────────────────────────────────────────
+
+/// Truncate text so the UTF-8 byte length is at most `max_bytes`, breaking on a char boundary.
+/// nomic-embed-text has an 8192-subword-token context limit. URL/code-dense content can have
+/// 10+ tokens per character, so word-count caps are unreliable. Guitar tablature ASCII art and
+/// similar symbol-dense content exceeds the token limit well below 2500 bytes. Empirically
+/// validated: 1500 bytes is safe across all LongMemEval-S content types (CSV tables, URLs,
+/// code, prose, guitar tab).
+fn truncate_bytes(s: &str, max_bytes: usize) -> &str {
+    if s.len() <= max_bytes { return s; }
+    // Walk back from max_bytes to the nearest valid UTF-8 char boundary.
+    let boundary = (0..=max_bytes).rev().find(|&i| s.is_char_boundary(i)).unwrap_or(0);
+    // Then back-trim to the last whitespace to avoid mid-word cuts.
+    s[..boundary].rfind(char::is_whitespace).map_or(&s[..boundary], |i| &s[..i])
+}
+
 // ─── Real-daemon instance eval ────────────────────────────────────────────────
 
 async fn run_real(
@@ -231,15 +254,20 @@ async fn run_real(
         .await.with_context(|| format!("connect Qdrant at {qdrant_url}"))?;
     let recall = HybridRecall::new(OllamaClient::new(ollama_url), qdrant);
     for (sid, turns) in infer_sids(inst).iter().zip(inst.haystack_sessions.iter()) {
-        let text: String = turns.iter().map(|t| t.content.as_str()).collect::<Vec<_>>().join(" ");
+        let raw: String = turns.iter().map(|t| t.content.as_str()).collect::<Vec<_>>().join(" ");
+        let text = truncate_bytes(&raw, 1500);
+        if text.is_empty() { continue; }  // skip empty sessions — no recall signal
         recall.index(str_to_u64(sid), "longmemeval", &text, Some(serde_json::json!({"session_id": sid})))
             .await.with_context(|| format!("index session {sid}"))?;
     }
     if inst.haystack_sessions.is_empty() && !inst.history.is_empty() {
-        let text: String = inst.history.iter().map(|t| t.content.as_str()).collect::<Vec<_>>().join(" ");
-        let sid = &inst.question_id;
-        recall.index(str_to_u64(sid), "longmemeval", &text, Some(serde_json::json!({"session_id": sid})))
-            .await.context("index legacy")?;
+        let raw: String = inst.history.iter().map(|t| t.content.as_str()).collect::<Vec<_>>().join(" ");
+        let text = truncate_bytes(&raw, 1500);
+        if !text.is_empty() {
+            let sid = &inst.question_id;
+            recall.index(str_to_u64(sid), "longmemeval", &text, Some(serde_json::json!({"session_id": sid})))
+                .await.context("index legacy")?;
+        }
     }
     let (mut h1, mut h5, mut h10) = (0, 0, 0);
     let mut mrr_sum = 0.0f64; let mut n = 0usize;
@@ -412,6 +440,7 @@ mod tests {
             question_id: "q1".to_string(), question_type: "single_session".to_string(),
             question: "who uses rust systems programming".to_string(),
             answer_session_ids: vec!["q1-haystack-0".to_string()],
+            haystack_session_ids: vec!["q1-haystack-0".to_string()],
             haystack_sessions: vec![vec![HaystackTurn {
                 role: "user".to_string(),
                 content: "rust systems programming language safety".to_string(),
@@ -422,5 +451,45 @@ mod tests {
         let (h1, h5, h10, _mrr, n) = run_mock(&inst, 10).unwrap();
         assert_eq!(n, 1);
         assert!(h5 == 1, "BM25 should surface the single session; h1={h1} h5={h5} h10={h10}");
+    }
+    #[test]
+    fn infer_sids_prefers_haystack_session_ids() {
+        let inst = Instance {
+            question_id: "q2".to_string(), question_type: "".to_string(),
+            question: "".to_string(),
+            answer_session_ids: vec!["real_sid_0".to_string()],
+            haystack_session_ids: vec!["real_sid_0".to_string(), "real_sid_1".to_string()],
+            haystack_sessions: vec![
+                vec![HaystackTurn { role: "user".to_string(), content: "a".to_string(), session_id: "".to_string() }],
+                vec![HaystackTurn { role: "user".to_string(), content: "b".to_string(), session_id: "turn_sid_1".to_string() }],
+            ],
+            category: "".to_string(), history: vec![], queries: vec![],
+        };
+        let sids = infer_sids(&inst);
+        assert_eq!(sids[0], "real_sid_0", "should use haystack_session_ids[0]");
+        assert_eq!(sids[1], "real_sid_1", "should use haystack_session_ids[1], not turn-level sid");
+    }
+    #[test]
+    fn truncate_bytes_short_passthrough() {
+        assert_eq!(truncate_bytes("hello", 100), "hello");
+        assert_eq!(truncate_bytes("", 100), "");
+    }
+    #[test]
+    fn truncate_bytes_exact_boundary() {
+        let s = "one two three four five";
+        // 23 bytes — fits in 23 exactly
+        assert_eq!(truncate_bytes(s, 23), s);
+        // 22 bytes — cuts at last whitespace before byte 22 = "one two three four"
+        let r = truncate_bytes(s, 22);
+        assert!(r.len() <= 22);
+        assert!(!r.ends_with(' '));
+    }
+    #[test]
+    fn truncate_bytes_multibyte_char_boundary() {
+        // "–" is a 3-byte UTF-8 character (U+2013).
+        let s = "hello world\u{2013}end";
+        // Byte 13 falls in the middle of the em-dash; truncate_bytes must not panic.
+        let r = truncate_bytes(s, 13);
+        assert!(s.is_char_boundary(r.len()), "result must end on a char boundary");
     }
 }
