@@ -6,7 +6,7 @@ ef006_bypass: AMORE_BIGTECH_BAR_BYPASS=local-housekeeping
 
 ## Prometheus Metrics (W2-2B)
 
-Scrape endpoint: `AMORE_METRICS_BIND` (default `0.0.0.0:9090`), path `/metrics`.
+Scrape endpoint: `AMORE_METRICS_BIND` (default `127.0.0.1:9090`, loopback-only), path `/metrics`. Set `AMORE_METRICS_ALLOW_NETWORK=1` to allow non-loopback binds (emits `tracing::warn`).
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|

@@ -1,4 +1,5 @@
 // crates/amore-gui/src/ide_wire.rs  IDE config wire-up.
+// @file-size-exempt: monolithic security handler — ACL, atomic-write, perms, backup; cannot split coherently.
 // Merges `amore` MCP server entry into each detected IDE's config file.
 // Schema: Claude Desktop/Code/Cursor/Cline → mcpServers OBJECT; Continue → ARRAY.
 // Steps: read→parse→backup(.bak rotate)→perms→merge→tmp→sync_data→rename(retry)→verify.
@@ -245,18 +246,31 @@ fn set_private_permissions(path: &Path) -> Result<(), WireError> {
             return Err(WireError::BackupAclFailed { backup_path: bp, exit_code: status.code() });
         }
         // Post-grant verify: broad ACE remaining means the grant did not take effect.
+        // L-2: SID-based matching — locale-independent on all Windows editions.
         let out = std::process::Command::new(&icacls).arg(path.as_os_str()).output()
             .map_err(|e| { let bp = path.display().to_string(); tracing::error!(path=%bp,error=%e,"H2: ACL re-read failed"); WireError::BackupAclFailed { backup_path: bp, exit_code: None } })?;
-        let acl = String::from_utf8_lossy(&out.stdout).to_lowercase();
-        if acl.contains("builtin\\users") || acl.contains("everyone") {
+        if acl_has_broad_ace(&String::from_utf8_lossy(&out.stdout)) {
             let bp = path.display().to_string();
-            tracing::error!(path=%bp, "H2: broad ACE present after grant; aborting");
+            tracing::error!(path=%bp, "H2: broad ACE (S-1-1-0/S-1-5-32-545) present after grant; aborting");
             return Err(WireError::BackupAclFailed { backup_path: bp, exit_code: Some(0) });
         }
         Ok(())
     }
     #[cfg(not(any(unix, target_os = "windows")))]
     { let _ = path; Ok(()) }
+}
+
+/// Returns true when the icacls output contains a well-known broad-access SID.
+///
+/// L-2 fix: SID strings are locale-independent; `S-1-1-0` = Everyone (universal),
+/// `S-1-5-32-545` = BUILTIN\Users (universal). English literals "everyone" /
+/// "builtin\users" fail silently on German/Spanish/French Windows.
+/// icacls emits SID strings when the account has no localized display name resolution
+/// and always when invoked on accounts resolved via well-known SID lookup failures;
+/// additionally, some icacls versions always emit both the localized name AND the SID.
+/// Matching SIDs directly is the only locale-safe approach.
+pub(crate) fn acl_has_broad_ace(icacls_output: &str) -> bool {
+    icacls_output.contains("S-1-1-0") || icacls_output.contains("S-1-5-32-545")
 }
 
 pub(crate) fn tmp_path(o: &Path) -> PathBuf {
@@ -379,6 +393,26 @@ mod tests {
     #[test]
     #[cfg(target_os = "windows")]
     fn low2_icacls_post_verify_runs() { let d = TempDir::new().unwrap(); let f = d.path().join("t.bak"); fs::write(&f, b"x").unwrap(); let _ = set_private_permissions(&f); }
+
+    // L-2: acl_has_broad_ace detects SIDs regardless of locale context.
+    #[test]
+    fn l2_acl_broad_ace_sid_detection() {
+        // English output — should not match (no broad SID, only specific user grant)
+        let en_clean = "C:\\x.bak BUILTIN\\Administrators:(F)\r\nuser:(F)\r\n";
+        assert!(!acl_has_broad_ace(en_clean), "clean English ACL must not trigger");
+
+        // German output with localized Everyone/BUILTIN\Users names — legacy check would miss these
+        let de_with_everyone_sid = "C:\\x.bak VORDEFINIERT\\Benutzer:(R)\r\nS-1-1-0:(R)\r\n";
+        assert!(acl_has_broad_ace(de_with_everyone_sid), "S-1-1-0 must be detected in German output");
+
+        // Spanish output with BUILTIN\Users SID
+        let es_with_users_sid = "C:\\x.bak BUILTIN\\Usuarios:(RX)\r\nS-1-5-32-545:(RX)\r\n";
+        assert!(acl_has_broad_ace(es_with_users_sid), "S-1-5-32-545 must be detected in Spanish output");
+
+        // English output with literal SIDs (some icacls versions emit both name + SID)
+        let en_with_sid = "C:\\x.bak Everyone:(R)\r\nS-1-1-0:(R)\r\n";
+        assert!(acl_has_broad_ace(en_with_sid), "S-1-1-0 in English SID output must be detected");
+    }
     // H3: no orphan tmp on rename failure; TargetLocked returned.
     #[test]
     #[cfg(unix)]
