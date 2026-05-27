@@ -28,7 +28,7 @@ fn main() -> Result<(), eframe::Error> {
             return Ok(());
         }
         Some("--help") => {
-            let msg = "amore-gui — first-run setup wizard for Amore\n\nUsage:\n  amore-gui              Launch the GUI wizard\n  amore-gui --tray       Run as system tray icon (MSI auto-start path)\n  amore-gui --version    Print version and exit\n  amore-gui --help       Print this help and exit\n  amore-gui --no-gui     Print config summary as JSON and exit (CI smoke)\n";
+            let msg = "amore-gui — first-run setup wizard for Amore\n\nUsage:\n  amore-gui              Launch the GUI wizard\n  amore-gui --tray       Run as system tray icon (MSI auto-start path)\n  amore-gui --version    Print version and exit\n  amore-gui --help       Print this help and exit\n  amore-gui --no-gui     Print config summary as JSON and exit (CI smoke)\n  amore-gui --auto-wire  Detect IDEs and wire MCP config; emit JSON contract and exit\n";
             let _ = writeln!(std::io::stdout(), "{}", msg);
             let _ = writeln!(std::io::stderr(), "{}", msg);
             return Ok(());
@@ -49,6 +49,13 @@ fn main() -> Result<(), eframe::Error> {
             }
             return Ok(());
         }
+        // F3/F24: --auto-wire runs BEFORE eframe::run_native so it is safe on
+        // headless Linux (no DISPLAY/winit init). Emits JSON contract to stdout.
+        // Exit 0 iff errors == []; non-zero otherwise.
+        // Schema documented in docs/AUTO-WIRE-CONTRACT.md.
+        Some("--auto-wire") => {
+            std::process::exit(run_auto_wire());
+        }
         _ => {}
     }
 
@@ -66,6 +73,53 @@ fn main() -> Result<(), eframe::Error> {
         opts,
         Box::new(|cc| Ok(Box::new(amore_gui::wizard::AmoreWizardApp::new(cc)))),
     )
+}
+
+/// Headless auto-wire entry point (F3 + F24).
+///
+/// Detects all installed IDEs, wires each one, then emits the JSON contract
+/// defined in docs/AUTO-WIRE-CONTRACT.md to stdout. Returns the process exit
+/// code: 0 when errors is empty, 1 otherwise.
+///
+/// MUST NOT touch eframe, winit, or any display system — called before
+/// eframe::run_native so it is safe on headless Linux with DISPLAY unset.
+fn run_auto_wire() -> i32 {
+    use amore_gui::ide_detect;
+    use amore_gui::ide_wire::{WireVerdict, wire_all};
+
+    let detected = ide_detect::detect_all();
+    let detected_names: Vec<String> = detected.iter().map(|d| d.name.clone()).collect();
+
+    let results = wire_all(&detected);
+
+    let mut wired: Vec<String> = Vec::new();
+    let mut skipped: Vec<String> = Vec::new();
+    let mut errors: Vec<serde_json::Value> = Vec::new();
+
+    for (name, verdict) in &results {
+        match verdict {
+            WireVerdict::Ok => wired.push(name.clone()),
+            WireVerdict::SkippedNoChange => skipped.push(name.clone()),
+            WireVerdict::Err(e) => errors.push(serde_json::json!({
+                "ide": name,
+                "error": e.to_string()
+            })),
+        }
+    }
+
+    let contract = serde_json::json!({
+        "detected": detected_names,
+        "wired": wired,
+        "skipped": skipped,
+        "errors": errors
+    });
+
+    // Emit JSON contract to stdout (machine-readable; callers parse this).
+    let serialized = serde_json::to_string(&contract)
+        .unwrap_or_else(|e| format!(r#"{{"detected":[],"wired":[],"skipped":[],"errors":[{{"ide":"internal","error":"{e}"}}]}}"#));
+    let _ = writeln!(std::io::stdout(), "{serialized}");
+
+    if errors.is_empty() { 0 } else { 1 }
 }
 
 fn load_icon() -> egui::IconData {

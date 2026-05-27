@@ -24,6 +24,14 @@ path = "tests/init_dry_run.rs"
 name = "working_product_docker"
 path = "tests/working_product_docker.rs"
 
+[[test]]
+name = "auto_wire_headless"
+path = "tests/auto_wire_headless.rs"
+
+[[test]]
+name = "qdrant_storage_writable"
+path = "tests/qdrant_storage_writable.rs"
+
 [dependencies]
 
 [dev-dependencies]
