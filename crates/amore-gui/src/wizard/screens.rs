@@ -105,14 +105,16 @@ pub fn render_bundled_deps(ui: &mut egui::Ui, state: &mut WizardState) {
             ui.label(egui::RichText::new("Component").strong());
             ui.label(egui::RichText::new("Version").strong());
             ui.end_row();
-            ui.label("Ollama (local AI runtime)");
+            ui.label("Local AI model");
             ui.label("v0.3.x");
             ui.end_row();
-            ui.label("Qdrant (vector store)");
+            ui.label("Memory index");
             ui.label("v1.15.x");
             ui.end_row();
         });
-    ui.add_space(6.0);
+    ui.add_space(4.0);
+    ui.label("These run quietly in the background — you don't need to interact with them.");
+    ui.add_space(4.0);
     ui.label("First-run disk usage: approximately 2–4 GB (AI model + data store).");
     ui.add_space(12.0);
     nav_row(ui, state);
@@ -130,8 +132,11 @@ pub fn render_ide_detect(ui: &mut egui::Ui, state: &mut WizardState) {
         state.ide_checked = vec![true; state.detected_ides.len()];
     }
     if state.detected_ides.is_empty() {
-        ui.label(
-            "No supported AI tools detected. You can wire manually — see docs/IDE-AUTO-WIRE.md.",
+        ui.label("No supported AI tools detected.");
+        ui.add_space(4.0);
+        ui.hyperlink_to(
+            "Learn how to connect manually",
+            "https://github.com/antonio-amore-akiki/amore/blob/main/docs/IDE-AUTO-WIRE.md",
         );
     } else {
         egui::Grid::new("ide_grid")
@@ -180,16 +185,17 @@ pub fn render_wire_confirm(ui: &mut egui::Ui, state: &mut WizardState) {
     if selected.is_empty() {
         ui.label("No tools selected. Go back and check at least one.");
     } else {
-        egui::ScrollArea::vertical()
-            .max_height(180.0)
-            .id_salt("wire_preview")
-            .show(ui, |ui| {
-                for ide in &selected {
-                    ui.label(egui::RichText::new(&ide.name).strong());
-                    ui.code(preview_for_ide(ide));
-                    ui.add_space(4.0);
-                }
+        for ide in &selected {
+            ui.horizontal(|ui| {
+                ui.label("Amore will add a memory link to ");
+                ui.label(egui::RichText::new(&ide.name).strong());
+                ui.label(". Your existing settings are backed up automatically before any change.");
             });
+            ui.collapsing("Show technical details", |ui| {
+                ui.code(preview_for_ide(ide));
+            });
+            ui.add_space(4.0);
+        }
         ui.add_space(8.0);
 
         let status = state
@@ -252,7 +258,7 @@ pub fn render_done(ui: &mut egui::Ui, state: &mut WizardState) {
         }
         ui.add_space(8.0);
         if ui
-            .add_sized([240.0, 36.0], egui::Button::new("Run in background (tray)"))
+            .add_sized([240.0, 36.0], egui::Button::new("Keep running quietly in the background"))
             .clicked()
         {
             state.run_in_tray_clicked = true;

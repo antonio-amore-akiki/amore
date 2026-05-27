@@ -47,7 +47,7 @@ pub fn spawn_tray() -> Result<TrayHandle, String> {
         .build()
         .map_err(|e| format!("tray icon build failed: {e}"))?;
 
-    check_autostart_state();
+    check_autostart_state(&tray);
 
     Ok(TrayHandle { _icon: tray })
 }
@@ -134,15 +134,21 @@ pub fn handle_menu_event(id: &str) -> bool {
 
 // ── Auto-start ────────────────────────────────────────────────────────────────
 
-fn check_autostart_state() {
+fn check_autostart_state(tray: &TrayIcon) {
     #[cfg(target_os = "windows")]
-    windows_autostart_check();
+    {
+        let _ = tray; // unused on windows
+        windows_autostart_check();
+    }
 
     #[cfg(target_os = "macos")]
-    macos_autostart_hint();
+    macos_autostart_hint(tray);
 
     #[cfg(target_os = "linux")]
-    linux_autostart_check();
+    {
+        let _ = tray; // unused on linux
+        linux_autostart_check();
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -172,12 +178,35 @@ fn windows_autostart_check() {
 }
 
 #[cfg(target_os = "macos")]
-fn macos_autostart_hint() {
+fn macos_autostart_hint(tray: &TrayIcon) {
     // macOS Login Items must be added by the user in System Settings > General > Login Items.
     // We surface a one-time hint rather than attempting programmatic insertion.
-    eprintln!(
-        "[amore-tray] To start Amore at login: System Settings > General > Login Items > add Amore"
-    );
+    const HINT: &str =
+        "To start Amore at login: System Settings > General > Login Items > add Amore";
+
+    // Structured log — captured by any tracing subscriber wired at startup.
+    tracing::info!("[amore-tray] {}", HINT);
+
+    // Set hint as tray tooltip so it's visible on hover.
+    let _ = tray.set_tooltip(Some(HINT));
+
+    // Write a one-shot first-run file so the hint is user-reachable even
+    // without a tray tooltip (e.g., headless CI or unsupported compositor).
+    if let Some(cfg_dir) = dirs::config_dir() {
+        let first_run = cfg_dir.join("amore").join("first-run.txt");
+        if !first_run.exists() {
+            if let Some(parent) = first_run.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let _ = std::fs::write(
+                &first_run,
+                format!(
+                    "Amore first-run note:\n{HINT}\n\n\
+                     You can delete this file — it will not be recreated.\n"
+                ),
+            );
+        }
+    }
 }
 
 #[cfg(target_os = "linux")]
