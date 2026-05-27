@@ -74,6 +74,8 @@ These warnings will go away in v1.0.3 once Amore's free open-source code-signing
 
 3. **Use it from any AI tool** — for example, in Claude Code: *"Remember that I prefer 4-space indentation in this project."* The preference is saved locally. Open a new conversation tomorrow — Claude Code remembers it.
 
+> Stuck? See [Troubleshooting](docs/TROUBLESHOOTING-BASIC.md) — 3 plain-English fixes for the most common issues.
+
 ## Demo
 
 ![Wizard screen 4 — IDE auto-detect with a checkbox per detected tool](docs/assets/wizard-ide-detect.png)
