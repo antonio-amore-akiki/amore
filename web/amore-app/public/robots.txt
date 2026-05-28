@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://antonio-amore-akiki.github.io/amore/sitemap.xml
