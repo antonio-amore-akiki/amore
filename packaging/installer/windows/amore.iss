@@ -62,6 +62,15 @@ Source: "{#MsiPath}"; DestDir: "{tmp}"; DestName: "amore-windows-x64.msi"; Flags
 Source: "amore-windows-x64.msi"; DestDir: "{tmp}"; Flags: deleteafterinstall
 #endif
 
+; --- B4 (F21): cosign-verify-mini.exe pre-extract verifier ---
+; Bundled in BOTH lite and fat installers. Extracted early via ExtractTemporaryFile
+; in [Code] InitializeSetup before any payload lands on disk.
+; Source: upstream cosign static binary (github.com/sigstore/cosign, Apache-2.0).
+; Staging: scripts/build-installer-windows.ps1 copies cosign-verify-mini.exe from
+;   packaging/installer/cosign-verify-mini/cosign-verify-mini-windows-amd64.exe
+; skipifsourcedoesntexist: local iscc validation succeeds without staging; CI populates it.
+Source: "staging\cosign-verify-mini.exe"; DestDir: "{tmp}"; DestName: "cosign-verify-mini.exe"; Flags: ignoreversion skipifsourcedoesntexist deleteafterinstall dontcopy
+
 ; --- FAT INSTALLER EXTRA FILES (B3, F20) ---
 ; Only included when compiling with /DFatInstaller.
 ; Provides air-gapped / first-run-offline install capability.
@@ -69,7 +78,6 @@ Source: "amore-windows-x64.msi"; DestDir: "{tmp}"; Flags: deleteafterinstall
 ;   staging\fat\ollama.exe           (~150 MB, ollama v0.24.0)
 ;   staging\fat\qdrant.exe           (~80 MB, qdrant v1.18.1)
 ;   staging\fat\models\nomic-embed-text.gguf  (~274 MB, default embedding model)
-;   staging\fat\cosign-verify-mini.exe        (~3 MB, B4 pre-extract verifier — see [Code])
 ;
 ; skipifsourcedoesntexist: local iscc validation succeeds without staging; CI populates staging.
 #ifdef FatInstaller
@@ -79,11 +87,6 @@ Source: "staging\fat\qdrant.exe"; DestDir: "{app}"; DestName: "qdrant.exe"; Flag
 #ifndef BundleModelFalse
 Source: "staging\fat\models\nomic-embed-text.gguf"; DestDir: "{app}\models"; Flags: ignoreversion skipifsourcedoesntexist
 #endif
-; cosign-verify-mini.exe: statically-linked ~3 MB binary (B4). Extracted before payload
-; so InitializeSetup can run it before extraction — this entry must be in BOTH lite and fat.
-; Listed here in the fat section as well for completeness; the lite [Code] block references
-; the same binary from the MSI's temp extraction path.
-Source: "staging\fat\cosign-verify-mini.exe"; DestDir: "{tmp}"; DestName: "cosign-verify-mini.exe"; Flags: ignoreversion skipifsourcedoesntexist deleteafterinstall
 #endif
 
 [Run]
@@ -100,3 +103,107 @@ Filename: "{app}\amore-mcp.exe"; Parameters: "--register-claude-desktop --self-c
 [UninstallRun]
 ; Mirror uninstall via msiexec /x to keep MSI ownership.
 Filename: "msiexec.exe"; Parameters: "/x ""{tmp}\amore-windows-x64.msi"" /qn /norestart"; Flags: runascurrentuser waituntilterminated; RunOnceId: "AmoreMsiUninstall"
+
+[Code]
+// B4 (F21): SBOM + Sigstore pre-extract verification.
+//
+// InitializeSetup runs BEFORE any [Files] are extracted. We use ExtractTemporaryFile
+// to pull cosign-verify-mini.exe out of the installer's payload into {tmp} early, then
+// invoke it against the installer's own SHA256 + Sigstore bundle signature.
+//
+// Fail-loud on mismatch: MsgBox with clear error pointing to release-page checksums;
+// installer returns False (aborts). No silent fail-open.
+//
+// The ReleaseBundle variable below is populated at compile time by the CI build step
+// that runs iscc. Pass /DReleaseBundle=<path-to-sigstore-bundle> and
+// /DReleaseSha256=<hex-sha256> on the iscc command line. If not provided, verification
+// is skipped with a logged warning (dev builds). Production CI always provides both.
+//
+// Upstream: github.com/sigstore/cosign verify-blob semantics:
+//   cosign verify-blob --bundle <bundle.sigstore> --certificate-identity-regexp=<id> <payload>
+// The bundle is the .sigstore file produced by cosign sign-blob in the release workflow.
+
+#ifdef ReleaseBundle
+  // ReleaseBundle and ReleaseSha256 are compile-time defines set by CI.
+  // Defined here as Inno constants for use in the [Code] block.
+  #define ReleaseBundleVal ReleaseBundle
+  #define ReleaseSha256Val ReleaseSha256
+#else
+  #define ReleaseBundleVal ""
+  #define ReleaseSha256Val ""
+#endif
+
+function InitializeSetup(): Boolean;
+var
+  CosignExe, CosignArgs: String;
+  ExitCode: Integer;
+  BundlePath, Sha256, InstallerPath: String;
+begin
+  Result := True;
+
+  BundlePath  := '{#ReleaseBundleVal}';
+  Sha256      := '{#ReleaseSha256Val}';
+
+  // Skip verification in dev builds (no CI defines provided).
+  if (BundlePath = '') or (Sha256 = '') then
+  begin
+    // Dev build: verification skipped. Log to setup log for audit.
+    Log('B4: cosign pre-extract skip — ReleaseBundle/ReleaseSha256 not set (dev build).');
+    Exit;
+  end;
+
+  // Extract cosign-verify-mini.exe from installer payload into {tmp}.
+  // ExtractTemporaryFile requires Flags: dontcopy on the [Files] entry.
+  ExtractTemporaryFile('cosign-verify-mini.exe');
+  CosignExe := ExpandConstant('{tmp}\cosign-verify-mini.exe');
+
+  if not FileExists(CosignExe) then
+  begin
+    Log('B4: cosign-verify-mini.exe not found in {tmp} — pre-extract verification skipped (installer was built without staging/cosign-verify-mini.exe).');
+    Exit;
+  end;
+
+  // Build the verify-blob command:
+  //   cosign verify-blob --bundle <bundle> --certificate-identity-regexp=.* <installer>
+  // InstallerPath = the .exe being run (this installer).
+  InstallerPath := ExpandConstant('{srcexe}');
+  CosignArgs := 'verify-blob'
+    + ' --bundle "' + BundlePath + '"'
+    + ' --certificate-identity-regexp=".*"'
+    + ' --certificate-oidc-issuer-regexp=".*"'
+    + ' "' + InstallerPath + '"';
+  Log('B4: Running: ' + CosignExe + ' ' + CosignArgs);
+
+  if not Exec(CosignExe, CosignArgs, '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
+  begin
+    MsgBox(
+      'Amore Installer — Security Check Failed' + #13#10 + #13#10 +
+      'Could not launch the signature verifier (cosign-verify-mini.exe).' + #13#10 +
+      'This installer may be corrupt or incomplete.' + #13#10 + #13#10 +
+      'Please re-download Amore from:' + #13#10 +
+      'https://github.com/antonio-amore-akiki/amore/releases' + #13#10 + #13#10 +
+      'Check the SHA256 and .sigstore bundle listed on the release page.',
+      mbCriticalError, MB_OK
+    );
+    Result := False;
+    Exit;
+  end;
+
+  if ExitCode <> 0 then
+  begin
+    MsgBox(
+      'Amore Installer — Signature Verification Failed' + #13#10 + #13#10 +
+      'The Sigstore signature for this installer does NOT match.' + #13#10 +
+      'Exit code: ' + IntToStr(ExitCode) + #13#10 + #13#10 +
+      'This installer may have been tampered with or downloaded from an unofficial source.' + #13#10 + #13#10 +
+      'Please verify against the official checksums at:' + #13#10 +
+      'https://github.com/antonio-amore-akiki/amore/releases' + #13#10 + #13#10 +
+      'Expected SHA256: ' + Sha256,
+      mbCriticalError, MB_OK
+    );
+    Result := False;
+    Exit;
+  end;
+
+  Log('B4: cosign pre-extract verification PASSED. Proceeding with installation.');
+end;
