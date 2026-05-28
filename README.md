@@ -4,7 +4,7 @@
 
 **Local-first persistent memory for every AI tool — one click install, never leaves your machine.**
 
-![Amore hero: install wizard → IDE auto-wire → persistent memory across sessions](docs/assets/amore-hero.png)
+![Amore — built on prior art: MemGPT (2023, UC Berkeley) → Letta (2024) → mem0 (2024, 30k★) → Amore (2026, local-first Rust)](docs/assets/lineage-banner.svg)
 
 ## Why Amore
 
