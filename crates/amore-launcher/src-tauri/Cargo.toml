@@ -1,10 +1,12 @@
 [package]
-name = "amore-launcher-tauri"
+name = "amore-launcher"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Amore launcher — Tauri 2 backend"
+repository.workspace = true
+description = "Amore launcher — Tauri 2 desktop app discovering + installing Antonio's products from one place."
+build = "build.rs"
 
 [[bin]]
 name = "amore-launcher"
@@ -17,13 +19,11 @@ tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
-
-[profile.release]
-panic = "abort"
-codegen-units = 1
-lto = true
-opt-level = "s"
-strip = true
+# NB: profile.release lives at the workspace root (per cargo workspace rules);
+# don't redeclare here or cargo refuses with "manifest has no targets" wrappers.
