@@ -1,6 +1,33 @@
 <!-- topic: auto-wire headless JSON contract schema for IDE MCP wiring -->
 <!-- stable: true -->
-# `--auto-wire` JSON Contract
+# Auto-Wire JSON Contract
+
+Machine-readable schema: [`schema/auto-wire-contract.schema.json`](../schema/auto-wire-contract.schema.json)
+
+## `amore-mcp --register-claude-code --self-contained`
+
+Registers the MCP server with Claude Code non-interactively and emits a single JSON
+object on stdout conforming to `schema/auto-wire-contract.schema.json` (JSON Schema draft-07).
+
+```json
+{
+  "detected": [{"id": "claude-code", "config_path": "/home/user/.claude.json"}],
+  "wired":    [{"id": "claude-code", "method": "atomic-write"}],
+  "skipped":  [],
+  "errors":   []
+}
+```
+
+| Field      | Type   | Meaning |
+|------------|--------|---------|
+| `detected` | array  | IDEs found on disk; each `{id, config_path}` |
+| `wired`    | array  | IDEs successfully registered; each `{id, method}` |
+| `skipped`  | array  | IDEs already containing an identical entry; each `{id, reason}` |
+| `errors`   | array  | IDEs where wiring failed; each `{id, error}` |
+
+Exit 0 when `errors == []`; exit 1 otherwise.
+
+## `amore-gui --auto-wire` (legacy)
 
 `amore-gui --auto-wire` runs headless IDE detection and MCP config wiring, then
 exits without launching any GUI or display system.

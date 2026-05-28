@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/antonio-amore-akiki/amore/blob/main/schema/cert-result.schema.json",
+  "title": "AmoreCertResult",
+  "description": "Output of certify-user-flow.{ps1,sh}. Written to state/cert/local-<os>-result.json. Contains one entry per gate (10 gates numbered 1-10). Schema version: 1.",
+  "type": "object",
+  "required": ["schema_version", "os", "run_id", "started_at", "finished_at", "overall_pass", "gates"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "os": {
+      "type": "string",
+      "description": "Operating system tag.",
+      "enum": ["windows", "linux", "macos"]
+    },
+    "run_id": {
+      "type": "string",
+      "description": "Unique identifier for this cert run (ISO-8601 timestamp or UUID)."
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp when the cert script started."
+    },
+    "finished_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp when the cert script finished (or was aborted)."
+    },
+    "overall_pass": {
+      "type": "boolean",
+      "description": "True iff every executed gate passed."
+    },
+    "release_tag": {
+      "type": "string",
+      "description": "The release tag that was downloaded and tested (e.g. v1.0.2)."
+    },
+    "gates": {
+      "type": "array",
+      "description": "One entry per gate, in gate number order.",
+      "minItems": 1,
+      "maxItems": 10,
+      "items": { "$ref": "#/definitions/GateResult" }
+    }
+  },
+  "definitions": {
+    "GateResult": {
+      "type": "object",
+      "required": ["gate", "name", "pass", "duration_ms"],
+      "additionalProperties": false,
+      "properties": {
+        "gate": {
+          "type": "integer",
+          "description": "Gate number (1-10).",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "name": {
+          "type": "string",
+          "description": "Short human-readable gate name."
+        },
+        "pass": {
+          "type": "boolean",
+          "description": "True if the gate completed without error."
+        },
+        "duration_ms": {
+          "type": "integer",
+          "description": "Wall-clock duration of this gate in milliseconds.",
+          "minimum": 0
+        },
+        "error": {
+          "type": "string",
+          "description": "Error detail when pass=false. Omitted when pass=true."
+        },
+        "detail": {
+          "type": "string",
+          "description": "Optional extra context (truncated stdout/stderr, path found, etc.)."
+        }
+      }
+    }
+  }
+}
