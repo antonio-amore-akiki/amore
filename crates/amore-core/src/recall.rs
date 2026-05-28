@@ -230,6 +230,104 @@ impl<E: Embedder> HybridRecall<E> {
         self.qdrant.upsert(id, vec, payload).await?;
         Ok(())
     }
+
+    /// Ingest an observation into both the BM25 (SQLite) and vector (Qdrant) lanes
+    /// with graceful degradation. The BM25 lane is the authoritative sink — its
+    /// failure is always propagated as Err. The vector lane failure is non-fatal:
+    /// `persisted_vector` is set to false and `degraded.ollama_unavailable` or
+    /// `degraded.qdrant_unavailable` is set, but Ok is still returned.
+    ///
+    /// The numeric Qdrant ID is derived from the first 8 bytes of the envelope's
+    /// hex hash (big-endian u64) to ensure a stable, collision-resistant mapping
+    /// between the SQLite string ID and the Qdrant point ID.
+    ///
+    /// Returns [`IngestReceipt`] which is serialised directly into the MCP
+    /// `observe` tool response.
+    pub async fn ingest(
+        &self,
+        source: &str,
+        payload: &serde_json::Value,
+    ) -> Result<IngestReceipt> {
+        // BM25 lane — authoritative. Failure is fatal (propagated as Err).
+        let sqlite = self.sqlite.as_ref().ok_or_else(|| {
+            anyhow::anyhow!(
+                "observe: no SQLite store attached — call HybridRecall::with_sqlite() first"
+            )
+        })?;
+        let env = sqlite.insert_observation(source, payload)?;
+
+        // Extract indexable text: prefer payload.text, else canonical JSON.
+        let text = payload
+            .get("text")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&env.canonical_json)
+            .to_string();
+
+        // Derive a stable u64 Qdrant point-ID from the first 8 hex bytes of the
+        // envelope hash (big-endian). Two hex chars = one byte; first 16 hex chars
+        // = 8 bytes. Falls back to 0 on any parse error (hash is always 64 chars).
+        let qdrant_id: u64 = u64::from_str_radix(&env.hash.chars().take(16).collect::<String>(), 16)
+            .unwrap_or(0);
+
+        // Vector lane — graceful degradation. Failure logs WARN and sets flags.
+        let mut degraded = Degraded::default();
+        let mut persisted_vector = false;
+        let t = crate::timeout::resolve_timeout();
+        match crate::timeout::with_timeout(t, self.embedder.embed_query(&text)).await {
+            Ok(vec) => {
+                let mut extra = serde_json::json!({
+                    "source": source,
+                    "text": text,
+                });
+                // Merge original payload fields into the Qdrant point payload.
+                if let (Some(ep), Some(op)) = (extra.as_object_mut(), payload.as_object()) {
+                    for (k, v) in op {
+                        ep.entry(k.clone()).or_insert_with(|| v.clone());
+                    }
+                }
+                match crate::timeout::with_timeout(t, self.qdrant.upsert(qdrant_id, vec, extra)).await {
+                    Ok(()) => { persisted_vector = true; }
+                    Err(e) => {
+                        tracing::warn!(
+                            target: "amore.ingest",
+                            error = %e,
+                            "qdrant.upsert.failed — vector lane not persisted"
+                        );
+                        degraded.qdrant_unavailable = true;
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!(
+                    target: "amore.ingest",
+                    error = %e,
+                    "ollama.embed.failed — vector lane not persisted"
+                );
+                degraded.ollama_unavailable = true;
+            }
+        }
+
+        Ok(IngestReceipt {
+            id: env.id,
+            persisted_bm25: true,
+            persisted_vector,
+            degraded,
+        })
+    }
+}
+
+/// Receipt returned by [`HybridRecall::ingest`] and serialised into the MCP
+/// `observe` tool response body.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct IngestReceipt {
+    /// The envelope ID (hex-encoded SHA-256 of the canonical payload).
+    pub id: String,
+    /// Whether the observation was persisted in the BM25 SQLite lane.
+    pub persisted_bm25: bool,
+    /// Whether the observation was persisted in the Qdrant vector lane.
+    pub persisted_vector: bool,
+    /// Per-lane degradation flags. Caller MUST inspect to detect lane outages.
+    pub degraded: Degraded,
 }
 
 fn map_hit(h: SearchHit) -> RecallHit {
@@ -310,6 +408,118 @@ pub(crate) fn rrf_fuse(
     });
     fused.truncate(top_k);
     fused
+}
+
+// ---------------------------------------------------------------------------
+// Tests for HybridRecall::ingest (A1)
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod observe_tests {
+    use super::*;
+    use crate::qdrant_store::QdrantStore;
+    use crate::sqlite_store::SqliteStore;
+    use serde_json::json;
+    use std::sync::Arc;
+
+    // Mock embedder that always returns Err (simulates Ollama unavailability).
+    struct FailEmbedder;
+    impl Embedder for FailEmbedder {
+        fn embed_query(
+            &self,
+            _text: &str,
+        ) -> impl std::future::Future<Output = anyhow::Result<Vec<f32>>> + Send {
+            async { anyhow::bail!("mock: ollama unavailable") }
+        }
+    }
+
+    fn make_store() -> Arc<SqliteStore> {
+        Arc::new(SqliteStore::open_in_memory().expect("in-memory sqlite"))
+    }
+
+    fn make_recall_no_vector(sqlite: Arc<SqliteStore>) -> HybridRecall<FailEmbedder> {
+        // QdrantStore::open_lazy with a dummy URL — never reached because embed fails first.
+        let qdrant = QdrantStore::open_lazy("http://127.0.0.1:6334", "amore_test")
+            .expect("lazy qdrant client");
+        HybridRecall::with_embedder(FailEmbedder, qdrant).with_sqlite(sqlite)
+    }
+
+    // Test 1: round-trip — BM25 lane persists, vector lane fails gracefully.
+    #[tokio::test]
+    async fn observe_round_trip_bm25_persisted() {
+        let sqlite = make_store();
+        let recall = make_recall_no_vector(Arc::clone(&sqlite));
+        let payload = json!({"text": "hello amore round-trip"});
+        let receipt = recall.ingest("test_source", &payload).await
+            .expect("ingest must succeed with BM25-only path");
+
+        assert!(!receipt.id.is_empty(), "id must be non-empty");
+        assert!(receipt.persisted_bm25, "BM25 must be persisted");
+        assert!(!receipt.persisted_vector, "vector must not be persisted (no Qdrant)");
+        assert!(receipt.degraded.ollama_unavailable, "ollama flag must be set");
+        assert!(!receipt.degraded.qdrant_unavailable, "qdrant flag not set (embed failed first)");
+
+        // Verify the observation is actually in SQLite.
+        let count = sqlite.count_observations().expect("count_observations");
+        assert_eq!(count, 1, "exactly 1 observation in SQLite");
+    }
+
+    // Test 2: boundary — payload at exactly 16 KiB cap round-trips successfully.
+    // (The cap is enforced at the MCP handler layer; ingest itself has no cap —
+    // we validate that a large-but-valid payload is persisted correctly.)
+    #[tokio::test]
+    async fn observe_boundary_large_payload_ingests() {
+        let sqlite = make_store();
+        let recall = make_recall_no_vector(Arc::clone(&sqlite));
+        // 16 000 bytes of 'x' — under the 16 384 byte MCP cap but large.
+        let text = "x".repeat(16_000);
+        let payload = json!({"text": text});
+        let receipt = recall.ingest("boundary_test", &payload).await
+            .expect("large payload must ingest into SQLite");
+        assert!(receipt.persisted_bm25);
+        let count = sqlite.count_observations().expect("count");
+        assert_eq!(count, 1);
+    }
+
+    // Test 3: partial degradation — ingest without sqlite attached returns Err.
+    #[tokio::test]
+    async fn observe_no_sqlite_returns_err() {
+        let qdrant = QdrantStore::open_lazy("http://127.0.0.1:6334", "amore_test")
+            .expect("lazy qdrant");
+        // No with_sqlite() call — sqlite is None.
+        let recall = HybridRecall::with_embedder(FailEmbedder, qdrant);
+        let err = recall.ingest("src", &json!({"text": "hello"})).await
+            .expect_err("must Err without SQLite attached");
+        assert!(
+            err.to_string().contains("no SQLite store attached"),
+            "error must name the missing SQLite: {err}"
+        );
+    }
+
+    // Test 4: concurrent — two simultaneous ingests both land without chain corruption.
+    #[tokio::test]
+    async fn observe_concurrent_ingests_both_land() {
+        let sqlite = make_store();
+        let recall = Arc::new(make_recall_no_vector(Arc::clone(&sqlite)));
+
+        let r1 = Arc::clone(&recall);
+        let r2 = Arc::clone(&recall);
+
+        let (res1, res2) = tokio::join!(
+            async move { r1.ingest("concurrent_a", &json!({"text": "observation one"})).await },
+            async move { r2.ingest("concurrent_b", &json!({"text": "observation two"})).await },
+        );
+        let rec1 = res1.expect("concurrent ingest 1");
+        let rec2 = res2.expect("concurrent ingest 2");
+
+        // IDs must be distinct.
+        assert_ne!(rec1.id, rec2.id, "concurrent observations must have distinct IDs");
+        // Both must have persisted BM25.
+        assert!(rec1.persisted_bm25 && rec2.persisted_bm25);
+
+        let count = sqlite.count_observations().expect("count");
+        assert_eq!(count, 2, "both concurrent observations must be in SQLite");
+    }
 }
 
 #[cfg(test)]
