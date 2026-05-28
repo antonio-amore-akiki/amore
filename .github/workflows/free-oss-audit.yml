@@ -72,7 +72,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - uses: gitleaks/gitleaks-action@cb7149b9b57195b609c63e8518d2c37a82b59e6e  # v2.3.6
+      - uses: gitleaks/gitleaks-action@44c470ffc35caa8b1eb3e8012ca53c2f9bea4eb5  # v2.3.6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -211,7 +211,7 @@ jobs:
         with:
           persist-credentials: true  # required for git push in aggregate
 
-      - uses: actions/download-artifact@fa0a91b85d4f404e444306234a07170d7c7aec4c  # v4.1.8
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16  # v4.1.8
         with:
           merge-multiple: true
         continue-on-error: true  # some jobs may have failed; aggregate best-effort

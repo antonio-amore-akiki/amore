@@ -18,6 +18,6 @@ jobs:
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
       - run: semgrep ci --config p/rust --config .semgrep.yml --sarif --output semgrep.sarif
-      - uses: github/codeql-action/upload-sarif@2c779ab0d087cd7fe7b826087247c2c81f27bfa6  # v3.27.1
+      - uses: github/codeql-action/upload-sarif@4f3212b61783c3c68e8309a0f18a699764811cda  # v3.27.1
         if: always()
         with: { sarif_file: semgrep.sarif }
