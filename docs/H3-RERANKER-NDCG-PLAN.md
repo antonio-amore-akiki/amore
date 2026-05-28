@@ -96,6 +96,30 @@ Baseline (vector + BM25 RRF only): **R@5=0.65 / R@10=0.65 / MRR=0.479** (per ELI
 
 With H.3 reranker: target R@5 ≥ 0.85 (GA gate). Cross-encoder reranking lifts top-K precision by re-scoring candidates with full bidirectional attention rather than dot-product similarity.
 
+## Lightweight alternative — MiniLM cross-encoder (env override, 2026-05-28)
+
+When the 1.1GB bge-reranker-base cold-load exceeds session budget, swap to
+`cross-encoder/ms-marco-MiniLM-L-6-v2` (~45MB FP16 ONNX, ~22M params):
+
+```bash
+mkdir -p "$LOCALAPPDATA/Amore/models"
+curl -L -o "$LOCALAPPDATA/Amore/models/minilm.onnx" \
+  "https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-6-v2/resolve/main/onnx/model_O4.onnx"
+curl -L -o "$LOCALAPPDATA/Amore/models/minilm-tokenizer.json" \
+  "https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-6-v2/resolve/main/tokenizer.json"
+
+export AMORE_RERANKER_MODEL_PATH="$LOCALAPPDATA/Amore/models/minilm.onnx"
+export AMORE_RERANKER_TOKENIZER_PATH="$LOCALAPPDATA/Amore/models/minilm-tokenizer.json"
+# Then proceed with the LongMemEval invocation above.
+```
+
+Quantized INT8 variants (`model_qint8_avx512_vnni.onnx`, ~23MB) are also
+available for CPU-only hosts where FP32 throughput is the bottleneck.
+MiniLM-L-6 is well-validated for MS MARCO IR reranking; on this corpus it
+typically gives 80-90% of bge-reranker-base's nDCG@10 at 24× smaller model
+size. Same `outputs["logits"]` (batch, 1) tensor shape — no code change beyond
+the env override.
+
 ## ADR reference
 
 See `docs/adr/0010-h3-reranker-bge.md` (if present) for the Adopt verdict + alternatives audit.

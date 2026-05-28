@@ -107,13 +107,23 @@ impl Reranker {
     ///   `<data_local_dir>/Amore/models/bge-reranker-base.onnx`
     ///   `<data_local_dir>/Amore/models/tokenizer.json`
     ///
-    /// Download:
-    ///   `huggingface-cli download BAAI/bge-reranker-base --local-dir <data_local_dir>/Amore/models/`
-    ///   Then export: `optimum-cli export onnx --model BAAI/bge-reranker-base bge-reranker-base/`
+    /// Env overrides (2026-05-28; closes reranker-b7 hardware-cold-load gap):
+    ///   `AMORE_RERANKER_MODEL_PATH`     — override ONNX path (e.g. point to MiniLM 45MB FP16)
+    ///   `AMORE_RERANKER_TOKENIZER_PATH` — override tokenizer path (must match the model family)
+    ///
+    /// Drop-in MiniLM (~45MB, ~3s cold-load vs ~7min for 1.1GB bge-reranker-base):
+    ///   curl -L -o ~/AppData/Local/Amore/models/minilm.onnx https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-6-v2/resolve/main/onnx/model_O4.onnx
+    ///   curl -L -o ~/AppData/Local/Amore/models/minilm-tokenizer.json https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-6-v2/resolve/main/tokenizer.json
+    ///   set AMORE_RERANKER_MODEL_PATH=...\\minilm.onnx
+    ///   set AMORE_RERANKER_TOKENIZER_PATH=...\\minilm-tokenizer.json
     pub fn from_default_paths() -> Result<Self> {
         let base = default_model_dir()?;
-        let model_path = base.join("bge-reranker-base.onnx");
-        let tokenizer_path = base.join("tokenizer.json");
+        let model_path = std::env::var_os("AMORE_RERANKER_MODEL_PATH")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| base.join("bge-reranker-base.onnx"));
+        let tokenizer_path = std::env::var_os("AMORE_RERANKER_TOKENIZER_PATH")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| base.join("tokenizer.json"));
         Self::new(&model_path, &tokenizer_path)
     }
 
