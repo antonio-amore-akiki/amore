@@ -78,11 +78,9 @@ These warnings will go away in v1.0.3 once Amore's free open-source code-signing
 
 ## Demo
 
-![Wizard screen 4 — IDE auto-detect with a checkbox per detected tool](docs/assets/wizard-ide-detect.png)
+![Animated walkthrough — 6 wizard screens cycle every 1.5 s: license accept → memory location → tour → IDE auto-detect → finish → tray menu](docs/assets/wizard-demo.gif)
 
-![Tray menu open — Open dashboard / Pause / Resume / Recent activity / Check updates / Quit](docs/assets/tray-menu.png)
-
-For detail on wiring specific IDEs (and manual wire-up for tools the wizard doesn't auto-detect), see [`docs/IDE-AUTO-WIRE.md`](docs/IDE-AUTO-WIRE.md).
+For detail on wiring specific IDEs (and manual wire-up for tools the wizard doesn't auto-detect), see [`docs/IDE-AUTO-WIRE.md`](docs/IDE-AUTO-WIRE.md). For static screenshots of each wizard screen, see [`docs/FIRST-RUN-WIZARD.md`](docs/FIRST-RUN-WIZARD.md).
 
 ---
 
