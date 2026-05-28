@@ -23,7 +23,11 @@ authors = ["Antonio <antonioakiki15@gmail.com>"]
 edition = "2024"
 license = "Apache-2.0"
 repository = "https://github.com/antonio-amore-akiki/amore"
+homepage = "https://github.com/antonio-amore-akiki/amore"
 rust-version = "1.95"
+description = "Amore — local-first MCP agent memory backbone. Per-user Rust binary that auto-wires Claude Desktop, Claude Code CLI, Cursor, Cline, Continue, and other MCP-aware IDEs."
+keywords = ["mcp", "agent-memory", "claude-code", "rag", "rust"]
+categories = ["development-tools", "command-line-utilities"]
 
 [workspace.dependencies]
 # MCP — official Anthropic SDK

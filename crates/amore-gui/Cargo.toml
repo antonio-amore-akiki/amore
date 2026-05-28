@@ -5,6 +5,9 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+description = "Amore GUI — egui-based wizard + tray + IDE auto-detect/auto-wire for the Amore MCP agent memory backbone."
+keywords = ["mcp", "agent-memory", "egui", "claude-code", "gui"]
+categories = ["gui", "command-line-utilities"]
 
 [[bin]]
 name = "amore-gui"
