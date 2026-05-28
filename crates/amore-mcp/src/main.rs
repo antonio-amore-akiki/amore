@@ -30,7 +30,7 @@ mod shutdown;
 use amore_core::docs::CanonicalDocsRouter;
 use amore_core::ollama::OllamaClient;
 use amore_core::qdrant_store::QdrantStore;
-use amore_core::recall::HybridRecall;
+use amore_core::recall::{HybridRecall, IngestReceipt};
 use amore_core::sqlite_store::SqliteStore;
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -193,6 +193,18 @@ fn default_top_k() -> usize {
     5
 }
 
+/// Parameters for the `observe` tool — persist a new observation into the store.
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+pub struct ObserveParams {
+    /// Source channel for this observation (e.g. "user_prompt", "edit_log",
+    /// "tool_output"). Stored verbatim in the SQLite observations table.
+    pub source: String,
+    /// Arbitrary JSON payload. Must include a "text" string field that is used
+    /// as the indexable content for BM25 + vector embedding. Total payload
+    /// size (as canonical JSON) is capped at 16 KiB (16 384 bytes).
+    pub payload: serde_json::Value,
+}
+
 /// Parameters for the `canonical_doc_lookup` tool.
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct CanonicalLookupParams {
@@ -266,6 +278,51 @@ impl AmoreServer {
             .map_err(|e| McpError::internal_error(format!("recall failed: {e}"), None))?;
         let body = serde_json::to_string(&envelope).map_err(|e| {
             McpError::internal_error(format!("serialize recall envelope failed: {e}"), None)
+        })?;
+        Ok(CallToolResult::success(vec![Content::text(body)]))
+    }
+
+    #[tool(
+        description = "Persist a new observation into the Amore store. Writes to the BM25 SQLite lane (authoritative, always) and the Qdrant vector lane (graceful-degradation: failure is non-fatal). The payload MUST include a 'text' string field used for BM25 indexing and vector embedding. Total payload size is capped at 16 KiB. Returns {id, persisted_bm25, persisted_vector, degraded} — caller MUST inspect `degraded` to detect a vector lane outage. BM25 failure is always a hard error."
+    )]
+    async fn observe(
+        &self,
+        Parameters(params): Parameters<ObserveParams>,
+    ) -> Result<CallToolResult, McpError> {
+        // Rate-limit check (W3-3B): same session key as recall.
+        let session = SessionId("default".to_string());
+        check_rate_limit(&self.rate_limiter, &session)?;
+
+        // Validate source is non-empty.
+        if params.source.is_empty() {
+            return Err(McpError::invalid_params(
+                "observe: 'source' must be a non-empty string",
+                None,
+            ));
+        }
+
+        // Enforce 16 KiB cap on the serialised canonical payload (matches WAL
+        // envelope limit). Reject before any DB write.
+        let payload_json = serde_json::to_string(&params.payload).map_err(|e| {
+            McpError::invalid_params(format!("observe: payload serialisation failed: {e}"), None)
+        })?;
+        if payload_json.len() > MAX_QUERY_BYTES {
+            return Err(McpError::invalid_params(
+                format!(
+                    "observe: payload exceeds {MAX_QUERY_BYTES} bytes (got {})",
+                    payload_json.len()
+                ),
+                None,
+            ));
+        }
+
+        let receipt: IngestReceipt = self
+            .recall
+            .ingest(&params.source, &params.payload)
+            .await
+            .map_err(|e| McpError::internal_error(format!("observe failed: {e}"), None))?;
+        let body = serde_json::to_string(&receipt).map_err(|e| {
+            McpError::internal_error(format!("serialize observe receipt failed: {e}"), None)
         })?;
         Ok(CallToolResult::success(vec![Content::text(body)]))
     }
