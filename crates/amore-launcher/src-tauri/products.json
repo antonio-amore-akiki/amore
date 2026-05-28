@@ -1,0 +1,16 @@
+[
+  {
+    "id": "amore",
+    "name": "Amore",
+    "description": "Local-first MCP agent memory backbone. Per-user binary that auto-wires Claude Desktop, Claude Code CLI, Cursor, Cline, Continue, and other MCP-aware IDEs.",
+    "version": "1.1.0",
+    "assets": {
+      "windows": "https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-windows-x64.exe",
+      "macos_arm": "https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-latest-macos-aarch64.tar.gz",
+      "macos_x64": "https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-latest-macos-x86_64.tar.gz",
+      "linux": "https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-gui-x86_64.AppImage"
+    },
+    "releases_url": "https://github.com/antonio-amore-akiki/amore/releases/latest",
+    "repo_url": "https://github.com/antonio-amore-akiki/amore"
+  }
+]

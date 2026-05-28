@@ -15,6 +15,7 @@ members = [
     "crates/amore-gui",
     "crates/amore-i18n",
     "crates/amore-integration-tests",
+    "crates/amore-launcher",
 ]
 
 [workspace.package]
