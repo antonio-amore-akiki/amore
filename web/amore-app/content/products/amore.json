@@ -1,0 +1,142 @@
+{
+  "slug": "amore",
+  "name": "Amore — local-first MCP memory backbone",
+  "description": "Amore MCP server — Model Context Protocol stdio server exposing the Amore agent memory backbone (observe / recall / forget tools) to Claude Code, Claude Desktop, Cursor, Cline, Continue, and other MCP-aware IDEs.",
+  "github_url": "https://github.com/antonio-amore-akiki/amore",
+  "latest_version": "1.1.0",
+  "install_commands": {
+    "windows": [
+      {
+        "channel": "GitHub Releases (MSI installer)",
+        "command": "Download amore-windows-x64.msi, double-click, follow installer",
+        "label": "MSI Installer",
+        "type": "gui"
+      },
+      {
+        "channel": "GitHub Releases (Inno Setup .exe)",
+        "command": "Download amore-windows-x64.exe, double-click, follow installer",
+        "label": "Inno Setup .exe",
+        "type": "gui"
+      },
+      {
+        "channel": "cargo",
+        "command": "cargo install amore-mcp",
+        "label": "cargo (Rust)",
+        "type": "shell"
+      },
+      {
+        "channel": "npm",
+        "command": "npm install -g amore-mcp",
+        "label": "npm",
+        "type": "shell"
+      },
+      {
+        "channel": "pip",
+        "command": "pip install amore",
+        "label": "pip (Python)",
+        "type": "shell"
+      },
+      {
+        "channel": "docker",
+        "command": "docker pull antonio0101/amore:1.1.0",
+        "label": "Docker",
+        "type": "shell"
+      }
+    ],
+    "macos": [
+      {
+        "channel": "Homebrew",
+        "command": "brew install antonio-amore-akiki/amore/amore",
+        "label": "Homebrew (recommended)",
+        "type": "shell"
+      },
+      {
+        "channel": "GitHub Releases (.pkg)",
+        "command": "Double-click amore-1.1.0-macos-aarch64.pkg (or x86_64), follow installer",
+        "label": ".pkg Installer",
+        "type": "gui"
+      },
+      {
+        "channel": "GitHub Releases (.dmg)",
+        "command": "Open amore-1.1.0-macos-aarch64.dmg (or x86_64), drag to Applications",
+        "label": ".dmg",
+        "type": "gui"
+      },
+      {
+        "channel": "GitHub Releases (.tar.gz)",
+        "command": "tar -xzf amore-1.1.0-macos-aarch64.tar.gz && cd amore-1.1.0-macos-aarch64 && sudo cp amore* /usr/local/bin/",
+        "label": ".tar.gz (manual)",
+        "type": "shell"
+      },
+      {
+        "channel": "cargo",
+        "command": "cargo install amore-mcp",
+        "label": "cargo (Rust)",
+        "type": "shell"
+      },
+      {
+        "channel": "npm",
+        "command": "npm install -g amore-mcp",
+        "label": "npm",
+        "type": "shell"
+      },
+      {
+        "channel": "pip",
+        "command": "pip install amore",
+        "label": "pip (Python)",
+        "type": "shell"
+      },
+      {
+        "channel": "docker",
+        "command": "docker pull antonio0101/amore:1.1.0",
+        "label": "Docker",
+        "type": "shell"
+      }
+    ],
+    "linux": [
+      {
+        "channel": "GitHub Releases (.deb)",
+        "command": "wget https://github.com/antonio-amore-akiki/amore/releases/download/v1.1.0/amore-1.1.0-linux-amd64.deb && sudo dpkg -i amore-1.1.0-linux-amd64.deb",
+        "label": ".deb (Debian/Ubuntu)",
+        "type": "shell"
+      },
+      {
+        "channel": "GitHub Releases (.rpm)",
+        "command": "wget https://github.com/antonio-amore-akiki/amore/releases/download/v1.1.0/amore-1.1.0-linux-x86_64.rpm && sudo rpm -i amore-1.1.0-linux-x86_64.rpm",
+        "label": ".rpm (Fedora/RHEL)",
+        "type": "shell"
+      },
+      {
+        "channel": "GitHub Releases (AppImage)",
+        "command": "wget https://github.com/antonio-amore-akiki/amore/releases/download/v1.1.0/amore-gui-x86_64.AppImage && chmod +x amore-gui-x86_64.AppImage && ./amore-gui-x86_64.AppImage",
+        "label": "AppImage",
+        "type": "shell"
+      },
+      {
+        "channel": "cargo",
+        "command": "cargo install amore-mcp",
+        "label": "cargo (Rust)",
+        "type": "shell"
+      },
+      {
+        "channel": "npm",
+        "command": "npm install -g amore-mcp",
+        "label": "npm",
+        "type": "shell"
+      },
+      {
+        "channel": "pip",
+        "command": "pip install amore",
+        "label": "pip (Python)",
+        "type": "shell"
+      },
+      {
+        "channel": "docker",
+        "command": "docker pull antonio0101/amore:1.1.0",
+        "label": "Docker",
+        "type": "shell"
+      }
+    ]
+  },
+  "releases_url": "https://github.com/antonio-amore-akiki/amore/releases/tag/v1.1.0"
+}
