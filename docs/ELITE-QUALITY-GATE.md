@@ -32,7 +32,7 @@ version: 1.0.0
 | B4 | Zero-regression test added for touched behaviour | PARTIAL | `docs/FUZZING.md` (614 mutants; partial run — 5/614 tested at doc-write) | Cargo test suite 20 integration+property tests PASS; mutation full-run deferred; cargo-mutants baseline established W4-4C |
 | B5 | Proof RED→GREEN on real trigger, never self-reported | PASS | `test logs` (all completed waves carry command + exit code + raw verdict) | Every row includes `proof_cmd` and exit code; synthetic/proxy proof explicitly excluded |
 | B6 | No fallback/workaround/stub/hardcode/degraded path | PASS | `policy/policy.json` rule `no-fallback` + `policy-enforcer.mjs` hard block | Policy enforced at Write-gate; EF-006 bypass only via explicit env var with logged reason |
-| B7 | Full parity on any integration | PARTIAL | `docs/LONGMEMEVAL-CAPABILITY-REPORT-v1.0.0.md` (mock-only pass; full-stack Qdrant+Ollama deferred) | `test logs` W1-1D row: R@5=1.0000 on 20-instance mock corpus; binding GA verdict requires live stack |
+| B7 | Full parity on any integration | PARTIAL | `docs/LONGMEMEVAL-CAPABILITY-REPORT-v1.0.0.md` (mock corpus + live-stack subset run 2026-05-28) | Mock-corpus W1-1D row: R@5=1.0000 on 20-instance mock. **Live-stack run 2026-05-28** on `state/longmemeval-s/test.jsonl` real corpus (Qdrant v1.15.4 + Ollama 0.23.0 + nomic-embed-text): subset=5 R@5=0.40 / R@10=0.40 / MRR=0.250; subset=20 R@5=0.65 / R@10=0.65 / MRR=0.479. **Live recall is well below the 0.85 GA gate** — mock-corpus number was misleading; HybridRecall config needs tuning before any v1.2 GA recall claim. Reports: `state/longmemeval-live-subset5.json`, `state/longmemeval-live-subset20.json`. |
 | B8 | No silent fail-open (log the path) | PASS | `crates/amore-mcp/src/observability/` + `docs/MONITORING-ALERTS.md` (6 alert rules) + `docs/SLO.md` | OTel 3-signal wired; PrometheusBuilder HTTP listener; structured JSON logs; all error paths logged |
 
 ---
@@ -47,7 +47,7 @@ version: 1.0.0
 | P4 | Tray icon for daily ops | PASS | `crates/amore-gui/src/tray.rs` `spawn_tray()` + `run_tray_loop()` helper (v1.0.0); `main.rs` `--tray` arg dispatches to `tray::run_tray_loop()`; `packaging/installer/windows/main.wxs:144` HKCU Run-key autostart wired | Tray implementation + binary `--tray` dispatch + MSI autostart all wired |
 | P5 | Bundled runtime deps (no separate Ollama install) | PARTIAL | `packaging/installer/windows/main.wxs` bundles ollama.exe + qdrant.exe in 59.95 MB MSI (v1.0.0; `OllamaBin Vital='yes'` fail-closed); Linux AppImage/.deb/.rpm do NOT bundle (5-MB artifacts rely on system package manager for ollama) | Windows MSI bundles full Ollama + Qdrant binaries with install-time integrity check; Linux + macOS rely on user system packages per platform convention |
 | P6 | Marketing-first README | PASS | `README.md` (366 lines, Hero/Why/Features/Download/Quickstart/Demo at top, v1.0.0) | Full marketing-first assembly complete |
-| P7 | Real benchmark numbers, no placeholders | PASS | `docs/BENCHMARKS.md` + `docs/perf-baseline.tsv` + `docs/ADVERSARIAL-EVAL.md` | Criterion bench baseline per release tag; adversarial eval 3/3 PASS; LongMemEval R@5=1.0000 (mock corpus) |
+| P7 | Real benchmark numbers, no placeholders | PARTIAL | `docs/BENCHMARKS.md` + `docs/perf-baseline.tsv` + `docs/ADVERSARIAL-EVAL.md` | Criterion bench baseline per release tag; adversarial eval 3/3 PASS; LongMemEval mock R@5=1.0000 vs **live subset=20 R@5=0.65 / R@10=0.65 / MRR=0.479** (2026-05-28). Live-stack number now honestly disclosed — was previously mock-only. |
 | P8 | Accessibility WCAG 2.2 AA + Microsoft MSAA/UIA | PARTIAL | `docs/ACCESSIBILITY-STATEMENT.md` (statement written; contrast + focus PARTIAL) | AccessKit / egui wired; full WCAG audit pending; MSAA/UIA declared aspirational per statement |
 
 ---
@@ -57,8 +57,8 @@ version: 1.0.0
 | Layer | PASS | PARTIAL | MISSING | Total |
 |-------|------|---------|---------|-------|
 | Backend (B1–B8) | 6 | 2 | 0 | 8 |
-| Frontend (P1–P8) | 6 | 2 | 0 | 8 |
-| **Combined** | **12** | **4** | **0** | **16** |
+| Frontend (P1–P8) | 5 | 3 | 0 | 8 |
+| **Combined** | **11** | **5** | **0** | **16** |
 
 **Gate verdict: GO-WITH-MINORS — PRR 14/14 PASS (docs/PRR-CHECKLIST-v1.0.0.md); re-audit verdict `release prep notes` confirms 4 Fatal + 4 Major closed at HEAD `377f4f2`. Stable cut unblocked.**
 
@@ -69,7 +69,7 @@ Remaining items (release-time user-actions; NOT audit blockers):
 - P5: Linux bundling of Ollama is intentionally NOT done (rely on system package manager per Linux convention)
 - P8 (a11y): full WCAG 2.2 AA audit deferred to v-next; AccessKit wired but independent audit pending
 - B4: mutation full-run deferred (cargo-mutants baseline only)
-- B7: LongMemEval live-stack Qdrant+Ollama run deferred (mock-only pass)
+- B7: LongMemEval live-stack Qdrant+Ollama subset run COMPLETED 2026-05-28 (subset=20 R@5=0.65 / R@10=0.65 / MRR=0.479) — far below 0.85 GA gate. HybridRecall tuning required before any v1.2 GA recall claim. P7 demoted from PASS to PARTIAL with honest live numbers.
 
 Re-audit basis: `release prep notes` (commit `377f4f2`).
 
