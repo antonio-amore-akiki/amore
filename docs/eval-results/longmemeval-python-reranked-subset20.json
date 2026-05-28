@@ -1,0 +1,683 @@
+{
+  "ts": "20260528T165948Z",
+  "corpus": "state\\longmemeval-s\\test.jsonl",
+  "subset": 20,
+  "reranker_model": "C:\\Users\\anto\\.cache\\amore\\models\\ms-marco-MiniLM-L-6-v2\\model.onnx",
+  "rrf_only": {
+    "r_at_1": 0.4,
+    "r_at_5": 0.65,
+    "r_at_10": 0.7,
+    "mrr": 0.5037499999999999,
+    "n": 20
+  },
+  "rrf_plus_rerank": {
+    "r_at_1": 0.55,
+    "r_at_5": 0.7,
+    "r_at_10": 0.7,
+    "mrr": 0.6083333333333334,
+    "n": 20
+  },
+  "delta_r_at_5": 0.05,
+  "per_instance": [
+    {
+      "q_id": "e47becba",
+      "question": "What degree did I graduate with?",
+      "gold": [
+        "answer_280352e9"
+      ],
+      "fused_top5": [
+        "ultrachat_214101",
+        "sharegpt_QZMeA7V_17",
+        "41abc171_4",
+        "ultrachat_486410",
+        "f6859b48_2"
+      ],
+      "rerank_top5": [
+        "sharegpt_QZMeA7V_17",
+        "d414cac5_4",
+        "ultrachat_214101",
+        "f6859b48_2",
+        "ultrachat_530213"
+      ],
+      "rrf_score": {
+        "r1": 0,
+        "r5": 0,
+        "r10": 0,
+        "mrr": 0.0
+      },
+      "rerank_score": {
+        "r1": 0,
+        "r5": 0,
+        "r10": 0,
+        "mrr": 0.0
+      }
+    },
+    {
+      "q_id": "118b2229",
+      "question": "How long is my daily commute to work?",
+      "gold": [
+        "answer_40a90d51"
+      ],
+      "fused_top5": [
+        "db73b7e4_4",
+        "7d8b5834_1",
+        "d600c646",
+        "answer_40a90d51",
+        "ultrachat_577747"
+      ],
+      "rerank_top5": [
+        "answer_40a90d51",
+        "5cd6ab1b",
+        "7d8b5834_1",
+        "db73b7e4_4",
+        "b5f561f5_2"
+      ],
+      "rrf_score": {
+        "r1": 0,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 0.25
+      },
+      "rerank_score": {
+        "r1": 1,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 1.0
+      }
+    },
+    {
+      "q_id": "51a45a95",
+      "question": "Where did I redeem a $5 coupon on coffee creamer?",
+      "gold": [
+        "answer_d61669c7"
+      ],
+      "fused_top5": [
+        "answer_d61669c7",
+        "sharegpt_3vxz2Zr_0",
+        "ultrachat_282235",
+        "dfe646a7_1",
+        "sharegpt_CyJ3dal_0"
+      ],
+      "rerank_top5": [
+        "answer_d61669c7",
+        "ultrachat_54710",
+        "f32d1ccf_1",
+        "ultrachat_254165",
+        "sharegpt_YUvnrmG_0"
+      ],
+      "rrf_score": {
+        "r1": 1,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 1.0
+      },
+      "rerank_score": {
+        "r1": 1,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 1.0
+      }
+    },
+    {
+      "q_id": "58bf7951",
+      "question": "What play did I attend at the local community theater?",
+      "gold": [
+        "answer_355c48bb"
+      ],
+      "fused_top5": [
+        "answer_355c48bb",
+        "ultrachat_221066",
+        "sharegpt_PancT1q_0",
+        "sharegpt_53zErgw_0",
+        "ultrachat_71618"
+      ],
+      "rerank_top5": [
+        "ultrachat_71618",
+        "sharegpt_PancT1q_0",
+        "answer_355c48bb",
+        "ultrachat_366731",
+        "sharegpt_RkFlOeC_19"
+      ],
+      "rrf_score": {
+        "r1": 1,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 1.0
+      },
+      "rerank_score": {
+        "r1": 0,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 0.3333333333333333
+      }
+    },
+    {
+      "q_id": "1e043500",
+      "question": "What is the name of the playlist I created on Spotify?",
+      "gold": [
+        "answer_3e012175"
+      ],
+      "fused_top5": [
+        "8020d945_2",
+        "sharegpt_Ij8JbdT_0",
+        "sharegpt_6QUDIXG_24",
+        "01bd9def",
+        "sharegpt_bph7DTk_7"
+      ],
+      "rerank_top5": [
+        "8020d945_2",
+        "sharegpt_bph7DTk_7",
+        "01bd9def",
+        "sharegpt_uQMdL9t_0",
+        "sharegpt_Ij8JbdT_0"
+      ],
+      "rrf_score": {
+        "r1": 0,
+        "r5": 0,
+        "r10": 0,
+        "mrr": 0.0
+      },
+      "rerank_score": {
+        "r1": 0,
+        "r5": 0,
+        "r10": 0,
+        "mrr": 0.0
+      }
+    },
+    {
+      "q_id": "c5e8278d",
+      "question": "What was my last name before I changed it?",
+      "gold": [
+        "answer_f6168136"
+      ],
+      "fused_top5": [
+        "answer_f6168136",
+        "0fe848c5_3",
+        "sharegpt_WPGrlAK_0",
+        "ultrachat_246365",
+        "f58317c6"
+      ],
+      "rerank_top5": [
+        "answer_f6168136",
+        "f58317c6",
+        "89b1028d_1",
+        "aaf71ce2_2",
+        "sharegpt_WPGrlAK_0"
+      ],
+      "rrf_score": {
+        "r1": 1,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 1.0
+      },
+      "rerank_score": {
+        "r1": 1,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 1.0
+      }
+    },
+    {
+      "q_id": "6ade9755",
+      "question": "Where do I take yoga classes?",
+      "gold": [
+        "answer_9398da02"
+      ],
+      "fused_top5": [
+        "answer_9398da02",
+        "ultrachat_462",
+        "ultrachat_329610",
+        "sharegpt_DAr2SHr_0",
+        "ultrachat_270925"
+      ],
+      "rerank_top5": [
+        "answer_9398da02",
+        "de5634fc_2",
+        "ultrachat_462",
+        "5d049e3c",
+        "sharegpt_DAr2SHr_0"
+      ],
+      "rrf_score": {
+        "r1": 1,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 1.0
+      },
+      "rerank_score": {
+        "r1": 1,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 1.0
+      }
+    },
+    {
+      "q_id": "6f9b354f",
+      "question": "What color did I repaint my bedroom walls?",
+      "gold": [
+        "answer_feb5200f"
+      ],
+      "fused_top5": [
+        "ultrachat_549317",
+        "0c0f2449_2",
+        "sharegpt_VAELSB3_0",
+        "a729934a_2",
+        "answer_feb5200f"
+      ],
+      "rerank_top5": [
+        "answer_feb5200f",
+        "0c0f2449_2",
+        "54d06eeb",
+        "ultrachat_448755",
+        "de877349"
+      ],
+      "rrf_score": {
+        "r1": 0,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 0.2
+      },
+      "rerank_score": {
+        "r1": 1,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 1.0
+      }
+    },
+    {
+      "q_id": "58ef2f1c",
+      "question": "When did I volunteer at the local animal shelter's fundraising dinner?",
+      "gold": [
+        "answer_59547700"
+      ],
+      "fused_top5": [
+        "e6ab6a7b_2",
+        "answer_59547700",
+        "ultrachat_5212",
+        "sharegpt_RFw4j0W_0",
+        "13f3da23_3"
+      ],
+      "rerank_top5": [
+        "answer_59547700",
+        "e6ab6a7b_2",
+        "13f3da23_3",
+        "ed9482a2_2",
+        "ultrachat_5212"
+      ],
+      "rrf_score": {
+        "r1": 0,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 0.5
+      },
+      "rerank_score": {
+        "r1": 1,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 1.0
+      }
+    },
+    {
+      "q_id": "f8c5f88b",
+      "question": "Where did I buy my new tennis racket from?",
+      "gold": [
+        "answer_c3567066"
+      ],
+      "fused_top5": [
+        "15232887_1",
+        "answer_c3567066",
+        "68ace657_1",
+        "46575f0d",
+        "sharegpt_TKj3yO8_0"
+      ],
+      "rerank_top5": [
+        "84a93262",
+        "91880423",
+        "answer_c3567066",
+        "66c23110_1",
+        "54e9197a"
+      ],
+      "rrf_score": {
+        "r1": 0,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 0.5
+      },
+      "rerank_score": {
+        "r1": 0,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 0.3333333333333333
+      }
+    },
+    {
+      "q_id": "5d3d2817",
+      "question": "What was my previous occupation?",
+      "gold": [
+        "answer_235eb6fb"
+      ],
+      "fused_top5": [
+        "e93efd9a_1",
+        "sharegpt_BKl952A_23",
+        "sharegpt_ebWP6Hz_0",
+        "sharegpt_mtS0qOD_65",
+        "670ca40e"
+      ],
+      "rerank_top5": [
+        "sharegpt_BKl952A_23",
+        "answer_235eb6fb",
+        "e93efd9a_1",
+        "ultrachat_106114",
+        "sharegpt_ebWP6Hz_0"
+      ],
+      "rrf_score": {
+        "r1": 0,
+        "r5": 0,
+        "r10": 1,
+        "mrr": 0.125
+      },
+      "rerank_score": {
+        "r1": 0,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 0.5
+      }
+    },
+    {
+      "q_id": "7527f7e2",
+      "question": "How much did I spend on a designer handbag?",
+      "gold": [
+        "answer_7cb94507"
+      ],
+      "fused_top5": [
+        "864a563d_3",
+        "sharegpt_1i8PAcL_0",
+        "ultrachat_62919",
+        "88fed3ed_2",
+        "ultrachat_223307"
+      ],
+      "rerank_top5": [
+        "44bbd8cd_2",
+        "88fed3ed_2",
+        "sharegpt_rraH1Q7_0",
+        "18a06652_3",
+        "ultrachat_62919"
+      ],
+      "rrf_score": {
+        "r1": 0,
+        "r5": 0,
+        "r10": 0,
+        "mrr": 0.0
+      },
+      "rerank_score": {
+        "r1": 0,
+        "r5": 0,
+        "r10": 0,
+        "mrr": 0.0
+      }
+    },
+    {
+      "q_id": "c960da58",
+      "question": "How many playlists do I have on Spotify?",
+      "gold": [
+        "answer_e05e4612"
+      ],
+      "fused_top5": [
+        "answer_e05e4612",
+        "sharegpt_Get1wF2_0",
+        "737f3685_1",
+        "sharegpt_VN4DQKO_0",
+        "e7cc239c_4"
+      ],
+      "rerank_top5": [
+        "answer_e05e4612",
+        "e7cc239c_4",
+        "f7ffddbc",
+        "ultrachat_198948",
+        "fb5dd87f_1"
+      ],
+      "rrf_score": {
+        "r1": 1,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 1.0
+      },
+      "rerank_score": {
+        "r1": 1,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 1.0
+      }
+    },
+    {
+      "q_id": "3b6f954b",
+      "question": "Where did I attend for my study abroad program?",
+      "gold": [
+        "answer_94030872"
+      ],
+      "fused_top5": [
+        "dbdbca48_2",
+        "ultrachat_298929",
+        "ultrachat_168976",
+        "ultrachat_294369",
+        "c85ef24e_3"
+      ],
+      "rerank_top5": [
+        "ultrachat_294369",
+        "c566edbb_3",
+        "ultrachat_168976",
+        "c85ef24e_3",
+        "98012b1d_6"
+      ],
+      "rrf_score": {
+        "r1": 0,
+        "r5": 0,
+        "r10": 0,
+        "mrr": 0.0
+      },
+      "rerank_score": {
+        "r1": 0,
+        "r5": 0,
+        "r10": 0,
+        "mrr": 0.0
+      }
+    },
+    {
+      "q_id": "726462e0",
+      "question": "What was the discount I got on my first purchase from the new clothing brand?",
+      "gold": [
+        "answer_f38f679b"
+      ],
+      "fused_top5": [
+        "6ef99651_2",
+        "cdd9704d_1",
+        "sharegpt_IxOWCIE_9",
+        "sharegpt_SkidPTx_0",
+        "7e4dab66_1"
+      ],
+      "rerank_top5": [
+        "7e4dab66_1",
+        "6ef99651_2",
+        "741c6781_1",
+        "sharegpt_IxOWCIE_9",
+        "ultrachat_226912"
+      ],
+      "rrf_score": {
+        "r1": 0,
+        "r5": 0,
+        "r10": 0,
+        "mrr": 0.0
+      },
+      "rerank_score": {
+        "r1": 0,
+        "r5": 0,
+        "r10": 0,
+        "mrr": 0.0
+      }
+    },
+    {
+      "q_id": "94f70d80",
+      "question": "How long did it take me to assemble the IKEA bookshelf?",
+      "gold": [
+        "answer_c63c0458"
+      ],
+      "fused_top5": [
+        "sharegpt_6fTnCnw_76",
+        "answer_c63c0458",
+        "2ae4f277_1",
+        "58ef5080",
+        "4e77dbbe_5"
+      ],
+      "rerank_top5": [
+        "answer_c63c0458",
+        "sharegpt_ZvjRGRN_0",
+        "sharegpt_i4EFOzF_0",
+        "2ae4f277_1",
+        "ultrachat_375849"
+      ],
+      "rrf_score": {
+        "r1": 0,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 0.5
+      },
+      "rerank_score": {
+        "r1": 1,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 1.0
+      }
+    },
+    {
+      "q_id": "66f24dbb",
+      "question": "What did I buy for my sister's birthday gift?",
+      "gold": [
+        "answer_fea2e4d3"
+      ],
+      "fused_top5": [
+        "answer_fea2e4d3",
+        "89452526_2",
+        "798e4ba3_2",
+        "ultrachat_428656",
+        "8d46b8fa_1"
+      ],
+      "rerank_top5": [
+        "answer_fea2e4d3",
+        "89452526_2",
+        "ultrachat_267957",
+        "aeb3818c_2",
+        "ultrachat_223600"
+      ],
+      "rrf_score": {
+        "r1": 1,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 1.0
+      },
+      "rerank_score": {
+        "r1": 1,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 1.0
+      }
+    },
+    {
+      "q_id": "ad7109d1",
+      "question": "What speed is my new internet plan?",
+      "gold": [
+        "answer_679840f8"
+      ],
+      "fused_top5": [
+        "26a0ee23",
+        "3dc02d26_2",
+        "sharegpt_zdDMlRC_0",
+        "22aa7cca_3",
+        "sharegpt_Ck9R9HX_0"
+      ],
+      "rerank_top5": [
+        "26a0ee23",
+        "3030efec_2",
+        "02f0738e_4",
+        "sharegpt_6VqlSoL_33",
+        "22aa7cca_3"
+      ],
+      "rrf_score": {
+        "r1": 0,
+        "r5": 0,
+        "r10": 0,
+        "mrr": 0.0
+      },
+      "rerank_score": {
+        "r1": 0,
+        "r5": 0,
+        "r10": 0,
+        "mrr": 0.0
+      }
+    },
+    {
+      "q_id": "af8d2e46",
+      "question": "How many shirts did I pack for my 5-day trip to Costa Rica?",
+      "gold": [
+        "answer_82a04f59"
+      ],
+      "fused_top5": [
+        "answer_82a04f59",
+        "ultrachat_164840",
+        "38e4b795_2",
+        "13047a02",
+        "ultrachat_205613"
+      ],
+      "rerank_top5": [
+        "answer_82a04f59",
+        "ultrachat_205613",
+        "sharegpt_iT0Yuky_0",
+        "38e4b795_2",
+        "73d5f10c"
+      ],
+      "rrf_score": {
+        "r1": 1,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 1.0
+      },
+      "rerank_score": {
+        "r1": 1,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 1.0
+      }
+    },
+    {
+      "q_id": "dccbc061",
+      "question": "What was my previous stance on spirituality?",
+      "gold": [
+        "answer_8f276838"
+      ],
+      "fused_top5": [
+        "answer_8f276838",
+        "sharegpt_buGcwO5_33",
+        "sharegpt_tSDixDM_0",
+        "ultrachat_278202",
+        "sharegpt_6lBVIXU_0"
+      ],
+      "rerank_top5": [
+        "answer_8f276838",
+        "ultrachat_519037",
+        "sharegpt_buGcwO5_33",
+        "sharegpt_tSDixDM_0",
+        "sharegpt_6cz1Sq6_189"
+      ],
+      "rrf_score": {
+        "r1": 1,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 1.0
+      },
+      "rerank_score": {
+        "r1": 1,
+        "r5": 1,
+        "r10": 1,
+        "mrr": 1.0
+      }
+    }
+  ]
+}
