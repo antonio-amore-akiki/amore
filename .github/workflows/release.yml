@@ -503,11 +503,15 @@ jobs:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Publish amore-mcp to npm (with provenance)
+      - name: Publish amore-mcp to npm
         working-directory: npm/amore-mcp
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --provenance --access public
+        # --provenance dropped for v1.1.0 first publish: provenance requires Trusted Publishing
+        # configured at npmjs.com which is a chicken-egg for a new package (can only be set up
+        # AFTER first publish exists). Re-add --provenance in v1.1.1 once Antonio adds
+        # Trusted Publisher at npmjs.com/package/amore-mcp/access.
+        run: npm publish --access public
 
   homebrew-update:
     # Closes F-47 race: runs only after macos-build + linux-build have uploaded their
