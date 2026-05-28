@@ -42,6 +42,26 @@ export default function HomePage() {
         </h2>
         <ProductGrid products={products} />
       </section>
+
+      <section id="roadmap" className="mt-16">
+        <h2 className="text-xl font-semibold text-gray-800 mb-6">Coming soon</h2>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[
+            { name: "whispergate", desc: "Voice-first interface for AI coding agents — speak to your codebase.", emoji: "🎙️" },
+            { name: "llm-wiki", desc: "Community-curated knowledge base for LLM techniques + prompt patterns.", emoji: "📚" },
+            { name: "more in the works", desc: "Antonio is building the rest. Star the repo to get notified.", emoji: "✨" },
+          ].map((p) => (
+            <div
+              key={p.name}
+              className="bg-white border border-gray-200 rounded-lg p-5 opacity-70"
+            >
+              <div className="text-3xl mb-3">{p.emoji}</div>
+              <h3 className="font-semibold text-gray-900 mb-2">{p.name}</h3>
+              <p className="text-sm text-gray-600">{p.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
