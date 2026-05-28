@@ -437,8 +437,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            antonioamoreakiki/amore:latest
-            antonioamoreakiki/amore:${{ inputs.release_tag }}
+            antonio0101/amore:latest
+            antonio0101/amore:${{ inputs.release_tag }}
 
   pypi-publish:
     # Publishes python/amore to PyPI via OIDC Trusted Publishing (no token storage).
