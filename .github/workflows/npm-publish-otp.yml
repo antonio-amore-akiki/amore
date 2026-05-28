@@ -1,0 +1,41 @@
+# Standalone npm publish using OTP — bypasses 2FA without regenerating NPM_TOKEN.
+# Trigger: gh workflow run npm-publish-otp.yml -f release_tag=v1.1.0 -f otp=NNNNNN
+# OTP is a 6-digit code from Antonio's authenticator app (Google Auth / Authy / etc.);
+# valid ~30s so trigger immediately after read.
+name: npm-publish-otp
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Git tag to checkout (e.g. v1.1.0)"
+        required: true
+        type: string
+      otp:
+        description: "6-digit OTP from authenticator app (valid ~30s)"
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.release_tag }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Publish amore-mcp with OTP override
+        working-directory: npm/amore-mcp
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --otp="${{ inputs.otp }}"
