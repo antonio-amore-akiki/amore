@@ -70,6 +70,7 @@ Remaining items (release-time user-actions; NOT audit blockers):
 - P8 (a11y): full WCAG 2.2 AA audit deferred to v-next; AccessKit wired but independent audit pending
 - B4: mutation full-run deferred (cargo-mutants baseline only)
 - B7: LongMemEval live-stack Qdrant+Ollama subset run COMPLETED 2026-05-28 (subset=20 R@5=0.65 / R@10=0.65 / MRR=0.479) — far below 0.85 GA gate. HybridRecall tuning required before any v1.2 GA recall claim. P7 demoted from PASS to PARTIAL with honest live numbers.
+- B7 reranker measurement (2026-05-28): Python ORT 1.26.0 pipeline (scripts/longmemeval_rerank_eval.py) measured RRF + MiniLM cross-encoder rerank on the same subset=20: R@1=0.55 (+0.15) / R@5=0.70 (+0.05) / R@10=0.70 / MRR=0.608 (+0.10). Lift is real but R@5=0.70 still below 0.85 GA gate. bge-reranker-base (300M params vs MiniLM 22M) would likely lift more but Rust ort 2.0.0-rc.12 has a session-init hang on this Windows host that blocks the larger-model measurement until either the rust-ort bug is fixed upstream OR the user adds AV exclusions admin-side. Full result: docs/eval-results/longmemeval-python-reranked-subset20.json.
 
 Re-audit basis: `release prep notes` (commit `377f4f2`).
 
