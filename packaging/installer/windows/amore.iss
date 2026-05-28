@@ -2,10 +2,23 @@
 ; Free toolchain (Inno Setup, ISC-equivalent license). User double-clicks the .exe; Inno's first-launch
 ; screen runs msiexec /i silently. Output: amore-windows-x64.exe at the same dir as ISCC was invoked.
 ;
-; Build:  iscc /Q amore.iss      (after the MSI is in the cwd or via /DMsiPath=...)
+; Build:  iscc /Q amore.iss                    — lite installer (~15 MB)
+;         iscc /Q /DFatInstaller amore.iss      — fat installer (~535 MB, B3, F20)
 ; CI:     see .github/workflows/release.yml job windows-build (Inno via chocolatey).
+;
+; Fat installer (B3, F20): bundles ollama.exe + qdrant.exe + nomic-embed-text GGUF model.
+; Realistic sizes: nomic-embed-text ~274 MB + qdrant.exe ~80 MB + ollama.exe ~150 MB + amore ~30 MB.
+; GitHub Releases per-asset cap: 2 GB — fat installer fits.
+; Default release page: fat for first-time users, lite for upgraders.
+; If fat installer >700 MB: build with /DBundleModel=false to skip model (post-install Ollama pull).
 
 #define AmoreVersion "1.0.0"
+; Fat-installer: override OutputBaseFilename when /DFatInstaller is set.
+#ifdef FatInstaller
+  #define OutputBase "amore-windows-x64-fat"
+#else
+  #define OutputBase "amore-windows-x64"
+#endif
 
 [Setup]
 AppId={{6F2B3A1E-AAA0-4D5A-9BB1-AMORE10220250527}}
@@ -16,7 +29,7 @@ AppPublisherURL=https://github.com/antonio-amore-akiki/amore
 AppSupportURL=https://github.com/antonio-amore-akiki/amore/issues
 DefaultDirName={autopf}\Amore
 DisableProgramGroupPage=yes
-OutputBaseFilename=amore-windows-x64
+OutputBaseFilename={#OutputBase}
 OutputDir=.
 Compression=lzma2/ultra
 SolidCompression=yes
@@ -47,6 +60,30 @@ Name: "ar"; MessagesFile: "vendor\Arabic.isl"
 Source: "{#MsiPath}"; DestDir: "{tmp}"; DestName: "amore-windows-x64.msi"; Flags: deleteafterinstall
 #else
 Source: "amore-windows-x64.msi"; DestDir: "{tmp}"; Flags: deleteafterinstall
+#endif
+
+; --- FAT INSTALLER EXTRA FILES (B3, F20) ---
+; Only included when compiling with /DFatInstaller.
+; Provides air-gapped / first-run-offline install capability.
+; Expected staging layout (built by build-installer-windows.ps1 -BundleDeps):
+;   staging\fat\ollama.exe           (~150 MB, ollama v0.24.0)
+;   staging\fat\qdrant.exe           (~80 MB, qdrant v1.18.1)
+;   staging\fat\models\nomic-embed-text.gguf  (~274 MB, default embedding model)
+;   staging\fat\cosign-verify-mini.exe        (~3 MB, B4 pre-extract verifier — see [Code])
+;
+; skipifsourcedoesntexist: local iscc validation succeeds without staging; CI populates staging.
+#ifdef FatInstaller
+Source: "staging\fat\ollama.exe"; DestDir: "{app}"; DestName: "ollama.exe"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "staging\fat\qdrant.exe"; DestDir: "{app}"; DestName: "qdrant.exe"; Flags: ignoreversion skipifsourcedoesntexist
+; BundleModel=false: skip the GGUF file — post-install amore-gui pulls it via `ollama pull nomic-embed-text`.
+#ifndef BundleModelFalse
+Source: "staging\fat\models\nomic-embed-text.gguf"; DestDir: "{app}\models"; Flags: ignoreversion skipifsourcedoesntexist
+#endif
+; cosign-verify-mini.exe: statically-linked ~3 MB binary (B4). Extracted before payload
+; so InitializeSetup can run it before extraction — this entry must be in BOTH lite and fat.
+; Listed here in the fat section as well for completeness; the lite [Code] block references
+; the same binary from the MSI's temp extraction path.
+Source: "staging\fat\cosign-verify-mini.exe"; DestDir: "{tmp}"; DestName: "cosign-verify-mini.exe"; Flags: ignoreversion skipifsourcedoesntexist deleteafterinstall
 #endif
 
 [Run]
