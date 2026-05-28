@@ -24,6 +24,7 @@
 mod health;
 mod middleware;
 mod observability;
+mod register;
 mod shutdown;
 
 use amore_core::docs::CanonicalDocsRouter;
@@ -32,6 +33,7 @@ use amore_core::qdrant_store::QdrantStore;
 use amore_core::recall::HybridRecall;
 use amore_core::sqlite_store::SqliteStore;
 use anyhow::{Context, Result};
+use clap::Parser;
 use health::ReadyState;
 use middleware::{SessionId, build_rate_limiter, check_rate_limit};
 use rmcp::handler::server::router::tool::ToolRouter;
@@ -48,6 +50,70 @@ use std::fmt;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
+
+// ---------------------------------------------------------------------------
+// CLI — registration flags (A5 + A6).
+//
+// These flags exit BEFORE heavy async startup (OTel/Prometheus/Qdrant/Ollama).
+// Intended for installer scripts and the CI cert script.
+// ---------------------------------------------------------------------------
+
+/// amore-mcp — MCP memory server + IDE registration helper.
+#[derive(Parser, Debug, Default)]
+#[command(name = "amore-mcp", about = "Amore MCP memory server")]
+struct Cli {
+    /// Register amore-mcp as a Claude Code MCP server.
+    #[arg(long)]
+    register_claude_code: bool,
+    /// Register amore-mcp as a Claude Desktop MCP server (always direct-write).
+    #[arg(long)]
+    register_claude_desktop: bool,
+    /// Register amore-mcp as a Cursor MCP server (always direct-write).
+    #[arg(long)]
+    register_cursor: bool,
+    /// Register amore-mcp as a Cline MCP server (always direct-write).
+    #[arg(long)]
+    register_cline: bool,
+    /// Register amore-mcp for Continue (always direct-write via config.json).
+    #[arg(long)]
+    register_continue: bool,
+    /// Skip the `claude` CLI; write directly to IDE config file.
+    /// Installer default — does not require `claude` CLI on PATH (closes F12).
+    #[arg(long)]
+    self_contained: bool,
+}
+
+/// Run any --register-* flags. Returns true if at least one flag was handled.
+fn run_registration_flags(cli: &Cli) -> bool {
+    let sc = cli.self_contained;
+    let mut any = false;
+
+    macro_rules! run_reg {
+        ($flag:expr, $fn:expr, $name:literal) => {
+            if $flag {
+                any = true;
+                match $fn(sc) {
+                    Ok(report) => println!(
+                        "[amore-mcp] {} registered via {} → {}",
+                        report.target, report.method, report.config_path.display()
+                    ),
+                    Err(e) => {
+                        eprintln!("[amore-mcp] {} registration failed: {e:#}", $name);
+                        std::process::exit(1);
+                    }
+                }
+            }
+        };
+    }
+
+    run_reg!(cli.register_claude_code,    register::register_claude_code,    "Claude Code");
+    run_reg!(cli.register_claude_desktop, register::register_claude_desktop, "Claude Desktop");
+    run_reg!(cli.register_cursor,         register::register_cursor,         "Cursor");
+    run_reg!(cli.register_cline,          register::register_cline,          "Cline");
+    run_reg!(cli.register_continue,       register::register_continue,       "Continue");
+
+    any
+}
 
 // ---------------------------------------------------------------------------
 // MainError — plain-English error type for user-facing process exit messages.
@@ -255,9 +321,11 @@ fn env_with_legacy(amore_key: &str, legacy_key: &str) -> Option<String> {
 
 #[tokio::main]
 async fn main() -> Result<(), MainError> {
-    // Step 1: Parse env (log format, OTel endpoint, bind addrs, pool sizes, rps).
-    // Done lazily via std::env::var inside each subsystem; env is read here only
-    // for values needed before logging is up.
+    // Step 1: Parse CLI — registration flags exit before heavy startup (A5+A6).
+    let cli = Cli::parse();
+    if run_registration_flags(&cli) {
+        return Ok(());
+    }
 
     // Step 2: Init OTel tracer (if endpoint set) — must happen before logging
     // because the tracer provider is passed into the logging subscriber.

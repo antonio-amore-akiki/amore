@@ -59,3 +59,5 @@ tower = "0.4"
 reqwest = { workspace = true }
 # rate_limit.rs integration test uses governor directly
 governor.workspace = true
+# register.rs unit tests — TempDir isolation for home-dir mutation
+tempfile = "3"
