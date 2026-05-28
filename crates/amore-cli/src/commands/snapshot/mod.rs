@@ -13,7 +13,7 @@ mod archive;
 mod qdrant;
 
 use anyhow::{Context, Result};
-use std::{fs, path::Path, time::Duration};
+use std::{fs, path::Path};
 
 const SQLITE_INNER_NAME: &str = "amore.db";
 const HTTP_TIMEOUT_SECS: u64 = 120;
@@ -122,9 +122,8 @@ fn temp_dir(prefix: &str) -> std::path::PathBuf {
 }
 
 fn http_client() -> Result<reqwest::Client> {
-    reqwest::Client::builder()
-        .timeout(Duration::from_secs(HTTP_TIMEOUT_SECS))
-        .build()
+    // A7: use workspace http factory so HTTP_PROXY/HTTPS_PROXY/NO_PROXY are honoured.
+    amore_core::http::build_client(HTTP_TIMEOUT_SECS)
         .context("build reqwest client")
 }
 

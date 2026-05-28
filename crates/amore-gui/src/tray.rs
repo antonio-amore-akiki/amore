@@ -258,6 +258,8 @@ fn check_for_updates() {
     std::thread::spawn(move || {
         let url = "https://api.github.com/repos/antonio-amore-akiki/amore/releases/latest";
 
+        // A7: reqwest 0.12 reads HTTP_PROXY/HTTPS_PROXY/ALL_PROXY/NO_PROXY by default.
+        // Never call no_proxy() here so env-var proxy discovery stays active.
         let client = match reqwest::blocking::Client::builder()
             .user_agent(&user_agent)
             .build()

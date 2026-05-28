@@ -14,6 +14,7 @@
 pub mod cache;
 pub mod diag;
 pub mod circuit_breaker;
+pub mod http;
 pub mod compaction;
 #[cfg(feature = "tantivy-bm25")]
 pub(crate) mod porter1;

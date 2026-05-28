@@ -1,7 +1,6 @@
 use anyhow::{Context, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
 use crate::circuit_breaker::{BreakerError, CircuitBreaker};
 
 const DEFAULT_BASE_URL: &str = "http://127.0.0.1:11434";
@@ -26,8 +25,7 @@ impl OllamaClient {
         let url = if base_url.is_empty() { DEFAULT_BASE_URL.to_string() } else { base_url.trim_end_matches('/').to_string() };
         Self {
             base_url: url, embed_model: DEFAULT_EMBED_MODEL.to_string(), llm_model: DEFAULT_LLM_MODEL.to_string(),
-            http: Client::builder().timeout(Duration::from_secs(DEFAULT_TIMEOUT_SECS)).build()
-                .expect("reqwest client build (infallible defaults)"),
+            http: crate::http::build_client_or_panic(DEFAULT_TIMEOUT_SECS),
             breaker: None,
         }
     }

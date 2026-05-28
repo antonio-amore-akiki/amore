@@ -42,6 +42,8 @@ fn run(status: Arc<Mutex<DepStatus>>, ctx: egui::Context) {
     };
     set(DepStatus::Downloading { pct: 0.0 });
 
+    // A7: reqwest 0.12 reads HTTP_PROXY/HTTPS_PROXY/ALL_PROXY/NO_PROXY by default.
+    // Never call no_proxy() here so env-var proxy discovery stays active.
     let client = match reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(DOWNLOAD_TIMEOUT_SECS))
         .build()
