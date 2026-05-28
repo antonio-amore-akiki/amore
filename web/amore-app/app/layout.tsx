@@ -2,10 +2,44 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 
+const SITE_URL = "https://antonio-amore-akiki.github.io/amore";
+const TITLE = "Amore — the app store for AI coding tools";
+const DESCRIPTION =
+  "Discover and install AI coding tools. Amore is the local-first MCP memory backbone for Claude Code, Cursor, and other AI IDEs.";
+
 export const metadata: Metadata = {
-  title: "Amore — the app store for AI coding tools",
-  description:
-    "Discover and install AI coding tools. Amore is the local-first MCP memory backbone for Claude Code, Cursor, and other AI IDEs.",
+  metadataBase: new URL(SITE_URL),
+  title: { default: TITLE, template: "%s — Amore" },
+  description: DESCRIPTION,
+  applicationName: "Amore",
+  authors: [{ name: "Antonio Amore Akiki", url: "https://github.com/antonio-amore-akiki" }],
+  keywords: [
+    "mcp",
+    "agent-memory",
+    "claude-code",
+    "cursor",
+    "ai-coding-tools",
+    "local-first",
+    "amore",
+  ],
+  openGraph: {
+    type: "website",
+    url: SITE_URL,
+    siteName: "Amore",
+    title: TITLE,
+    description: DESCRIPTION,
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
+  icons: {
+    icon: [{ url: "/amore/favicon.svg", type: "image/svg+xml" }],
+    shortcut: "/amore/favicon.svg",
+  },
+  robots: { index: true, follow: true },
 };
 
 interface RootLayoutProps {
