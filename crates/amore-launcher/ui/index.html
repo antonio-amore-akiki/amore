@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Amore — Install Antonio's products</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f0f13;
+      color: #e8e8f0;
+      min-height: 100vh;
+    }
+    header {
+      padding: 28px 36px 20px;
+      border-bottom: 1px solid #222235;
+    }
+    header h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #f0f0ff;
+    }
+    header p {
+      margin-top: 4px;
+      font-size: 0.9rem;
+      color: #8888aa;
+    }
+    #os-badge {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 2px 10px;
+      border-radius: 20px;
+      background: #1e1e2e;
+      font-size: 0.78rem;
+      color: #9999cc;
+      border: 1px solid #2a2a40;
+    }
+    main {
+      padding: 32px 36px;
+    }
+    #status {
+      font-size: 0.9rem;
+      color: #8888aa;
+      margin-bottom: 24px;
+    }
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: #16161f;
+      border: 1px solid #222235;
+      border-radius: 12px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .card-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #5a5aff 0%, #9b5de5 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+    .card-name {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #f0f0ff;
+    }
+    .card-version {
+      font-size: 0.75rem;
+      color: #6666aa;
+    }
+    .card-desc {
+      font-size: 0.85rem;
+      color: #9999bb;
+      line-height: 1.5;
+    }
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .btn {
+      padding: 7px 16px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:active { opacity: 0.7; }
+    .btn-primary {
+      background: #5a5aff;
+      color: #fff;
+    }
+    .btn-secondary {
+      background: #1e1e2e;
+      color: #9999cc;
+      border: 1px solid #2a2a40;
+    }
+    .btn-detected {
+      background: #1a3a2a;
+      color: #6ed4a0;
+      border: 1px solid #2a5040;
+    }
+    #error-msg {
+      color: #ff6b6b;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Amore</h1>
+    <p>Install Antonio's products — local-first AI tools</p>
+    <span id="os-badge">Detecting OS...</span>
+  </header>
+  <main>
+    <div id="status">Loading product catalog...</div>
+    <div id="error-msg" style="display:none"></div>
+    <div id="grid"></div>
+  </main>
+
+  <script type="module">
+    const { invoke } = window.__TAURI__.core;
+
+    // OS detection via userAgent — best-effort, buttons shown for all platforms.
+    function detectOS() {
+      const ua = navigator.userAgent.toLowerCase();
+      if (ua.includes("win")) return "windows";
+      if (ua.includes("mac")) {
+        // Distinguish Apple Silicon via hardwareConcurrency heuristic (not definitive,
+        // but sufficient for default button highlight; user can always click any OS button).
+        return ua.includes("arm") || navigator.maxTouchPoints > 1 ? "macos_arm" : "macos_x64";
+      }
+      if (ua.includes("linux")) return "linux";
+      return "windows"; // safe default
+    }
+
+    const detectedOS = detectOS();
+    const osLabels = {
+      windows: "Windows",
+      macos_arm: "macOS (Apple Silicon)",
+      macos_x64: "macOS (Intel)",
+      linux: "Linux",
+    };
+    document.getElementById("os-badge").textContent =
+      "Detected: " + (osLabels[detectedOS] ?? detectedOS);
+
+    const installLabels = {
+      windows: "Install on Windows (.exe)",
+      macos_arm: "Install on macOS ARM (.tar.gz)",
+      macos_x64: "Install on macOS Intel (.tar.gz)",
+      linux: "Install on Linux (.AppImage)",
+    };
+
+    async function openUrl(url) {
+      await invoke("open_install_url", { url });
+    }
+
+    function renderProducts(products) {
+      const grid = document.getElementById("grid");
+      grid.innerHTML = "";
+      for (const p of products) {
+        const card = document.createElement("div");
+        card.className = "card";
+
+        const btnRow = Object.entries(p.assets)
+          .map(([os, url]) => {
+            const detected = os === detectedOS;
+            const cls = detected ? "btn btn-detected" : "btn btn-secondary";
+            const label = detected
+              ? "✓ " + installLabels[os]
+              : installLabels[os] ?? os;
+            return `<button class="${cls}" data-url="${encodeURIComponent(url)}">${label}</button>`;
+          })
+          .join("");
+
+        const releasesBtn = `<button class="btn btn-primary" data-url="${encodeURIComponent(p.releases_url)}">All Releases</button>`;
+
+        card.innerHTML = `
+          <div class="card-header">
+            <div class="card-icon">&#9670;</div>
+            <div>
+              <div class="card-name">${p.name}</div>
+              <div class="card-version">v${p.version}</div>
+            </div>
+          </div>
+          <div class="card-desc">${p.description}</div>
+          <div class="btn-row">${btnRow}${releasesBtn}</div>
+        `;
+
+        card.querySelectorAll("[data-url]").forEach((btn) => {
+          btn.addEventListener("click", () =>
+            openUrl(decodeURIComponent(btn.dataset.url))
+          );
+        });
+
+        grid.appendChild(card);
+      }
+    }
+
+    async function init() {
+      const status = document.getElementById("status");
+      const errorMsg = document.getElementById("error-msg");
+      try {
+        const raw = await invoke("get_products");
+        const products = JSON.parse(raw);
+        status.textContent = products.length + " product" + (products.length !== 1 ? "s" : "") + " available";
+        renderProducts(products);
+      } catch (err) {
+        status.textContent = "";
+        errorMsg.style.display = "block";
+        errorMsg.textContent = "Failed to load catalog: " + String(err);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
