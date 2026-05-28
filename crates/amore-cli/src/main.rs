@@ -89,6 +89,11 @@ enum Command {
         #[command(subcommand)]
         action: UpdateAction,
     },
+    /// Collect crash diagnostics into a portable bundle.
+    Diag {
+        #[command(subcommand)]
+        action: DiagAction,
+    },
 }
 
 #[derive(Subcommand)]
@@ -97,6 +102,16 @@ enum UpdateAction {
     Check,
     /// Apply the latest release update (prompts before replacing binary).
     Apply,
+}
+
+#[derive(Subcommand)]
+enum DiagAction {
+    /// Bundle recent crash dumps into a tar.gz archive for sharing.
+    Bundle {
+        /// Output archive path (defaults to ./amore-diag.tar.gz).
+        #[arg(long)]
+        output: Option<std::path::PathBuf>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -138,6 +153,9 @@ enum SnapshotCommand {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Install crash handler first so crashes during init are captured.
+    amore_core::diag::install_crash_handler();
+
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_target(false)
@@ -154,7 +172,19 @@ async fn main() -> Result<()> {
         Command::Secrets { action } => cmd_secrets(action),
         Command::Flags(args) => commands::flags::run(args),
         Command::Update { action } => cmd_update(action).await,
+        Command::Diag { action } => cmd_diag(action),
     }
+}
+
+fn cmd_diag(action: DiagAction) -> Result<()> {
+    match action {
+        DiagAction::Bundle { output } => {
+            let out = output.unwrap_or_else(|| std::path::PathBuf::from("amore-diag.tar.gz"));
+            let bundle = amore_core::diag::collect_diag_bundle(&out, 20)?;
+            println!("Diagnostic bundle written to: {}", bundle.display());
+        }
+    }
+    Ok(())
 }
 
 async fn cmd_update(action: UpdateAction) -> Result<()> {

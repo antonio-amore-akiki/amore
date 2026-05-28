@@ -12,6 +12,7 @@
 #![cfg_attr(test, allow(clippy::unwrap_used))]
 
 pub mod cache;
+pub mod diag;
 pub mod circuit_breaker;
 pub mod compaction;
 #[cfg(feature = "tantivy-bm25")]

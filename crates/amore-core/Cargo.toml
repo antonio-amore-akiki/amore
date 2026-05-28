@@ -42,6 +42,8 @@ moka.workspace = true
 ort = { workspace = true, optional = true }
 tokenizers = { workspace = true, optional = true }
 dirs.workspace = true
+crash-handler = "0.7"
+minidumper = "0.10"
 
 [dev-dependencies]
 proptest.workspace = true

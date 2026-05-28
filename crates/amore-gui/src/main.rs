@@ -20,6 +20,9 @@ use eframe::egui;
 use std::io::Write;
 
 fn main() -> Result<(), eframe::Error> {
+    // Install crash handler before any eframe/winit init so GUI startup crashes are captured.
+    amore_core::diag::install_crash_handler();
+
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("--version") => {
