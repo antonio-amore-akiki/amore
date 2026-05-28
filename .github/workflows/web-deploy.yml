@@ -1,6 +1,9 @@
-# Deploys web/amore-app to GitHub Pages on every push to main.
+# Deploys web/amore-app + docs/site (mdBook) to GitHub Pages on every push to main.
 # Fully agent-autonomous: uses ambient GITHUB_TOKEN, no external accounts or paid services.
-# Result: https://antonio-amore-akiki.github.io/amore/
+# Layout:
+#   /        -> web/amore-app/out (marketing landing)
+#   /docs/   -> docs/site/book (mdBook user manual; closes tier-e-6-hosted-docs known_gap)
+# Result: https://antonio-amore-akiki.github.io/amore/ + .../amore/docs/
 name: web-deploy
 
 on:
@@ -8,6 +11,7 @@ on:
     branches: [main]
     paths:
       - "web/amore-app/**"
+      - "docs/site/**"
       - ".github/workflows/web-deploy.yml"
   workflow_dispatch:
 
@@ -46,13 +50,33 @@ jobs:
       - name: Build static export
         run: npm run build
 
+      - name: Install mdBook
+        working-directory: ${{ github.workspace }}
+        run: |
+          MDBOOK_VERSION=0.4.40
+          curl -sSL "https://github.com/rust-lang/mdBook/releases/download/v${MDBOOK_VERSION}/mdbook-v${MDBOOK_VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
+            | tar -xz --directory=/usr/local/bin
+
+      - name: Build mdBook (user manual)
+        working-directory: ${{ github.workspace }}/docs/site
+        run: mdbook build
+
+      - name: Assemble combined Pages artifact
+        working-directory: ${{ github.workspace }}
+        run: |
+          mkdir -p _site
+          cp -r web/amore-app/out/. _site/
+          mkdir -p _site/docs
+          cp -r docs/site/book/. _site/docs/
+          echo "[docs-deploy] _site assembled: $(find _site -maxdepth 2 -type d | sort | head -20)"
+
       - name: Setup Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
-          path: web/amore-app/out
+          path: _site
 
   deploy:
     needs: build
