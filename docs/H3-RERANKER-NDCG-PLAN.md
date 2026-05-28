@@ -137,7 +137,7 @@ Copy-Item $s "$s.bak-$(Get-Date -Format yyyyMMddTHHmmss)"
 $j | ConvertTo-Json -Depth 100 | Out-File $s -Encoding utf8 -NoNewline
 ```
 
-### 2. VS Build Tools ARM64 workload
+### 2a. VS Build Tools ARM64 workload (MSVC path; needs admin)
 
 ```pwsh
 # Run from elevated PowerShell:
@@ -145,8 +145,31 @@ $j | ConvertTo-Json -Depth 100 | Out-File $s -Encoding utf8 -NoNewline
   modify --installPath "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools" `
   --add Microsoft.VisualStudio.Component.VC.Tools.ARM64 `
   --quiet --norestart --nocache
-# Then verify:
 cargo build --target aarch64-pc-windows-msvc --release -p amore-cli
+```
+
+### 2b. llvm-mingw gnullvm path (NO ADMIN; verified-progressing 2026-05-28)
+
+The Rust `aarch64-pc-windows-gnullvm` target works with llvm-mingw which
+installs to a user directory without elevation. Cross-build verified to
+progress through amore-core + tantivy compilation; full build is feasible.
+
+```bash
+# 1. Download llvm-mingw (~155MB) — no admin needed
+curl -L -o /tmp/llvm-mingw.zip "https://github.com/mstorsjo/llvm-mingw/releases/download/20250528/llvm-mingw-20250528-msvcrt-x86_64.zip"
+powershell -Command "Expand-Archive -Path '/tmp/llvm-mingw.zip' -DestinationPath '$env:LOCALAPPDATA/llvm-mingw' -Force"
+
+# 2. Add the gnullvm Rust target
+rustup target add aarch64-pc-windows-gnullvm
+
+# 3. Set env + build
+export PATH="$LOCALAPPDATA/llvm-mingw/llvm-mingw-20250528-msvcrt-x86_64/bin:$PATH"
+export CC_aarch64_pc_windows_gnullvm=aarch64-w64-mingw32-clang
+export CXX_aarch64_pc_windows_gnullvm=aarch64-w64-mingw32-clang++
+export AR_aarch64_pc_windows_gnullvm=llvm-ar
+export CARGO_TARGET_AARCH64_PC_WINDOWS_GNULLVM_LINKER=aarch64-w64-mingw32-clang
+export CXXFLAGS_aarch64_pc_windows_gnullvm="-isystem $LOCALAPPDATA/llvm-mingw/llvm-mingw-20250528-msvcrt-x86_64/include/c++/v1 -isystem $LOCALAPPDATA/llvm-mingw/llvm-mingw-20250528-msvcrt-x86_64/aarch64-w64-mingw32/include"
+cargo build --target aarch64-pc-windows-gnullvm --release -p amore-cli
 ```
 
 ### 3. Reranker R@5 measurement (host with fast ort init)
