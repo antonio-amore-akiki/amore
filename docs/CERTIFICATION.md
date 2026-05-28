@@ -11,19 +11,19 @@ Release page: https://github.com/antonio-amore-akiki/amore/releases/tag/v1.1.0
 
 | Channel | Install command (stranger-reproducible) | Status | Asset / package |
 |---|---|---|---|
-| GitHub Releases (Linux .deb) | `wget https://github.com/antonio-amore-akiki/amore/releases/download/v1.1.0/amore-1.1.0-linux-amd64.deb && sudo dpkg -i amore-1.1.0-linux-amd64.deb` | PENDING | `amore-1.1.0-linux-amd64.deb` + `.sigstore` |
-| GitHub Releases (Linux .rpm) | `wget https://github.com/antonio-amore-akiki/amore/releases/download/v1.1.0/amore-1.1.0-linux-x86_64.rpm && sudo rpm -i amore-1.1.0-linux-x86_64.rpm` | PENDING | `amore-1.1.0-linux-x86_64.rpm` + `.sigstore` |
-| GitHub Releases (Linux AppImage) | `wget https://github.com/antonio-amore-akiki/amore/releases/download/v1.1.0/amore-gui-x86_64.AppImage && chmod +x amore-gui-x86_64.AppImage && ./amore-gui-x86_64.AppImage` | PENDING | `amore-gui-x86_64.AppImage` + `.sigstore` |
-| GitHub Releases (macOS .dmg) | Open `.dmg`, drag to Applications | PENDING | `amore-1.1.0-macos-{aarch64,x86_64}.dmg` + `.sigstore` |
-| GitHub Releases (macOS .pkg) | Double-click `.pkg`, follow installer | PENDING | `amore-1.1.0-macos-{aarch64,x86_64}.pkg` + `.sigstore` |
-| GitHub Releases (macOS .tar.gz) | `tar -xzf amore-1.1.0-macos-aarch64.tar.gz && cd amore-1.1.0-macos-aarch64 && sudo cp amore* /usr/local/bin/` | PENDING | `amore-1.1.0-macos-{aarch64,x86_64}.tar.gz` + `.sigstore` |
-| GitHub Releases (Windows MSI) | Download `.msi`, double-click, follow installer | PENDING | `amore-windows-x64.msi` + `.sigstore` |
-| GitHub Releases (Windows Inno .exe) | Download `.exe`, double-click, follow installer | PENDING | `amore-windows-x64.exe` |
+| GitHub Releases (Linux .deb) | `wget https://github.com/antonio-amore-akiki/amore/releases/download/v1.1.0/amore-1.1.0-linux-amd64.deb && sudo dpkg -i amore-1.1.0-linux-amd64.deb` | LIVE | `amore-1.1.0-linux-amd64.deb` + `.sigstore` |
+| GitHub Releases (Linux .rpm) | `wget https://github.com/antonio-amore-akiki/amore/releases/download/v1.1.0/amore-1.1.0-linux-x86_64.rpm && sudo rpm -i amore-1.1.0-linux-x86_64.rpm` | LIVE | `amore-1.1.0-linux-x86_64.rpm` + `.sigstore` |
+| GitHub Releases (Linux AppImage) | `wget https://github.com/antonio-amore-akiki/amore/releases/download/v1.1.0/amore-gui-x86_64.AppImage && chmod +x amore-gui-x86_64.AppImage && ./amore-gui-x86_64.AppImage` | LIVE | `amore-gui-x86_64.AppImage` + `.sigstore` |
+| GitHub Releases (macOS .dmg) | Open `.dmg`, drag to Applications | LIVE | `amore-1.1.0-macos-{aarch64,x86_64}.dmg` + `.sigstore` |
+| GitHub Releases (macOS .pkg) | Double-click `.pkg`, follow installer | LIVE | `amore-1.1.0-macos-{aarch64,x86_64}.pkg` + `.sigstore` |
+| GitHub Releases (macOS .tar.gz) | `tar -xzf amore-1.1.0-macos-aarch64.tar.gz && cd amore-1.1.0-macos-aarch64 && sudo cp amore* /usr/local/bin/` | LIVE | `amore-1.1.0-macos-{aarch64,x86_64}.tar.gz` + `.sigstore` |
+| GitHub Releases (Windows MSI) | Download `.msi`, double-click, follow installer | LIVE | `amore-windows-x64.msi` + `.sigstore` |
+| GitHub Releases (Windows Inno .exe) | Download `.exe`, double-click, follow installer | LIVE | `amore-windows-x64.exe` |
 | **Homebrew** | `brew install antonio-amore-akiki/amore/amore` | LIVE | `antonio-amore-akiki/homebrew-amore` tap, Formula/amore.rb |
-| **PyPI** | `pip install amore` | PENDING | https://pypi.org/project/amore/ |
-| **npm** | `npm install -g amore-mcp` | PENDING | https://www.npmjs.com/package/amore-mcp |
-| **Docker Hub** | `docker pull antonio0101/amore:1.1.0` | PENDING | https://hub.docker.com/r/antonio0101/amore |
-| **crates.io** | `cargo install amore-mcp` (also amore-core, amore-cli, amore-gui) | PENDING | https://crates.io/crates/amore-mcp |
+| **PyPI** | `pip install amore` | LIVE | https://pypi.org/project/amore/ |
+| **npm** | `npm install -g amore-mcp` | LIVE | https://www.npmjs.com/package/amore-mcp |
+| **Docker Hub** | `docker pull antonio0101/amore:1.1.0` | LIVE | https://hub.docker.com/r/antonio0101/amore |
+| **crates.io** | `cargo install amore-mcp` (also amore-core, amore-cli, amore-gui) | LIVE | https://crates.io/crates/amore-mcp |
 
 ## Cosign keyless OIDC signature verification
 
