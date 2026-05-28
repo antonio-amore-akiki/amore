@@ -22,6 +22,7 @@ mod commands {
     pub mod flags;
     pub mod snapshot;
 }
+mod data;
 mod secrets;
 mod update;
 
@@ -92,6 +93,30 @@ enum Command {
     Diag {
         #[command(subcommand)]
         action: DiagAction,
+    },
+    /// Manage local Amore data (GDPR data-erasure).
+    Data {
+        #[command(subcommand)]
+        action: DataAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum DataAction {
+    /// Erase all local Amore data (GDPR right-to-erasure, Article 17).
+    ///
+    /// Without --confirm: lists what WOULD be deleted (dry run).
+    /// With --confirm: permanently destroys all Amore-owned data stores,
+    /// OS keyring entries, WAL files, crash dumps, and registry keys (Windows).
+    /// A receipt is printed to stderr with file/dir counts and a SHA-256
+    /// fingerprint of the pre-deletion manifest.
+    ///
+    /// THIS ACTION IS IRREVERSIBLE. Always run without --confirm first.
+    Erase {
+        /// Confirm permanent data destruction. Without this flag, a dry-run
+        /// list is printed instead.
+        #[arg(long)]
+        confirm: bool,
     },
 }
 
@@ -172,6 +197,7 @@ async fn main() -> Result<()> {
         Command::Flags(args) => commands::flags::run(args),
         Command::Update { action } => cmd_update(action).await,
         Command::Diag { action } => cmd_diag(action),
+        Command::Data { action } => cmd_data(action),
     }
 }
 
@@ -184,6 +210,12 @@ fn cmd_diag(action: DiagAction) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn cmd_data(action: DataAction) -> Result<()> {
+    match action {
+        DataAction::Erase { confirm } => data::run(confirm),
+    }
 }
 
 async fn cmd_update(action: UpdateAction) -> Result<()> {
