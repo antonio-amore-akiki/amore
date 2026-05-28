@@ -69,8 +69,18 @@ jobs:
       - name: Install cargo-wix
         run: cargo install cargo-wix --version ^0.3 --locked
 
+      - name: Stage WXS at cargo-wix default location
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path crates\amore-cli\wix | Out-Null
+          Copy-Item packaging\installer\windows\main.wxs crates\amore-cli\wix\main.wxs -Force
+          Copy-Item packaging\installer\windows\License.rtf crates\amore-cli\wix\License.rtf -Force -ErrorAction SilentlyContinue
+          Write-Host "Staged WXS at crates\amore-cli\wix\main.wxs"
+
       - name: Build MSI via cargo-wix (uses already-built binaries via --no-build)
         run: cargo wix --no-build --nocapture --package amore-cli
+        # WXS file staged at the cargo-wix default location above (cargo-wix doesn't accept
+        # --input when --package is set; staging path-rewrite is the only working pattern).
         # Produces target/wix/amore-<ver>-x86_64.msi
 
       - name: Stage MSI for Inno wrap + signing
