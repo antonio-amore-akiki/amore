@@ -38,6 +38,8 @@ toml.workspace = true
 keyring.workspace = true
 rpassword = "7"
 self_update = { version = "0.44", features = ["signatures"] }
+crash-handler = "0.7"
+minidumper = "0.10"
 
 # ── Linux packaging metadata ──────────────────────────────────────────────────
 # tray-icon on Linux requires GTK + ayatana runtime libraries.

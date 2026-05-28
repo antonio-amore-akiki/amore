@@ -41,6 +41,10 @@ hex = { workspace = true }
 tray-icon = { workspace = true }
 # Structured logging — required by tray update-check (C3 security fix).
 tracing = { workspace = true }
+# Core library for crash diagnostics (E2).
+amore-core = { path = "../amore-core" }
+crash-handler = "0.7"
+minidumper = "0.10"
 
 [dev-dependencies]
 # Temporary directory fixtures for IDE detect/wire tests.
