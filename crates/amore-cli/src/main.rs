@@ -37,7 +37,6 @@ use amore_core::sqlite_store::SqliteStore;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
-use std::time::Duration;
 
 #[derive(Parser)]
 #[command(name = "amore", version, about = "Universal MCP agent memory backbone")]
@@ -370,10 +369,9 @@ fn resolve_doctor_sqlite_path() -> PathBuf {
 }
 
 async fn probe_http(url: &str) -> DoctorCheck {
-    let client = match reqwest::Client::builder()
-        .timeout(Duration::from_secs(3))
-        .build()
-    {
+    // A7: use workspace http factory so HTTP_PROXY/HTTPS_PROXY/NO_PROXY are honoured.
+    // Timeout kept at 3s (probe semantics: fast-fail, not default 30s).
+    let client = match amore_core::http::build_client(3) {
         Ok(c) => c,
         Err(e) => {
             return DoctorCheck {

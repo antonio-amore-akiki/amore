@@ -84,6 +84,32 @@ Arabic UI text renders right-to-left in the installer (Inno Setup full RTL) and 
 
 All non-English strings are machine-seeded and community-refinable — open a pull request to improve a translation.
 
+## Corporate networks
+
+Amore's HTTP client (reqwest 0.12) reads proxy settings from environment
+variables automatically. No Amore-specific configuration is needed.
+
+Set the standard proxy vars before starting any Amore process:
+
+```bash
+# Linux / macOS
+export HTTP_PROXY=http://proxy.corp.example.com:3128
+export HTTPS_PROXY=http://proxy.corp.example.com:3128
+export NO_PROXY=localhost,127.0.0.1,.corp.example.com
+
+# Windows (PowerShell)
+$env:HTTP_PROXY  = "http://proxy.corp.example.com:3128"
+$env:HTTPS_PROXY = "http://proxy.corp.example.com:3128"
+$env:NO_PROXY    = "localhost,127.0.0.1,.corp.example.com"
+```
+
+`ALL_PROXY` is also supported as a single variable for both HTTP and HTTPS.
+Lowercase variants (`http_proxy`, `https_proxy`, `no_proxy`) are accepted too.
+
+These variables are read at runtime; Amore never caches or re-reads them after
+startup. The Ollama local-inference daemon and Qdrant vector store communicate
+on localhost so they are unaffected by proxy settings.
+
 ## Sources
 
 - brew.sh formula docs
