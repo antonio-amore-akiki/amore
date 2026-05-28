@@ -26,8 +26,14 @@ path = "src/bin/longmemeval_runner.rs"
 name = "adversarial_eval"
 path = "src/bin/adversarial_eval.rs"
 
+[features]
+default = []
+# Opt-in: pull rerank-onnx through to amore-core for live cross-encoder eval runs.
+# Set AMORE_RERANKER_ENABLED=1 + ORT_DYLIB_PATH at runtime to actually load the model.
+rerank-onnx = ["amore-core/rerank-onnx"]
+
 [dependencies]
-amore-core = { path = "../amore-core" }
+amore-core = { path = "../amore-core", default-features = false, features = ["tantivy-bm25", "compaction-worker", "wal-sync", "metrics-exporter"] }
 
 # H.10 corpus seeder deps (all workspace — no new external deps)
 qdrant-client.workspace = true
