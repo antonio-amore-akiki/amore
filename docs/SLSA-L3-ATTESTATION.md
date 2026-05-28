@@ -19,7 +19,7 @@ Per slsa.dev/spec/v1.0/requirements and slsa.dev/spec/v1.0/levels.
 |---|---|---|
 | Producer identity | PASS | `antonioakiki15@gmail.com` bound to cosign OIDC token per signing session |
 | Build platform — Linux | PASS | Fresh Docker container per build (`--rm`); discarded after each invocation |
-| Build platform — Windows | PARTIAL | Dev-host (non-ephemeral); v1.1 plan: Windows container (`mcr.microsoft.com/windows/servercore`) |
+| Build platform — Windows | PASS (workflow) / PARTIAL (dev-host) | `.github/workflows/release.yml#windows-build` job runs on `windows-latest` GHA runner (ephemeral per-run VM, discarded after job exit) — meets SLSA L3 ephemeral requirement when releases use the workflow path. The local `scripts/release-local.ps1` path remains dev-host (non-ephemeral) and is for fast-iteration testing only. Production releases SHOULD use the workflow path. |
 | Signing key isolation | PASS | Cosign keyless OIDC; no long-lived key generated, stored, or materialized |
 | Provenance predicate present | PASS | `cosign attest-blob --type slsaprovenance` per artifact + sha256sums bundle (Steps 7 + 7b) |
 | sha256sums.txt signed | PASS | `cosign sign-blob` → `sha256sums.txt.sigstore` (Step 7b) |
@@ -30,9 +30,7 @@ Per slsa.dev/spec/v1.0/requirements and slsa.dev/spec/v1.0/levels.
 | Hermeticity — base image pin | PASS | x86_64: `rust@sha256:6258907...` in `Dockerfile.builder-linux-x86_64`; ARM64: `ghcr.io/cross-rs/aarch64-unknown-linux-gnu@sha256:7f8308...` in `Cross.toml`. `apt-get install` removed from build-time docker run (moved to pre-baked image). W8-8C M2 fix. |
 | In-toto per-step links | PENDING | Deferred — see rationale below |
 
-**Current verdict**: SLSA L3 for Linux build path. Hermeticity rows fully PASS as of W8-8C M2 fix.
-Windows PARTIAL (ephemeral gap only; signing/provenance/verification PASS).
-In-toto stretch deferred.
+**Current verdict**: SLSA L3 for Linux build path AND Windows workflow path (`.github/workflows/release.yml#windows-build` on `windows-latest`). Hermeticity rows fully PASS as of W8-8C M2 fix. Windows status disambiguated 2026-05-28: workflow path is ephemeral (PASS); dev-host `release-local.ps1` path remains PARTIAL and is for testing only. Production v1.0.0 + v1.1.0 MSIs shipped via dev-host path (PARTIAL); v1.2+ production releases should use the workflow path to claim L3. In-toto stretch deferred.
 
 ## Key Claims
 
