@@ -120,6 +120,55 @@ typically gives 80-90% of bge-reranker-base's nDCG@10 at 24× smaller model
 size. Same `outputs["logits"]` (batch, 1) tensor shape — no code change beyond
 the env override.
 
+## Unblock procedures — remaining known_gaps (2026-05-28)
+
+The session goal-state names 3 items that need user action because they
+require credentials, a governance token, or a host where ort init does not
+hang past 60s. Each is a one-shot fix:
+
+### 1. Skill matcher entry (settings.json)
+
+```pwsh
+# Single YES MODIFY token in chat, then run:
+$s = Join-Path $env:USERPROFILE ".claude\settings.json"
+$j = Get-Content $s -Raw | ConvertFrom-Json -AsHashtable
+$j.hooks.PostToolUse += [ordered]@{ matcher="Skill"; hooks=@(@{ type="command"; command="node `"$($env:USERPROFILE)\.claude\runtime\guard-hooks\harness-trigger.mjs`"" }) }
+Copy-Item $s "$s.bak-$(Get-Date -Format yyyyMMddTHHmmss)"
+$j | ConvertTo-Json -Depth 100 | Out-File $s -Encoding utf8 -NoNewline
+```
+
+### 2. VS Build Tools ARM64 workload
+
+```pwsh
+# Run from elevated PowerShell:
+& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vs_installer.exe" `
+  modify --installPath "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools" `
+  --add Microsoft.VisualStudio.Component.VC.Tools.ARM64 `
+  --quiet --norestart --nocache
+# Then verify:
+cargo build --target aarch64-pc-windows-msvc --release -p amore-cli
+```
+
+### 3. Reranker R@5 measurement (host with fast ort init)
+
+```pwsh
+$env:ORT_DYLIB_PATH = "$env:LOCALAPPDATA\amore\onnxruntime\onnxruntime-win-x64-1.20.1\lib\onnxruntime.dll"
+$env:AMORE_RERANKER_ENABLED = "1"
+$env:AMORE_RERANKER_MODEL_PATH = "$env:USERPROFILE\.cache\amore\models\ms-marco-MiniLM-L-6-v2\model.onnx"
+$env:AMORE_RERANKER_TOKENIZER_PATH = "$env:USERPROFILE\.cache\amore\models\ms-marco-MiniLM-L-6-v2\tokenizer.json"
+cargo run --release -p amore-eval --features rerank-onnx --bin amore-eval-longmemeval -- `
+  --corpus state\longmemeval-s\test.jsonl --subset 20 --out state\longmemeval-live-reranked-subset20.json
+```
+
+If ort session-init hangs >60s, add Windows Defender exclusion for the model
++ ORT directories (this is the most common ort-on-Windows pathology):
+
+```pwsh
+Add-MpPreference -ExclusionPath "$env:USERPROFILE\.cache\amore"
+Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\Amore"
+Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\amore"
+```
+
 ## ADR reference
 
 See `docs/adr/0010-h3-reranker-bge.md` (if present) for the Adopt verdict + alternatives audit.
