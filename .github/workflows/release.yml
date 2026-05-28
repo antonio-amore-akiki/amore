@@ -137,6 +137,7 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: write   # gh release upload requires contents:write at job level (least-privilege per Scorecard Token-Permissions)
+      id-token: write   # cosign keyless OIDC for tar.gz + .pkg + .dmg signing
     if: ${{ inputs.release_tag != '' }}
     strategy:
       fail-fast: false
@@ -207,13 +208,23 @@ jobs:
           echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
           echo "dmg=${DMG_FILE}" >> "$GITHUB_OUTPUT"
 
-      - name: Upload tar.gz + .pkg + .dmg to release
+      - name: Install cosign
+        uses: sigstore/cosign-installer@9614fae9e5c5eddabb09f90a270fcb487c9f7149 # v3.3.0
+
+      - name: Cosign keyless OIDC sign macOS artifacts
+        run: |
+          set -euo pipefail
+          cosign sign-blob --yes --bundle "${{ steps.package.outputs.tarball }}.sigstore" "${{ steps.package.outputs.tarball }}"
+          cosign sign-blob --yes --bundle "${{ steps.pkg.outputs.pkg }}.sigstore"      "${{ steps.pkg.outputs.pkg }}"
+          cosign sign-blob --yes --bundle "${{ steps.dmg.outputs.dmg }}.sigstore"      "${{ steps.dmg.outputs.dmg }}"
+
+      - name: Upload tar.gz + .pkg + .dmg + sigstore bundles to release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${{ inputs.release_tag }}" "${{ steps.package.outputs.tarball }}" --clobber
-          gh release upload "${{ inputs.release_tag }}" "${{ steps.pkg.outputs.pkg }}" --clobber
-          gh release upload "${{ inputs.release_tag }}" "${{ steps.dmg.outputs.dmg }}" --clobber
+          gh release upload "${{ inputs.release_tag }}" "${{ steps.package.outputs.tarball }}" "${{ steps.package.outputs.tarball }}.sigstore" --clobber
+          gh release upload "${{ inputs.release_tag }}" "${{ steps.pkg.outputs.pkg }}"          "${{ steps.pkg.outputs.pkg }}.sigstore"          --clobber
+          gh release upload "${{ inputs.release_tag }}" "${{ steps.dmg.outputs.dmg }}"          "${{ steps.dmg.outputs.dmg }}.sigstore"          --clobber
 
       - name: Surface SHAs in summary
         run: |
@@ -228,6 +239,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: write
+      id-token: write   # cosign keyless OIDC for .deb + .rpm + .AppImage signing
     if: ${{ inputs.release_tag != '' }}
     steps:
       - name: Checkout
@@ -321,13 +333,23 @@ jobs:
           echo "appimage=$(pwd)/amore-gui-x86_64.AppImage" >> $GITHUB_OUTPUT
           echo "sha=$SHA" >> $GITHUB_OUTPUT
 
-      - name: Upload Linux artifacts to release
+      - name: Install cosign
+        uses: sigstore/cosign-installer@9614fae9e5c5eddabb09f90a270fcb487c9f7149 # v3.3.0
+
+      - name: Cosign keyless OIDC sign Linux artifacts
+        run: |
+          set -euo pipefail
+          cosign sign-blob --yes --bundle "${{ steps.deb.outputs.deb }}.sigstore"           "${{ steps.deb.outputs.deb }}"
+          cosign sign-blob --yes --bundle "${{ steps.rpm.outputs.rpm }}.sigstore"           "${{ steps.rpm.outputs.rpm }}"
+          cosign sign-blob --yes --bundle "${{ steps.appimage.outputs.appimage }}.sigstore" "${{ steps.appimage.outputs.appimage }}"
+
+      - name: Upload Linux artifacts + sigstore bundles to release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "${{ inputs.release_tag }}" "${{ steps.deb.outputs.deb }}" --clobber
-          gh release upload "${{ inputs.release_tag }}" "${{ steps.rpm.outputs.rpm }}" --clobber
-          gh release upload "${{ inputs.release_tag }}" "${{ steps.appimage.outputs.appimage }}" --clobber
+          gh release upload "${{ inputs.release_tag }}" "${{ steps.deb.outputs.deb }}"            "${{ steps.deb.outputs.deb }}.sigstore"            --clobber
+          gh release upload "${{ inputs.release_tag }}" "${{ steps.rpm.outputs.rpm }}"            "${{ steps.rpm.outputs.rpm }}.sigstore"            --clobber
+          gh release upload "${{ inputs.release_tag }}" "${{ steps.appimage.outputs.appimage }}" "${{ steps.appimage.outputs.appimage }}.sigstore" --clobber
 
       - name: Surface SHAs
         run: |
