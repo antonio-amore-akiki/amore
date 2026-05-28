@@ -473,10 +473,13 @@ jobs:
         working-directory: python/amore
         run: python -m build
 
-      - name: Publish to PyPI (OIDC Trusted Publishing -- no token required)
+      - name: Publish to PyPI (API token auth)
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: python/amore/dist/
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          # Token-based publish (Antonio's PyPI account `ant70-9-d-r-3`). v-next: migrate to
+          # Trusted Publisher (OIDC, no stored token) after first publish creates the project.
 
   npm-publish:
     # Publishes npm/amore-mcp to npmjs.com.
