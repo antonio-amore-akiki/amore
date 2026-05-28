@@ -29,27 +29,70 @@ jobs:
           echo "::notice::Win/Linux artifacts for v${{ inputs.version }} are produced via scripts/release-local.ps1. macOS artifacts produced by the macos-build job below. Windows .exe wrapper produced by the windows-build job below."
 
   windows-build:
-    # Wrap the existing v<version> MSI in an Inno Setup .exe (consumer-friendly double-click format).
-    # windows-latest free for public repos per https://docs.github.com/en/billing/managing-billing-for-github-actions/about-billing-for-github-actions
+    # Build amore-windows-x64.msi from scratch on hosted runner + cosign keyless sign + Inno-wrap
+    # into .exe. Fully autonomous — no local pre-build required (Closure Addendum 3 Gap 1).
+    # windows-latest is free for public repos per https://docs.github.com/en/billing/managing-billing-for-github-actions/about-billing-for-github-actions
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     permissions:
       contents: write
+      id-token: write   # cosign keyless OIDC for MSI signing
     if: ${{ inputs.release_tag != '' }}
     steps:
       - name: Checkout
-        # Use `main` (not the release tag) — the .iss wrapper script was added AFTER v1.0.0;
-        # checking out v1.0.0 would 404 on packaging/installer/windows/amore.iss.
-        # The MSI source is still pulled from the tag's release page below.
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: main
           persist-credentials: false
 
-      - name: Download v${{ inputs.version }} MSI from release
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry + target
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-msi-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build release binaries (amore-cli + amore-mcp + amore-gui)
+        run: cargo build --release -p amore-cli -p amore-mcp -p amore-gui
+
+      - name: Install cargo-wix
+        run: cargo install cargo-wix --version ^0.3 --locked
+
+      - name: Build MSI via cargo-wix (uses already-built binaries via --no-build)
+        run: cargo wix --no-build --nocapture --package amore-cli
+        # Produces target/wix/amore-<ver>-x86_64.msi
+
+      - name: Stage MSI for Inno wrap + signing
+        shell: powershell
+        run: |
+          $msi = Get-ChildItem -Path target/wix/*.msi -ErrorAction Stop | Select-Object -First 1
+          if (-not $msi) { throw "cargo wix did not produce an MSI in target/wix/" }
+          $dst = "packaging/installer/windows/amore-windows-x64.msi"
+          Copy-Item -Path $msi.FullName -Destination $dst -Force
+          $sha = (Get-FileHash $dst -Algorithm SHA256).Hash.ToLower()
+          Write-Host "MSI: $($msi.Name) -> $dst (sha256=$sha)"
+          echo "MSI_PATH=$(Resolve-Path $dst)" >> $env:GITHUB_ENV
+          echo "MSI_SHA=$sha" >> $env:GITHUB_ENV
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@d7d6e07b41e7c8b0d63aef9b9c2e2e1f1e93b7a2 # v3.3.0
+
+      - name: Cosign keyless OIDC sign the MSI
+        shell: powershell
+        run: |
+          cosign sign-blob --yes --bundle "$env:MSI_PATH.sigstore" "$env:MSI_PATH"
+          if ($LASTEXITCODE -ne 0) { throw "cosign sign-blob failed for MSI" }
+
+      - name: Upload MSI + sigstore bundle to release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release download "${{ inputs.release_tag }}" -p "amore-windows-x64.msi" -D packaging/installer/windows/ --clobber
+        shell: powershell
+        run: gh release upload "${{ inputs.release_tag }}" "$env:MSI_PATH" "$env:MSI_PATH.sigstore" --clobber
 
       - name: Install Inno Setup (free; ISC-equivalent license)
         run: choco install innosetup --no-progress --confirm
