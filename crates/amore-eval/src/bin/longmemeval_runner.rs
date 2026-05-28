@@ -250,15 +250,23 @@ async fn run_real(
     inst: &Instance, qdrant_url: &str, ollama_url: &str, top_k: usize, coll: &str,
 ) -> Result<(usize, usize, usize, u64, usize)> {
     use amore_core::{ollama::OllamaClient, qdrant_store::QdrantStore, recall::HybridRecall};
+    use std::sync::Arc;
     let qdrant = QdrantStore::new(&format!("http://{qdrant_url}"), coll, 768)
         .await.with_context(|| format!("connect Qdrant at {qdrant_url}"))?;
-    let recall = HybridRecall::new(OllamaClient::new(ollama_url), qdrant);
+    // B7 closure (2026-05-28): wire BOTH vector + BM25 lanes. Prior runner instantiated
+    // HybridRecall WITHOUT .with_sqlite() — degenerated to vector-only and R@5=0.65 on
+    // subset=20. With both lanes RRF-fused (rrf_fuse + k=60), subset-20 expected ≥0.85.
+    let sqlite = Arc::new(SqliteStore::open_in_memory().context("in-memory SQLite for BM25 lane")?);
+    let recall = HybridRecall::new(OllamaClient::new(ollama_url), qdrant).with_sqlite(sqlite.clone());
     for (sid, turns) in infer_sids(inst).iter().zip(inst.haystack_sessions.iter()) {
         let raw: String = turns.iter().map(|t| t.content.as_str()).collect::<Vec<_>>().join(" ");
         let text = truncate_bytes(&raw, 1500);
         if text.is_empty() { continue; }  // skip empty sessions — no recall signal
         recall.index(str_to_u64(sid), "longmemeval", &text, Some(serde_json::json!({"session_id": sid})))
             .await.with_context(|| format!("index session {sid}"))?;
+        // BM25 lane: insert_observation seals into chain + populates observations_fts
+        sqlite.insert_observation("longmemeval", &serde_json::json!({"text": text, "session_id": sid}))
+            .with_context(|| format!("sqlite insert {sid}"))?;
     }
     if inst.haystack_sessions.is_empty() && !inst.history.is_empty() {
         let raw: String = inst.history.iter().map(|t| t.content.as_str()).collect::<Vec<_>>().join(" ");
@@ -267,6 +275,8 @@ async fn run_real(
             let sid = &inst.question_id;
             recall.index(str_to_u64(sid), "longmemeval", &text, Some(serde_json::json!({"session_id": sid})))
                 .await.context("index legacy")?;
+            sqlite.insert_observation("longmemeval", &serde_json::json!({"text": text, "session_id": sid}))
+                .context("sqlite insert legacy")?;
         }
     }
     let (mut h1, mut h5, mut h10) = (0, 0, 0);
