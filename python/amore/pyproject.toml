@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "amore"
-version = "1.0.2"
+version = "1.1.0"
 description = "Python client for Amore agent memory — mem0-compatible API, Rust core via MCP"
 readme = "README.md"
 license = { text = "Apache-2.0" }

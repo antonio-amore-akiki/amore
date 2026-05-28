@@ -47,7 +47,7 @@ checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
 name = "amore-adapter-claude"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "amore-core",
  "anyhow",
@@ -58,7 +58,7 @@ dependencies = [
 
 [[package]]
 name = "amore-adapter-cline"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "amore-core",
  "anyhow",
@@ -69,7 +69,7 @@ dependencies = [
 
 [[package]]
 name = "amore-adapter-codex"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "amore-core",
  "anyhow",
@@ -81,7 +81,7 @@ dependencies = [
 
 [[package]]
 name = "amore-adapter-cursor"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "amore-core",
  "anyhow",
@@ -92,7 +92,7 @@ dependencies = [
 
 [[package]]
 name = "amore-adapter-hermes"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "amore-core",
  "anyhow",
@@ -104,7 +104,7 @@ dependencies = [
 
 [[package]]
 name = "amore-adapter-opencode"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "amore-core",
  "anyhow",
@@ -115,7 +115,7 @@ dependencies = [
 
 [[package]]
 name = "amore-adapter-windsurf"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "amore-core",
  "anyhow",
@@ -126,7 +126,7 @@ dependencies = [
 
 [[package]]
 name = "amore-cli"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "amore-adapter-claude",
  "amore-adapter-cline",
@@ -160,7 +160,7 @@ dependencies = [
 
 [[package]]
 name = "amore-core"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -197,7 +197,7 @@ dependencies = [
 
 [[package]]
 name = "amore-eval"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "amore-core",
  "anyhow",
@@ -218,7 +218,7 @@ dependencies = [
 
 [[package]]
 name = "amore-gui"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "amore-core",
  "crash-handler",
@@ -240,7 +240,7 @@ dependencies = [
 
 [[package]]
 name = "amore-i18n"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "fluent",
  "fluent-bundle",
@@ -251,7 +251,7 @@ dependencies = [
 
 [[package]]
 name = "amore-integration-tests"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "amore-core",
  "serde_json",
@@ -260,7 +260,7 @@ dependencies = [
 
 [[package]]
 name = "amore-mcp"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "amore-core",
  "anyhow",
