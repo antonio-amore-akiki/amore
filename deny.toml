@@ -21,6 +21,23 @@ ignore = [
     # enumerated in docs/RUSTSEC-TRIAGE-v0.5.0.md §RUSTSEC-2026-0002 and state/rustsec-2026-0002-analysis.md.
     # Fix (lru 0.16.3+) requires tantivy 0.26+ (major migration, v-next backlog #34). Re-grep when tantivy bumped.
     { id = "RUSTSEC-2026-0002", reason = "lru IterMut Stacked Borrows unsoundness is UNREACHABLE in tantivy 0.22.1 (only compiled consumer); tantivy invokes .new/.get/.put/.len/.peek_lru only, never .iter_mut. Verified W9-fix-C at docs/RUSTSEC-TRIAGE-v0.5.0.md §RUSTSEC-2026-0002 (file:line per touchpoint). No public PoC. Bump scheduled v-next #34 when tantivy 0.26+ adopted. Sunset 2026-12-31." },
+    # A4 — GTK3 bindings via tray-icon 0.24 (INFO/Unmaintained, no CVSS). All are transitive via
+    # tray-icon->muda->gtk 0.18. Migration to GTK4 / winit requires tray-icon 0.25+ major GUI overhaul
+    # tracked in v-next backlog #41. Upstream issue: https://github.com/tauri-apps/tray-icon/issues/227
+    # Clearable when tray-icon is bumped to a GTK4-based release. Sunset 2026-12-31.
+    { id = "RUSTSEC-2024-0412", reason = "gdk 0.18 unmaintained (INFO only, no CVSS). Transitive via tray-icon 0.24->gtk 0.18. Migrate when tray-icon bumps to GTK4 (v-next #41, https://github.com/tauri-apps/tray-icon/issues/227). Sunset 2026-12-31." },
+    { id = "RUSTSEC-2024-0413", reason = "atk 0.18 unmaintained (INFO only, no CVSS). Transitive via tray-icon 0.24->gtk 0.18. Migrate when tray-icon bumps to GTK4 (v-next #41, https://github.com/tauri-apps/tray-icon/issues/227). Sunset 2026-12-31." },
+    { id = "RUSTSEC-2024-0415", reason = "gtk 0.18 unmaintained (INFO only, no CVSS). Transitive via tray-icon 0.24. Migrate when tray-icon bumps to GTK4 (v-next #41, https://github.com/tauri-apps/tray-icon/issues/227). Sunset 2026-12-31." },
+    { id = "RUSTSEC-2024-0416", reason = "atk-sys 0.18 unmaintained (INFO only, no CVSS). Transitive via tray-icon 0.24->gtk 0.18. Migrate when tray-icon bumps to GTK4 (v-next #41, https://github.com/tauri-apps/tray-icon/issues/227). Sunset 2026-12-31." },
+    { id = "RUSTSEC-2024-0418", reason = "gdk-sys 0.18 unmaintained (INFO only, no CVSS). Transitive via tray-icon 0.24->gtk 0.18. Migrate when tray-icon bumps to GTK4 (v-next #41, https://github.com/tauri-apps/tray-icon/issues/227). Sunset 2026-12-31." },
+    { id = "RUSTSEC-2024-0419", reason = "gtk3-macros 0.18 unmaintained (INFO only, no CVSS). Transitive via tray-icon 0.24->gtk 0.18. Migrate when tray-icon bumps to GTK4 (v-next #41, https://github.com/tauri-apps/tray-icon/issues/227). Sunset 2026-12-31." },
+    { id = "RUSTSEC-2024-0420", reason = "gtk-sys 0.18 unmaintained (INFO only, no CVSS). Transitive via tray-icon 0.24->gtk 0.18. Migrate when tray-icon bumps to GTK4 (v-next #41, https://github.com/tauri-apps/tray-icon/issues/227). Sunset 2026-12-31." },
+    { id = "RUSTSEC-2024-0370", reason = "proc-macro-error 1.x unmaintained (INFO only, no CVSS). Transitive via tray-icon 0.24->gtk3-macros/glib-macros. Migrate when tray-icon bumps to GTK4 (v-next #41, https://github.com/tauri-apps/tray-icon/issues/227). Sunset 2026-12-31." },
+    # A4 — glib 0.18 unsound: VariantStrIter Iterator/DoubleEndedIterator UB. Reachability: glib::VariantStrIter
+    # is UNREACHABLE in amore-gui v1.0.0 — tray-icon and muda call glib through gtk/gdk but never invoke
+    # VariantStrIter. No public PoC. Fix requires glib 0.20+ which requires gtk4 (major migration, v-next #41).
+    # Upstream issue: https://github.com/gtk-rs/gtk-rs-core/issues/1384. Sunset 2026-12-31.
+    { id = "RUSTSEC-2024-0429", reason = "glib VariantStrIter unsoundness UNREACHABLE in amore-gui (tray-icon/muda never invoke VariantStrIter). Fix requires glib 0.20+/GTK4, tracked v-next #41 (https://github.com/gtk-rs/gtk-rs-core/issues/1384). No public PoC. Sunset 2026-12-31." },
 ]
 
 [licenses]
