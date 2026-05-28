@@ -447,7 +447,9 @@ jobs:
         with:
           context: .
           file: Dockerfile.multiarch
-          platforms: linux/amd64,linux/arm64
+          # v1.1.0 ships amd64-only: arm64 QEMU emulation timed out at 60min on prior runs;
+          # arm64 lands in v1.1.1 with native arm64 hosted runner per docker buildx best-practice.
+          platforms: linux/amd64
           push: true
           tags: |
             antonio0101/amore:latest
@@ -526,12 +528,42 @@ jobs:
         # Trusted Publisher at npmjs.com/package/amore-mcp/access.
         run: npm publish --access public
 
+  publish-release:
+    # Flips the auto-created GH Release from draft -> published (latest=true) so that
+    # downstream jobs (homebrew-update) + strangers can see it via `gh release download`
+    # and the release page. Root cause: gh release upload --clobber auto-creates the
+    # release as DRAFT; without this flip, gh release download returns "release not found".
+    needs: [macos-build, linux-build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write   # required for gh release edit
+    if: ${{ inputs.release_tag != '' }}
+    steps:
+      - name: Publish draft release as latest (with retry)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in 1 2 3 4 5; do
+            if gh release view "${{ inputs.release_tag }}" -R ${{ github.repository }} --json id >/dev/null 2>&1; then
+              gh release edit "${{ inputs.release_tag }}" -R ${{ github.repository }} --draft=false --latest 2>/dev/null || true
+              echo "Published ${{ inputs.release_tag }} as latest"
+              # propagation delay before homebrew-update reads it
+              sleep 5
+              exit 0
+            fi
+            echo "Release not yet visible (attempt $i/5), sleeping 10s..."
+            sleep 10
+          done
+          echo "::error::Release ${{ inputs.release_tag }} not found after 50s of polling"
+          exit 1
+
   homebrew-update:
-    # Closes F-47 race: runs only after macos-build + linux-build have uploaded their
-    # release artifacts, so SHA256 computation sees final, signed tarballs/AppImages.
+    # Closes F-47 race: runs only after publish-release flips draft->published, so
+    # gh release download below can actually see the release + its uploaded assets.
     # Regenerates Formula/amore.rb in antonio-amore-akiki/homebrew-amore and pushes.
     # Requires HOMEBREW_TAP_PAT secret: fine-grained PAT with contents:write on homebrew-amore.
-    needs: [macos-build, linux-build]
+    needs: [macos-build, linux-build, publish-release]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

@@ -6,7 +6,7 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Amore MCP server — Model Context Protocol stdio server exposing the Amore agent memory backbone (observe / recall / forget tools) to Claude Code, Claude Desktop, Cursor, Cline, Continue, and other MCP-aware IDEs."
-keywords = ["mcp", "model-context-protocol", "agent-memory", "claude-code", "rust"]
+keywords = ["mcp", "mcp-server", "agent-memory", "claude-code", "rust"]
 categories = ["development-tools", "command-line-utilities"]
 
 [[bin]]

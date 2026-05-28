@@ -6,7 +6,7 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Amore core — local-first hybrid retrieval (BM25 + vector) engine, WAL, qdrant adapter, machine-key keyring for the Amore MCP agent memory backbone."
-keywords = ["mcp", "agent-memory", "retrieval-augmented-generation", "rust"]
+keywords = ["mcp", "agent-memory", "rag", "rust"]
 categories = ["development-tools"]
 
 [features]
