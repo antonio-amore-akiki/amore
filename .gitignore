@@ -39,3 +39,11 @@ state/
 
 # ONNX Runtime DLL for ort load-dynamic feature (ADR 0013) — not committed; acquired by dev/installer.
 vendor/onnxruntime/
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# npm pack artifacts
+npm/*/*.tgz
