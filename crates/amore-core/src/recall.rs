@@ -47,6 +47,12 @@ pub struct HybridRecall<E: Embedder = OllamaClient> {
     embedder: E,
     qdrant: QdrantStore,
     sqlite: Option<Arc<SqliteStore>>,
+    // H.3 reranker insertion point (2026-05-28). Wrapped in tokio::sync::Mutex because
+    // `Reranker::rerank` takes `&mut self` (ort::Session::run mutates internal state) and
+    // HybridRecall::search is `&self`. The Mutex is held only across one rerank() call
+    // (typically 50ms-300ms for 50 candidates) so it's not a hot-path bottleneck.
+    #[cfg(feature = "rerank-onnx")]
+    reranker: Option<Arc<tokio::sync::Mutex<crate::reranker::Reranker>>>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -99,6 +105,8 @@ impl<E: Embedder> HybridRecall<E> {
             embedder,
             qdrant,
             sqlite: None,
+            #[cfg(feature = "rerank-onnx")]
+            reranker: None,
         }
     }
 
@@ -106,6 +114,20 @@ impl<E: Embedder> HybridRecall<E> {
     /// performs hybrid retrieval (vector + BM25 fused via RRF).
     pub fn with_sqlite(mut self, sqlite: Arc<SqliteStore>) -> Self {
         self.sqlite = Some(sqlite);
+        self
+    }
+
+    /// Attach a cross-encoder reranker (H.3). After this, `search()` runs RRF
+    /// fusion → reranker → final truncation. Lifts top-K precision by re-scoring
+    /// the fused candidate set with full bidirectional attention (BAAI/bge-reranker-base).
+    /// Caller owns model lifetime; same Arc may be cloned across multiple HybridRecall
+    /// instances. See `docs/H3-RERANKER-NDCG-PLAN.md` for setup + R@5 measurement.
+    #[cfg(feature = "rerank-onnx")]
+    pub fn with_reranker(
+        mut self,
+        reranker: Arc<tokio::sync::Mutex<crate::reranker::Reranker>>,
+    ) -> Self {
+        self.reranker = Some(reranker);
         self
     }
 
@@ -197,11 +219,71 @@ impl<E: Embedder> HybridRecall<E> {
         // When only one lane is alive, rrf_fuse degenerates cleanly: it ranks
         // the surviving lane's hits without any cross-lane lift. When both
         // lanes are alive, full RRF kicks in.
-        let hits = if self.sqlite.is_some() {
-            rrf_fuse(vec_hits, bm_hits, top_k)
+        //
+        // H.3 reranker insertion (2026-05-28): when a reranker is attached, fuse
+        // to a wider candidate set (top_k * 10, capped at 50) then re-score with
+        // the cross-encoder. Cross-encoder scoring lifts top-K precision over
+        // RRF-only by re-attending query+doc with full bidirectional attention
+        // rather than dot-product cosine similarity.
+        #[cfg(feature = "rerank-onnx")]
+        let rerank_fanout = if self.reranker.is_some() {
+            (top_k * 10).min(50).max(top_k)
         } else {
-            vec_hits.into_iter().take(top_k).map(map_hit).collect()
+            top_k
         };
+        #[cfg(not(feature = "rerank-onnx"))]
+        let rerank_fanout = top_k;
+
+        let fused: Vec<RecallHit> = if self.sqlite.is_some() {
+            rrf_fuse(vec_hits, bm_hits, rerank_fanout)
+        } else {
+            vec_hits
+                .into_iter()
+                .take(rerank_fanout)
+                .map(map_hit)
+                .collect()
+        };
+
+        #[cfg(feature = "rerank-onnx")]
+        let hits = if let Some(reranker_arc) = self.reranker.as_ref() {
+            // Build (synthetic_id, text) pairs. We use the array index as the synthetic
+            // ID since we only need to restore the original hit afterwards; the hit's
+            // own `id` is a string (Qdrant point ID or SQLite envelope hash) not always
+            // numeric-parseable. Restoration via index is O(n) but n ≤ 50.
+            let pairs: Vec<(u64, String)> = fused
+                .iter()
+                .enumerate()
+                .map(|(i, h)| (i as u64, h.text.clone()))
+                .collect();
+            let mut reranker = reranker_arc.lock().await;
+            match reranker.rerank(query, pairs, top_k) {
+                Ok(scored) => {
+                    let mut out: Vec<RecallHit> = Vec::with_capacity(scored.len());
+                    for (idx, new_score) in scored {
+                        if let Some(orig) = fused.get(idx as usize) {
+                            let mut h = orig.clone();
+                            h.score = new_score;
+                            out.push(h);
+                        }
+                    }
+                    out
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        target: "amore.recall",
+                        error = %e,
+                        "reranker.error — falling back to RRF-only ranking"
+                    );
+                    fused.into_iter().take(top_k).collect()
+                }
+            }
+        } else {
+            fused.into_iter().take(top_k).collect()
+        };
+
+        #[cfg(not(feature = "rerank-onnx"))]
+        let hits = fused.into_iter().take(top_k).collect();
+
         Ok(RecallEnvelope { hits, degraded })
     }
 

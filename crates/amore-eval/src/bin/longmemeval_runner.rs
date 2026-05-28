@@ -257,7 +257,26 @@ async fn run_real(
     // HybridRecall WITHOUT .with_sqlite() — degenerated to vector-only and R@5=0.65 on
     // subset=20. With both lanes RRF-fused (rrf_fuse + k=60), subset-20 expected ≥0.85.
     let sqlite = Arc::new(SqliteStore::open_in_memory().context("in-memory SQLite for BM25 lane")?);
-    let recall = HybridRecall::new(OllamaClient::new(ollama_url), qdrant).with_sqlite(sqlite.clone());
+    #[cfg_attr(not(feature = "rerank-onnx"), allow(unused_mut))]
+    let mut recall = HybridRecall::new(OllamaClient::new(ollama_url), qdrant).with_sqlite(sqlite.clone());
+    // H.3 reranker (2026-05-28): opt-in via AMORE_RERANKER_ENABLED=1 + ORT_DYLIB_PATH.
+    // When enabled, RRF fusion fans out to top-50 candidates which the cross-encoder
+    // re-scores down to top_k. See docs/H3-RERANKER-NDCG-PLAN.md for setup. Target lift:
+    // subset-20 R@5 from 0.65 (RRF-only) to >=0.85 (RRF + cross-encoder rerank).
+    #[cfg(feature = "rerank-onnx")]
+    if std::env::var("AMORE_RERANKER_ENABLED").as_deref() == Ok("1") {
+        use amore_core::reranker::Reranker;
+        match Reranker::from_default_paths() {
+            Ok(rr) => {
+                tracing::info!(target: "longmemeval", "reranker loaded from default paths");
+                let rr_arc = Arc::new(tokio::sync::Mutex::new(rr));
+                recall = recall.with_reranker(rr_arc);
+            }
+            Err(e) => {
+                tracing::warn!(target: "longmemeval", error = %e, "reranker disabled — model load failed; falling back to RRF-only");
+            }
+        }
+    }
     for (sid, turns) in infer_sids(inst).iter().zip(inst.haystack_sessions.iter()) {
         let raw: String = turns.iter().map(|t| t.content.as_str()).collect::<Vec<_>>().join(" ");
         let text = truncate_bytes(&raw, 1500);
