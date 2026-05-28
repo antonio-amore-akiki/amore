@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/antonio-amore-akiki/amore/blob/main/schema/auto-wire-contract.schema.json",
+  "title": "AmoreAutoWireContract",
+  "description": "Output contract for `amore-mcp --register-claude-code --self-contained`. Emitted to stdout as a single JSON object. Exit 0 iff errors == []. Schema version: 1.",
+  "type": "object",
+  "required": ["detected", "wired", "skipped", "errors"],
+  "additionalProperties": false,
+  "properties": {
+    "detected": {
+      "type": "array",
+      "description": "IDE/editor installations found on the host (by binary path, config dir, or registry key).",
+      "items": { "$ref": "#/definitions/DetectedIDE" }
+    },
+    "wired": {
+      "type": "array",
+      "description": "Targets successfully updated with the amore MCP entry.",
+      "items": { "$ref": "#/definitions/WiredEntry" }
+    },
+    "skipped": {
+      "type": "array",
+      "description": "Targets detected but intentionally not modified (already configured, or user opt-out scope).",
+      "items": { "$ref": "#/definitions/SkippedEntry" }
+    },
+    "errors": {
+      "type": "array",
+      "description": "Targets where modification was attempted but failed. Non-empty array = exit 1.",
+      "items": { "$ref": "#/definitions/ErrorEntry" }
+    }
+  },
+  "definitions": {
+    "DetectedIDE": {
+      "type": "object",
+      "required": ["id", "config_path"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stable identifier for the IDE/editor bridge.",
+          "enum": ["claude-code", "cursor", "cline", "continue", "zed", "vscode"]
+        },
+        "config_path": {
+          "type": "string",
+          "description": "Absolute path to the per-user config file that was located (e.g. ~/.claude.json)."
+        },
+        "version": {
+          "type": "string",
+          "description": "Version string of the detected installation, if readable."
+        }
+      }
+    },
+    "WiredEntry": {
+      "type": "object",
+      "required": ["id", "config_path", "method"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "config_path": { "type": "string" },
+        "method": {
+          "type": "string",
+          "description": "How the config was written.",
+          "enum": ["atomic-write", "cli-command"]
+        },
+        "backup_path": {
+          "type": "string",
+          "description": "Absolute path of the backup created before modification, if any."
+        }
+      }
+    },
+    "SkippedEntry": {
+      "type": "object",
+      "required": ["id", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "reason": {
+          "type": "string",
+          "description": "Human-readable reason (e.g. 'already_configured', 'scope_user_opt_out')."
+        }
+      }
+    },
+    "ErrorEntry": {
+      "type": "object",
+      "required": ["id", "error"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "error": {
+          "type": "string",
+          "description": "Error message (stdout+stderr captured from the failed write attempt)."
+        }
+      }
+    }
+  }
+}
