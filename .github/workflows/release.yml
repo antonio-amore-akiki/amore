@@ -393,14 +393,17 @@ jobs:
       - name: Publish amore-core (base dependency — must publish first)
         run: cargo publish -p amore-core --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
+      - name: Wait for crates.io index propagation (amore-core)
+        run: sleep 30  # crates.io index needs ~30s for downstream `cargo publish` to see the new version
+
       - name: Publish amore-mcp (depends on amore-core)
         run: cargo publish -p amore-mcp --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
-      - name: Publish amore-cli (depends on amore-core + adapters)
-        run: cargo publish -p amore-cli --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
-
-      - name: Publish amore-gui (depends on workspace deps)
-        run: cargo publish -p amore-gui --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      # amore-cli + amore-gui are NOT published to crates.io for v1.1.0:
+      # - amore-cli has 7 adapter path-deps that would need cascading publishes
+      # - amore-gui is binary-only; users install via GH Releases / Homebrew / Inno installer
+      # Strangers use `cargo install amore-mcp` for the MCP server, or download binaries from
+      # the release page for amore + amore-gui. v-next: publish adapters + amore-cli + amore-gui.
 
   docker-publish:
     # Publishes multi-arch Docker image (linux/amd64 + linux/arm64) to Docker Hub.
