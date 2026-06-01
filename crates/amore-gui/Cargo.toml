@@ -24,7 +24,7 @@ eframe = { version = "0.34", default-features = false, features = ["default_font
 # Native folder picker for the "Browse..." button.
 rfd = "0.15"
 # PATH lookup for Ollama auto-detect.
-which = "7"
+which = "8"
 # Cross-platform default data directory (used by default_memory_dir()).
 dirs.workspace = true
 # HTTP client for F.installer-3 (Ollama silent download + readiness probe).
