@@ -119,7 +119,7 @@ dirs = "5"
 keyring = "3"
 
 # TOML — required for Codex CLI adapter (~/.codex/config.toml)
-toml = "0.8"
+toml = "1.1"
 
 # YAML — required for Hermes Agent adapter (~/.hermes/config.yaml)
 serde_yaml = "0.9"
