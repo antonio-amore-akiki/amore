@@ -11,7 +11,7 @@ description = "Runtime i18n for Amore — EN/FR/NL/DE/AR via Project Fluent"
 [dependencies]
 # Project Fluent — message parsing + formatting
 fluent = "0.16"
-fluent-bundle = "0.15"
+fluent-bundle = "0.16"
 # OS locale detection
 sys-locale = "0.3"
 # Language identifier parsing (BCP 47)
