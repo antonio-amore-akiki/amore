@@ -116,7 +116,7 @@ clap = { version = "4", features = ["derive"] }
 dirs = "5"
 
 # OS keyring — Windows Credential Manager / Linux Secret Service / macOS Keychain
-keyring = "3"
+keyring = "4"
 
 # TOML — required for Codex CLI adapter (~/.codex/config.toml)
 toml = "0.8"
