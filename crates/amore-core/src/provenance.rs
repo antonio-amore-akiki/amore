@@ -80,6 +80,15 @@ pub fn verify_chain(chain: &[Envelope]) -> Result<()> {
     Ok(())
 }
 
+/// Compute a raw SHA-256 hex digest over arbitrary bytes.
+/// Used by the gRPC `ProvenanceVerify` RPC to check a caller-supplied
+/// document against an expected digest without constructing a full Envelope.
+pub fn sha256_hex(data: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(data);
+    hex::encode(hasher.finalize())
+}
+
 fn compute_hash(id: &str, prev_hash: &str, canonical_json: &str) -> String {
     // Length-prefix each field with a u64 big-endian length so an attacker
     // cannot move bytes between fields and produce the same hash.

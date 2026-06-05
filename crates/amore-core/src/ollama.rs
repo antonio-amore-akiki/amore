@@ -54,7 +54,10 @@ impl OllamaClient {
         if parsed.embedding.is_empty() { anyhow::bail!("Ollama empty embedding for model {}", self.embed_model); }
         Ok(parsed.embedding)
     }
-    pub async fn extract_facts(&self, _observation: &str) -> Result<Vec<String>> { Ok(vec![]) }
+    pub async fn extract_facts(&self, _observation: &str) -> Result<Vec<String>> {
+        tracing::warn!(target: "amore.ollama", "extract_facts is not yet implemented");
+        Err(anyhow::anyhow!("extract_facts not yet implemented"))
+    }
     pub async fn generate(&self, system: Option<&str>, prompt: &str) -> Result<String> {
         let url = format!("{}/api/generate", self.base_url);
         let resp = self.http.post(&url).json(&GenerateRequest { model: &self.llm_model, prompt, system, stream: false })
