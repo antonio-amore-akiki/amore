@@ -7,7 +7,7 @@
 // v0.4.x scope (ADR 0009):
 //   • Recall             — wired end-to-end via HybridRecall::search
 //   • Health             — wired end-to-end (liveness + uptime)
-//   • CanonicalDocLookup — unimplemented (TODO v0.5.0 ticket #amore-grpc-canonical)
+//   • CanonicalDocLookup — wired end-to-end via CanonicalDocsRouter::route over docs_paths
 //   • ProvenanceVerify   — wired (uses amore_core::provenance::sha256_hex to
 //                          verify document_json against expected_sha256)
 //
