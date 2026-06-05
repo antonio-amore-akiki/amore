@@ -145,7 +145,7 @@ fn collect_recent_dumps(max_dumps: usize) -> Vec<PathBuf> {
     let mut files: Vec<(u64, PathBuf)> = entries
         .flatten()
         .filter(|e| e.path().extension().map(|x| x == "dmp").unwrap_or(false))
-        .filter_map(|e| {
+        .map(|e| {
             let mtime = e
                 .metadata()
                 .ok()
@@ -153,10 +153,10 @@ fn collect_recent_dumps(max_dumps: usize) -> Vec<PathBuf> {
                 .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
                 .map(|d| d.as_secs())
                 .unwrap_or(0);
-            Some((mtime, e.path()))
+            (mtime, e.path())
         })
         .collect();
-    files.sort_by(|a, b| b.0.cmp(&a.0));
+    files.sort_by_key(|b| std::cmp::Reverse(b.0));
     files.into_iter().take(max_dumps).map(|(_, p)| p).collect()
 }
 

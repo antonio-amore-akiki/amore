@@ -507,11 +507,11 @@ mod observe_tests {
     // Mock embedder that always returns Err (simulates Ollama unavailability).
     struct FailEmbedder;
     impl Embedder for FailEmbedder {
-        fn embed_query(
+        async fn embed_query(
             &self,
             _text: &str,
-        ) -> impl std::future::Future<Output = anyhow::Result<Vec<f32>>> + Send {
-            async { anyhow::bail!("mock: ollama unavailable") }
+        ) -> anyhow::Result<Vec<f32>> {
+            anyhow::bail!("mock: ollama unavailable")
         }
     }
 

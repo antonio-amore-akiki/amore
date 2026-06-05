@@ -426,7 +426,8 @@ async fn main() -> Result<(), MainError> {
         .map_err(|e| MainError::ConfigInvalid(format!("rate limiter config error: {e:#}")))?;
 
     // Step 7: Build Qdrant store (pool env-tuning lives in amore-core/qdrant_pool.rs).
-    let ollama = OllamaClient::new(&ollama_url);
+    let ollama = OllamaClient::try_new(&ollama_url)
+        .map_err(|e| MainError::ConfigInvalid(format!("OllamaClient init: {e:#}")))?;
     let qdrant = QdrantStore::open(&qdrant_url, &collection)
         .await
         .with_context(|| format!("opening Qdrant at {qdrant_url} collection={collection}"))
