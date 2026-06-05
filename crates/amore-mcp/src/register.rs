@@ -237,7 +237,7 @@ fn retry_rename(src: &Path, dst: &Path) -> std::io::Result<()> {
             }
         }
     }
-    Err(last.unwrap())
+    Err(last.unwrap_or_else(|| std::io::Error::other("retry_rename: all attempts exhausted")))
 }
 
 /// Set private permissions on `path` (adapted from ide_wire::set_private_permissions).
@@ -266,7 +266,7 @@ fn set_private_permissions(path: &Path) -> Result<()> {
         if acl.contains("S-1-1-0") || acl.contains("S-1-5-32-545") {
             bail!("broad ACE on {} after grant; write aborted", path.display());
         }
-        return Ok(());
+        Ok(())
     }
     #[cfg(not(any(unix, target_os = "windows")))]
     { let _ = path; Ok(()) }

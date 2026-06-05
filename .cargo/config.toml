@@ -11,4 +11,4 @@
 # Extract and place onnxruntime.dll at the path below (gitignored, not committed).
 
 [env]
-ORT_DYLIB_PATH = { value = "C:/Users/anto/Documents/02- Projects/25 - Obelion/vendor/onnxruntime/onnxruntime.dll", relative = false }
+ORT_DYLIB_PATH = { value = "C:/Users/anto/Documents/02- Projects/25 - amore/vendor/onnxruntime/onnxruntime.dll", relative = false }

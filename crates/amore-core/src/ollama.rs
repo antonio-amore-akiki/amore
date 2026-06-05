@@ -21,6 +21,19 @@ pub struct OllamaClient {
 #[derive(Debug, Deserialize)] struct GenerateResponse { response: String }
 
 impl OllamaClient {
+    /// Fallible constructor — returns `Err` if the HTTP client fails to initialise
+    /// (e.g. TLS unavailable). Prefer this over [`Self::new`] on all production paths.
+    pub fn try_new(base_url: &str) -> Result<Self> {
+        let url = if base_url.is_empty() { DEFAULT_BASE_URL.to_string() } else { base_url.trim_end_matches('/').to_string() };
+        Ok(Self {
+            base_url: url, embed_model: DEFAULT_EMBED_MODEL.to_string(), llm_model: DEFAULT_LLM_MODEL.to_string(),
+            http: crate::http::build_client(DEFAULT_TIMEOUT_SECS)
+                .context("OllamaClient: HTTP client init failed")?,
+            breaker: None,
+        })
+    }
+    /// Infallible constructor — panics if the HTTP client fails to initialise.
+    /// Acceptable in tests and CLI tools; use [`Self::try_new`] on production paths.
     pub fn new(base_url: &str) -> Self {
         let url = if base_url.is_empty() { DEFAULT_BASE_URL.to_string() } else { base_url.trim_end_matches('/').to_string() };
         Self {

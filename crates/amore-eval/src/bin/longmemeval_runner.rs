@@ -258,7 +258,7 @@ async fn run_real(
     // subset=20. With both lanes RRF-fused (rrf_fuse + k=60), subset-20 expected ≥0.85.
     let sqlite = Arc::new(SqliteStore::open_in_memory().context("in-memory SQLite for BM25 lane")?);
     #[cfg_attr(not(feature = "rerank-onnx"), allow(unused_mut))]
-    let mut recall = HybridRecall::new(OllamaClient::new(ollama_url), qdrant).with_sqlite(sqlite.clone());
+    let mut recall = HybridRecall::new(OllamaClient::try_new(ollama_url).context("OllamaClient init")?, qdrant).with_sqlite(sqlite.clone());
     // H.3 reranker (2026-05-28): opt-in via AMORE_RERANKER_ENABLED=1 + ORT_DYLIB_PATH.
     // When enabled, RRF fusion fans out to top-50 candidates which the cross-encoder
     // re-scores down to top_k. See docs/H3-RERANKER-NDCG-PLAN.md for setup. Target lift:
@@ -281,7 +281,7 @@ async fn run_real(
         let raw: String = turns.iter().map(|t| t.content.as_str()).collect::<Vec<_>>().join(" ");
         let text = truncate_bytes(&raw, 1500);
         if text.is_empty() { continue; }  // skip empty sessions — no recall signal
-        recall.index(str_to_u64(sid), "longmemeval", &text, Some(serde_json::json!({"session_id": sid})))
+        recall.index(str_to_u64(sid), "longmemeval", text, Some(serde_json::json!({"session_id": sid})))
             .await.with_context(|| format!("index session {sid}"))?;
         // BM25 lane: insert_observation seals into chain + populates observations_fts
         sqlite.insert_observation("longmemeval", &serde_json::json!({"text": text, "session_id": sid}))
@@ -292,7 +292,7 @@ async fn run_real(
         let text = truncate_bytes(&raw, 1500);
         if !text.is_empty() {
             let sid = &inst.question_id;
-            recall.index(str_to_u64(sid), "longmemeval", &text, Some(serde_json::json!({"session_id": sid})))
+            recall.index(str_to_u64(sid), "longmemeval", text, Some(serde_json::json!({"session_id": sid})))
                 .await.context("index legacy")?;
             sqlite.insert_observation("longmemeval", &serde_json::json!({"text": text, "session_id": sid}))
                 .context("sqlite insert legacy")?;

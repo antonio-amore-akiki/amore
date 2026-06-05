@@ -89,15 +89,26 @@ class Reranker:
         from transformers import AutoTokenizer
         t0 = time.time()
         self.session = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+        # Inspect actual input signature — bge-reranker-base takes (input_ids, attention_mask)
+        # while MiniLM-cross-encoder also takes token_type_ids. Use a set so we feed only what
+        # the model expects.
+        self.expected_inputs = {i.name for i in self.session.get_inputs()}
         try:
             self.tokenizer = AutoTokenizer.from_pretrained(str(Path(tokenizer_path).parent))
         except Exception:
             self.tokenizer = AutoTokenizer.from_pretrained("cross-encoder/ms-marco-MiniLM-L-6-v2")
-        # MiniLM cross-encoder tokenizer.json lacks an explicit pad_token in some HF exports;
-        # set it to [PAD] (id 0 in BERT vocab) so batch padding works.
-        if self.tokenizer.pad_token is None:
-            self.tokenizer.pad_token = "[PAD]"
-        print(f"[rerank] loaded model + tokenizer in {time.time()-t0:.2f}s", file=sys.stderr)
+        # MiniLM tokenizer.json + bge-reranker tokenizer.json ship without an explicit pad_token
+        # mapping in the slow-tokenizer fallback path. Try to find an existing special token
+        # already in vocab, else add [PAD]. add_special_tokens is the only reliable mutation path
+        # for fast tokenizers in transformers >= 5.
+        if self.tokenizer.pad_token is None or self.tokenizer.pad_token_id is None:
+            for cand in (self.tokenizer.eos_token, self.tokenizer.sep_token, self.tokenizer.unk_token):
+                if cand:
+                    self.tokenizer.add_special_tokens({"pad_token": cand})
+                    break
+            else:
+                self.tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+        print(f"[rerank] loaded model + tokenizer in {time.time()-t0:.2f}s expected_inputs={sorted(self.expected_inputs)}", file=sys.stderr)
 
     def rerank(self, query, candidates, top_k):
         if not candidates:
@@ -108,17 +119,17 @@ class Reranker:
             padding=True, truncation=True, max_length=512, return_tensors="np",
             return_token_type_ids=True,
         )
-        # Some tokenizer.json exports omit token_type_ids — synthesize zeros if missing
-        if "token_type_ids" in enc:
-            tti = enc["token_type_ids"].astype("int64")
-        else:
-            import numpy as _np
-            tti = _np.zeros_like(enc["input_ids"], dtype=_np.int64)
+        # Feed only the inputs the model expects (bge-reranker-base: 2 inputs; MiniLM: 3 inputs)
         inputs = {
             "input_ids": enc["input_ids"].astype("int64"),
             "attention_mask": enc["attention_mask"].astype("int64"),
-            "token_type_ids": tti,
         }
+        if "token_type_ids" in self.expected_inputs:
+            if "token_type_ids" in enc:
+                inputs["token_type_ids"] = enc["token_type_ids"].astype("int64")
+            else:
+                import numpy as _np
+                inputs["token_type_ids"] = _np.zeros_like(enc["input_ids"], dtype=_np.int64)
         logits = self.session.run(None, inputs)[0]
         scores = logits.squeeze(-1).tolist() if logits.ndim > 1 else logits.tolist()
         ranked = sorted(zip([sid for sid, _ in candidates], scores), key=lambda x: -x[1])
