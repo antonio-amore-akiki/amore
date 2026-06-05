@@ -33,16 +33,23 @@ Click your OS → double-click the file → done. No terminal, no setup.
 <details>
 <summary><b>Other platforms + verify download (optional)</b></summary>
 
-| Platform | Download | SHA256 |
-|---|---|---|
-| Windows 10/11 — installer `.msi` (double-click; also works for GPO/SCCM/Intune) | [amore-windows-x64.msi](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-windows-x64.msi) | `a59eb99d…` |
-| macOS 12+ Apple Silicon | [amore-1.0.0-macos-aarch64.dmg](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-1.0.0-macos-aarch64.dmg) | `1d195f82…` |
-| macOS 12+ Intel | [amore-1.0.0-macos-x86_64.dmg](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-1.0.0-macos-x86_64.dmg) | `8efede3e…` |
-| Linux portable AppImage | [amore-gui-x86_64.AppImage](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-gui-x86_64.AppImage) | `6d0b3f3e…` |
-| Linux Debian / Ubuntu `.deb` | [amore-1.0.0-linux-amd64.deb](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-1.0.0-linux-amd64.deb) | `520bf91f…` |
-| Linux Fedora / RHEL `.rpm` | [amore-1.0.0-linux-x86_64.rpm](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-1.0.0-linux-x86_64.rpm) | `f3352ce0…` |
+> **1.1.0 release pending — artifacts not yet published.** The crate version
+> is 1.1.0 (shipped 2026-05-28 per CHANGELOG); installer artifacts for 1.1.0
+> have not been published to GitHub Releases at the time of writing. The links
+> below point to `/releases/latest/download/` and will resolve once the release
+> is tagged. SHA256 hashes for 1.1.0 will be added to `sha256sums.txt` at
+> publication time.
 
-**Verify** any download:
+| Platform | Download | SHA256 (from `sha256sums.txt`) |
+|---|---|---|
+| Windows 10/11 — installer `.msi` (double-click; also works for GPO/SCCM/Intune) | [amore-windows-x64.msi](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-windows-x64.msi) | `378919c14bf3a1f7ef0fbe55bad44dcf2ad90188dc4de904cb12087d229d634e` (v1.0.0) |
+| macOS 12+ Apple Silicon | [amore-macos-aarch64.dmg](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-macos-aarch64.dmg) | pending — not in v1.0.0 release |
+| macOS 12+ Intel | [amore-macos-x86_64.dmg](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-macos-x86_64.dmg) | pending — not in v1.0.0 release |
+| Linux portable AppImage | [amore-gui-x86_64.AppImage](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-gui-x86_64.AppImage) | `3e433ae1bf09dfd6e35efef5400bf3e119eb73243d8cda589e1c739e4ce70597` (v1.0.0) |
+| Linux Debian / Ubuntu `.deb` | [amore-linux-amd64.deb](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-linux-amd64.deb) | `ebaeea575d02b7735b45bcecc5e898fa11a2a91b0b8e4036f89d07e2e8206875` (v1.0.0) |
+| Linux Fedora / RHEL `.rpm` | [amore-linux-x86_64.rpm](https://github.com/antonio-amore-akiki/amore/releases/latest/download/amore-linux-x86_64.rpm) | `9c850d225df17e9b53164db8659deebe3cd372b98c51302a1bf80f391e2dd548` (v1.0.0) |
+
+**Verify** any download (where a full SHA256 hash is listed above):
 ```
 sha256sum <file>   # Linux/macOS
 certutil -hashfile <file> SHA256   # Windows
@@ -144,6 +151,33 @@ Source: [`docs/ADVERSARIAL-EVAL.md`](docs/ADVERSARIAL-EVAL.md).
 | Letta | not published | [letta.com/research](https://letta.com/research) |
 
 </details>
+
+---
+
+## Running the E2E suite
+
+The live integration tests require Qdrant and Ollama. Use `scripts/run-e2e.ps1`
+(Windows) to bring up the exact production topology, run the suite, and tear down:
+
+```powershell
+# Daemon prerequisites (one-time or on fresh boot):
+ollama serve                        # start Ollama natively (no-op if already running)
+ollama pull nomic-embed-text        # ensure the embedding model is present
+
+# Run the full suite:
+.\scripts\run-e2e.ps1
+```
+
+The script:
+1. Verifies Docker and Ollama are reachable.
+2. Starts Qdrant (`qdrant/qdrant:v1.18.0`) via `docker-compose.test.yml`.
+3. Sets the four `AMORE_TEST_*` environment variables.
+4. Runs `cargo test ... -- --ignored --test-threads=1`.
+5. Tears down the compose stack on exit (pass `-SkipTeardown` to keep it running).
+
+Ollama runs natively (not in Docker) — this matches the production topology used
+by the MCP dispatcher self-heal path. See `docker-compose.test.yml` for the
+pinning rationale and manual compose commands.
 
 ---
 

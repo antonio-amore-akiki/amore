@@ -1,0 +1,37 @@
+# docker-compose.test.yml — E2E test daemons for the amore integration suite.
+#
+# Production topology: Qdrant runs in Docker; Ollama runs NATIVELY (not in
+# compose). This matches mcp_servers/dispatcher/smoke-working-product-docker.ps1
+# and the production self-heal path used in deployment.
+#
+# Prerequisites before running the suite:
+#   1. Docker daemon running (docker version exits 0)
+#   2. Ollama installed and serving natively:
+#        ollama serve            # start (no-op if already running)
+#        ollama pull nomic-embed-text  # ensure model present
+#
+# Usage: scripts/run-e2e.ps1  (handles compose up/down + env vars automatically)
+# Manual: docker compose -f docker-compose.test.yml up -d --wait
+#         docker compose -f docker-compose.test.yml down -v
+#
+# Image: qdrant/qdrant:v1.18.0 — pinned to match qdrant-client 1.18.x in
+# Cargo.toml; must stay within ±1 minor of the Rust client version else gRPC
+# operations return "Client version X is not compatible with server version Y".
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.18.0
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - amore-test-qdrant:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:6333/readyz || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+volumes:
+  amore-test-qdrant:

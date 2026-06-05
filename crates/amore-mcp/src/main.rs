@@ -253,9 +253,12 @@ impl AmoreServer {
         &self,
         Parameters(params): Parameters<RecallParams>,
     ) -> Result<CallToolResult, McpError> {
-        // Rate-limit check (W3-3B): keyed by a default session. Full per-session
-        // keying requires rmcp session metadata; "default" makes the path live.
-        let session = SessionId("default".to_string());
+        // Rate-limit check (W3-3B): process-wide limiter for the stdio transport.
+        // rmcp stdio serves a single client (one OS process → one pipe); there is
+        // no per-caller identifier available in the request or handler context.
+        // The key is intentionally a fixed constant — this is a process-global
+        // limit, not a per-session limit.
+        let session = SessionId("stdio-process".to_string());
         check_rate_limit(&self.rate_limiter, &session)?;
 
         // Security fix 6a: reject oversized queries before hitting Ollama.
@@ -289,8 +292,8 @@ impl AmoreServer {
         &self,
         Parameters(params): Parameters<ObserveParams>,
     ) -> Result<CallToolResult, McpError> {
-        // Rate-limit check (W3-3B): same session key as recall.
-        let session = SessionId("default".to_string());
+        // Rate-limit check (W3-3B): process-wide limiter (same reasoning as recall).
+        let session = SessionId("stdio-process".to_string());
         check_rate_limit(&self.rate_limiter, &session)?;
 
         // Validate source is non-empty.

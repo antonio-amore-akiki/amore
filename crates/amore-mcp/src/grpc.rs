@@ -5,19 +5,23 @@
 // duplicated state.
 //
 // v0.4.x scope (ADR 0009):
-//   • Recall    — wired end-to-end via HybridRecall::search
-//   • Health    — wired end-to-end (liveness + uptime)
+//   • Recall             — wired end-to-end via HybridRecall::search
+//   • Health             — wired end-to-end (liveness + uptime)
 //   • CanonicalDocLookup — unimplemented (TODO v0.5.0 ticket #amore-grpc-canonical)
-//   • ProvenanceVerify   — unimplemented (TODO v0.5.0 ticket #amore-grpc-provenance)
+//   • ProvenanceVerify   — wired (uses amore_core::provenance::sha256_hex to
+//                          verify document_json against expected_sha256)
 //
 // Rate limiting: simple in-memory token bucket per connection (100 req/min
 // default; AMORE_GRPC_RATE_LIMIT_RPM env overrides). Bucket exhaustion returns
 // Status::resource_exhausted — no silent fail-open (CLAUDE.md hard gate).
 
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
+use amore_core::docs::CanonicalDocsRouter;
 use amore_core::ollama::OllamaClient;
+use amore_core::provenance::sha256_hex;
 use amore_core::recall::{Embedder, HybridRecall};
 use tonic::{Request, Response, Status};
 
@@ -107,17 +111,34 @@ fn uptime_ms() -> u64 {
 pub struct AmoreServiceImpl<E: Embedder = OllamaClient> {
     recall: Arc<HybridRecall<E>>,
     rate_bucket: std::sync::Mutex<RateBucket>,
+    /// Canonical-docs router shared with the stdio MCP surface.
+    docs_router: Arc<CanonicalDocsRouter>,
+    /// Search paths for the canonical-docs router. Non-existent paths are
+    /// skipped silently (CanonicalDocsRouter contract).
+    docs_paths: Arc<Vec<PathBuf>>,
 }
 
 impl<E: Embedder + Send + Sync + 'static> AmoreServiceImpl<E> {
     /// Construct from the same HybridRecall arc used by the stdio MCP server.
     /// `rpm` is the per-process request-per-minute cap (default 100; env
     /// `AMORE_GRPC_RATE_LIMIT_RPM` overrides in `main.rs`).
+    ///
+    /// Uses empty `docs_paths` by default (canonical-doc router skips
+    /// non-existent paths without error). Wire paths via `with_docs_paths`
+    /// when the caller has resolved canonical-doc search dirs.
     pub fn new(recall: Arc<HybridRecall<E>>, rpm: u32) -> Self {
         Self {
             recall,
             rate_bucket: std::sync::Mutex::new(RateBucket::new(rpm)),
+            docs_router: Arc::new(CanonicalDocsRouter::new()),
+            docs_paths: Arc::new(Vec::new()),
         }
+    }
+
+    /// Override the default (empty) docs search paths.
+    pub fn with_docs_paths(mut self, paths: Vec<PathBuf>) -> Self {
+        self.docs_paths = Arc::new(paths);
+        self
     }
 
     /// Enforce rate limit. Returns Err(Status) on exhaustion.
@@ -125,7 +146,7 @@ impl<E: Embedder + Send + Sync + 'static> AmoreServiceImpl<E> {
         let mut bucket = self
             .rate_bucket
             .lock()
-            .expect("rate_bucket Mutex poisoned — process should exit");
+            .unwrap_or_else(|p| p.into_inner());
         bucket.try_consume().map_err(|wait_secs| {
             Status::resource_exhausted(format!(
                 "rate limit exceeded; try again in {wait_secs} second(s)"
@@ -183,22 +204,41 @@ impl<E: Embedder + Send + Sync + 'static> AmoreService for AmoreServiceImpl<E> {
 
     async fn canonical_doc_lookup(
         &self,
-        _request: Request<CanonicalDocRequest>,
+        request: Request<CanonicalDocRequest>,
     ) -> Result<Response<CanonicalDocResponse>, Status> {
-        // TODO(v0.5.0): wire to CanonicalDocsRouter — ticket #amore-grpc-canonical
-        Err(Status::unimplemented(
-            "CanonicalDocLookup is scheduled for v0.5.0 (#amore-grpc-canonical)",
-        ))
+        self.check_rate()?;
+
+        let req = request.into_inner();
+        let paths: Vec<&std::path::Path> = self.docs_paths.iter().map(|p| p.as_path()).collect();
+        let hits = self
+            .docs_router
+            .route(&req.query, &paths)
+            .map_err(|e| Status::internal(format!("canonical_doc_lookup failed: {e}")))?;
+
+        let grpc_hits: Vec<proto::CanonicalDocHit> = hits
+            .into_iter()
+            .map(|h| proto::CanonicalDocHit {
+                path: h.path,
+                title: h.title,
+                topic_score: h.topic_score as f64,
+                excerpt: h.excerpt,
+            })
+            .collect();
+
+        Ok(Response::new(CanonicalDocResponse { hits: grpc_hits }))
     }
 
     async fn provenance_verify(
         &self,
-        _request: Request<ProvenanceVerifyRequest>,
+        request: Request<ProvenanceVerifyRequest>,
     ) -> Result<Response<ProvenanceVerifyResponse>, Status> {
-        // TODO(v0.5.0): wire to sha2 provenance envelope — ticket #amore-grpc-provenance
-        Err(Status::unimplemented(
-            "ProvenanceVerify is scheduled for v0.5.0 (#amore-grpc-provenance)",
-        ))
+        let req = request.into_inner();
+        let computed = sha256_hex(req.document_json.as_bytes());
+        let valid = computed == req.expected_sha256;
+        Ok(Response::new(ProvenanceVerifyResponse {
+            valid,
+            computed_sha256: computed,
+        }))
     }
 
     async fn health(
