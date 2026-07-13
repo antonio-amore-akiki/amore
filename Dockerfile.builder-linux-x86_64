@@ -20,7 +20,7 @@
 #
 # See docs/RELEASING.md § "Builder images" and docs/SLSA-L3-ATTESTATION.md row 10+11.
 
-FROM rust@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1
+FROM rust@sha256:44637ff22d0a6571a221bfaf137849711ad02ff4723dbb4736e297538f6a3e60
 
 # Base build tooling + protobuf (W8-8C)
 RUN apt-get update -qq \
