@@ -1,0 +1,29 @@
+name: owner-only
+# Every commit that reaches this repo is authored AND committed by the owner, with no AI attribution lines.
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  authorship:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: owner-only authorship
+        env:
+          OWNER_EMAIL: antonioakiki15@gmail.com
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then range="$HEAD"; else range="$BASE..$HEAD"; fi
+          bad=$(git log --format='%h author=%ae committer=%ce' "$range" | grep -v "author=$OWNER_EMAIL committer=$OWNER_EMAIL$" || true)
+          ai=$(git log --format='%h %B' "$range" | grep -iE 'co-authored-by:|claude-session:|generated with \[?claude|noreply@anthropic\.com' || true)
+          if [ -n "$bad$ai" ]; then
+            echo "::error::commits not authored/committed solely by $OWNER_EMAIL, or carrying AI attribution:"
+            printf '%s\n%s\n' "$bad" "$ai"
+            exit 1
+          fi
+          echo "ok: $(git rev-list --count "$range") commit(s) owner-only"
